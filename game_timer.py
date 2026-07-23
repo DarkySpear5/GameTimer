@@ -60,6 +60,8 @@ ICONS_DIR = os.path.join(BASE_DIR, "icons")
 BACKGROUNDS_DIR = os.path.join(BASE_DIR, "backgrounds")
 PROFILES_DIR = os.path.join(BASE_DIR, "profiles")
 LOG_FILE = os.path.join(BASE_DIR, "game_timer_log.txt")
+BACKUPS_DIR = os.path.join(BASE_DIR, "backups")
+BACKUP_RETENTION_DAYS = 14
 
 
 def get_app_icon_path():
@@ -225,6 +227,32 @@ def write_log_file(data):
         pass  # logging must never crash the app
 
 
+def backup_data_file():
+    """Keep one daily snapshot of game_timer_data.json for the last couple
+    weeks. The atomic save (tmp + os.replace) protects against corruption
+    from a crash mid-write, but not against a user mistake — a wrong click
+    on "Reset Time" or a bad Import can wipe hours of tracked time with no
+    way back. A cheap rolling backup gives that a way back."""
+    try:
+        if not os.path.exists(DATA_FILE):
+            return
+        os.makedirs(BACKUPS_DIR, exist_ok=True)
+        today = time.strftime("%Y-%m-%d")
+        dest = os.path.join(BACKUPS_DIR, f"game_timer_data_{today}.json")
+        if not os.path.exists(dest):
+            shutil.copy2(DATA_FILE, dest)
+        cutoff = time.time() - BACKUP_RETENTION_DAYS * 86400
+        for fname in os.listdir(BACKUPS_DIR):
+            fpath = os.path.join(BACKUPS_DIR, fname)
+            try:
+                if os.path.getmtime(fpath) < cutoff:
+                    os.remove(fpath)
+            except OSError:
+                pass
+    except Exception:
+        pass  # backups are best-effort, must never block normal saving
+
+
 def format_seconds(total):
     total = int(total)
     days, rem = divmod(total, 86400)
@@ -304,11 +332,14 @@ class GameTimerApp:
         self.autosave_interval = 5
         self.last_log_write = time.time()
         self.log_interval = 60
+        self.last_backup_day = None
         self.thumb_refs = {}
         self.data_thumb_refs = {}
         self.tray_icon = None
         self.bg_photo = None
         self.bg_image_id = None
+        self._bg_source_path = None
+        self._bg_source_image = None
         self.timer_panel_photo = None
         self.timer_panel_id = None
 
@@ -569,7 +600,7 @@ class GameTimerApp:
 
         tk.Label(inner, text="Game Timer", bg=BG, fg=TEXT,
                  font=(FONT_FAMILY_UI, 20, "bold")).pack(anchor="w", padx=24, pady=(24, 2))
-        tk.Label(inner, text="v1.0 — a small, offline, manual play/pause game time tracker.",
+        tk.Label(inner, text="v1.1 — a small, offline, manual play/pause game time tracker.",
                  bg=BG, fg=SUBTEXT, font=FONT_MAIN).pack(anchor="w", padx=24, pady=(0, 20))
 
         tk.Label(inner, text="Built With", bg=BG, fg=TEXT,
@@ -631,7 +662,7 @@ class GameTimerApp:
 
         self.data_tree.delete(*self.data_tree.get_children())
         self.data_thumb_refs = {}
-        for i, (name, info) in enumerate(self.data["profiles"].items()):
+        for i, (name, info) in enumerate(self._get_sorted_profiles_all()):
             status = "Completed" if info.get("completed") else "In Progress"
             completed_on = info.get("completed_at") or "\u2014"
             row_tag = "rowA" if i % 2 == 0 else "rowB"
@@ -758,8 +789,14 @@ class GameTimerApp:
                 w = max(self.canvas.winfo_width(), 10)
                 h = max(self.canvas.winfo_height(), 10)
                 try:
-                    img = Image.open(path).convert("RGB")
-                    img = ImageOps.fit(img, (w, h), Image.LANCZOS)
+                    # Cache the decoded source image per path so dragging to
+                    # resize the window (many rapid Configure events) only
+                    # re-crops/re-scales an already-open image instead of
+                    # re-reading and re-decoding the file from disk each time.
+                    if self._bg_source_path != path:
+                        self._bg_source_image = Image.open(path).convert("RGB")
+                        self._bg_source_path = path
+                    img = ImageOps.fit(self._bg_source_image, (w, h), Image.LANCZOS)
                     self.bg_photo = ImageTk.PhotoImage(img)
                     self.bg_image_id = self.canvas.create_image(0, 0, anchor="nw", image=self.bg_photo)
                     self.canvas.tag_lower(self.bg_image_id)
@@ -802,10 +839,7 @@ class GameTimerApp:
         except Exception:
             return None
 
-    def _get_sorted_filtered_profiles(self):
-        items = list(self.data["profiles"].items())
-        if self.genre_filter != "All":
-            items = [(n, i) for n, i in items if self.genre_filter in i.get("genres", ["Uncategorized"])]
+    def _sort_profile_items(self, items):
         if self.sort_mode == "last_played":
             items.sort(key=lambda x: x[1].get("last_played") or 0, reverse=True)
         elif self.sort_mode == "genre":
@@ -814,10 +848,30 @@ class GameTimerApp:
             items.sort(key=lambda x: x[0].lower())
         return items
 
+    def _get_sorted_filtered_profiles(self):
+        items = list(self.data["profiles"].items())
+        if self.genre_filter != "All":
+            items = [(n, i) for n, i in items if self.genre_filter in i.get("genres", ["Uncategorized"])]
+        return self._sort_profile_items(items)
+
+    def _get_sorted_profiles_all(self):
+        """Same ordering as the Games list's current Sort setting, but never
+        genre-filtered — the Data tab is meant to show every tracked game."""
+        return self._sort_profile_items(list(self.data["profiles"].items()))
+
     def _refresh_profile_list(self):
         self.tree.delete(*self.tree.get_children())
         self.thumb_refs = {}
-        for name, info in self._get_sorted_filtered_profiles():
+        items = self._get_sorted_filtered_profiles()
+        if not items:
+            if self.data["profiles"]:
+                msg = f"No games match genre '{self.genre_filter}'"
+            else:
+                msg = "No games yet — click + Add Game"
+            self.tree.insert("", "end", iid="__empty__", text="  " + msg, tags=("empty",))
+            self.tree.tag_configure("empty", foreground=SUBTEXT)
+            return
+        for name, info in items:
             icon_file = info.get("icon_file")
             img = None
             if icon_file:
@@ -838,7 +892,7 @@ class GameTimerApp:
 
     def _on_tree_select(self, event):
         sel = self.tree.selection()
-        if not sel:
+        if not sel or sel[0] == "__empty__":
             return
         name = sel[0]
         if name != self.selected:
@@ -949,6 +1003,8 @@ class GameTimerApp:
     # ---------- Context menu ----------
     def _show_context_menu(self, event):
         iid = self.tree.identify_row(event.y)
+        if iid == "__empty__":
+            iid = None
         menu = tk.Menu(self.root, tearoff=0, bg=CARD, fg=TEXT,
                         activebackground=self.accent, activeforeground="#1e1e2e")
         if iid:
@@ -1368,6 +1424,10 @@ class GameTimerApp:
         if self.running and time.time() - self.last_log_write >= self.log_interval:
             write_log_file(self.data)
             self.last_log_write = time.time()
+        today = time.strftime("%Y-%m-%d")
+        if today != self.last_backup_day:
+            backup_data_file()
+            self.last_backup_day = today
         self.root.after(500, self._tick)
 
     # ---------- Settings (tabbed) ----------

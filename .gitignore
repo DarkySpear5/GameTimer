@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+build/
+dist/
+Output/
+*.spec
+game_timer_data.json
+game_timer_log.txt
+icons/
+backgrounds/
+profiles/
+backups/
