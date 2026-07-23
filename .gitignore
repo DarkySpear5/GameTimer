@@ -1,12 +1,18 @@
-__pycache__/
-*.pyc
+# PyInstaller build artifacts
 build/
 dist/
 Output/
 *.spec
+
+# Python
+__pycache__/
+*.pyc
+
+# Runtime data (created next to the exe/script on first run)
 game_timer_data.json
+game_timer_data.json.tmp
 game_timer_log.txt
+backups/
 icons/
 backgrounds/
 profiles/
-backups/
