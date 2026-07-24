@@ -2,6 +2,33 @@
 
 All notable changes to Game Timer are documented here.
 
+## v1.5 — 2026-07-24
+
+### Changed — right-click menu decluttered into a "Modify" window
+The right-click menu had grown to 13 items. It's now split into two levels:
+
+- **Stayed on the right-click menu:** Modify, Duplicate, Reset Time, Rate Game,
+  Export, Import, Delete.
+- **Moved into the new Modify window** (right-click → Modify), organized as
+  tabs: **General** (Rename, plus Unmark Completed when the game is
+  completed), **Time** (the Add/Remove Time controls), **Icon & Background**
+  (Change Icon, background color/image/reset), **Genres** (the genre picker),
+  and **Notes**.
+
+Notes wasn't explicitly on either list in the request — it fit the "edit this
+game's data" theme of the other Modify tabs better than the quick-action list,
+so it moved in too.
+
+### Changed — Complete is now an on/off toggle
+The "✓ Complete" button under the timer is now a rounded switch (matching the
+app's accent color when on), the way phone settings toggles work — flipping
+it is its own confirmation, so the "mark as completed?" and "nice work!"
+popups are gone. Turning it on still snapshots the Time Completed timestamp
+from v1.4; turning it off is the same as Unmark Completed. Falls back to a
+plain button if Pillow isn't installed.
+
+All of the above is translated across the existing 10 languages.
+
 ## v1.4 — 2026-07-24
 
 ### Added

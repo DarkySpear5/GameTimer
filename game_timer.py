@@ -372,6 +372,7 @@ class GameTimerApp:
         elif self.data["profiles"]:
             self._select_profile(next(iter(self.data["profiles"])))
         else:
+            self._update_complete_toggle_visual()
             self._render_background()
 
         write_log_file(self.data)
@@ -510,15 +511,32 @@ class GameTimerApp:
             activebackground=GREEN, activeforeground="#1e1e2e", bd=0, relief="flat",
             highlightthickness=0, font=(FONT_FAMILY_UI, 13, "bold"), width=12, padx=6, pady=8, cursor="hand2"
         )
-        self.complete_button = tk.Button(
-            self.canvas, text=tr("btn_complete"), command=self._complete_profile, bg=GOLD, fg="#1e1e2e",
-            activebackground=GOLD, activeforeground="#1e1e2e", bd=0, relief="flat",
-            highlightthickness=0, font=FONT_MAIN, width=11, padx=6, pady=8, cursor="hand2"
-        )
         self._add_hover(self.play_button, GREEN)
-        self._add_hover(self.complete_button, GOLD)
         self.play_window_id = self.canvas.create_window(0, 0, window=self.play_button)
-        self.reset_window_id = self.canvas.create_window(0, 0, window=self.complete_button)
+
+        # ----- Complete toggle: a phone-settings-style on/off switch -----
+        if PIL_AVAILABLE:
+            self.complete_toggle_label_id = self.canvas.create_text(
+                0, 0, text=tr("label_complete_toggle"), fill=TEXT, font=FONT_MAIN, anchor="s"
+            )
+            self._toggle_photo = None
+            self.complete_toggle_id = self.canvas.create_image(0, 0, anchor="center")
+            for tag in ("<Button-1>",):
+                self.canvas.tag_bind(self.complete_toggle_id, tag, lambda e: self._toggle_complete())
+            self.canvas.tag_bind(self.complete_toggle_id, "<Enter>", lambda e: self.canvas.config(cursor="hand2"))
+            self.canvas.tag_bind(self.complete_toggle_id, "<Leave>", lambda e: self.canvas.config(cursor="arrow"))
+            self.complete_button = None
+            self.reset_window_id = None
+        else:
+            self.complete_toggle_label_id = None
+            self.complete_toggle_id = None
+            self.complete_button = tk.Button(
+                self.canvas, text=tr("btn_complete"), command=self._toggle_complete, bg=GOLD, fg="#1e1e2e",
+                activebackground=GOLD, activeforeground="#1e1e2e", bd=0, relief="flat",
+                highlightthickness=0, font=FONT_MAIN, width=11, padx=6, pady=8, cursor="hand2"
+            )
+            self._add_hover(self.complete_button, GOLD)
+            self.reset_window_id = self.canvas.create_window(0, 0, window=self.complete_button)
 
         self.hint_id = self.canvas.create_text(
             0, 0, text=tr("hint_canvas"),
@@ -616,7 +634,7 @@ class GameTimerApp:
 
         tk.Label(inner, text="Game Timer", bg=BG, fg=TEXT,
                  font=(FONT_FAMILY_UI, 20, "bold")).pack(anchor="w", padx=24, pady=(24, 2))
-        tk.Label(inner, text=f"v1.4 — {tr('about_tagline')}",
+        tk.Label(inner, text=f"v1.5 — {tr('about_tagline')}",
                  bg=BG, fg=SUBTEXT, font=FONT_MAIN).pack(anchor="w", padx=24, pady=(0, 20))
 
         tk.Label(inner, text=tr("about_built_with"), bg=BG, fg=TEXT,
@@ -740,6 +758,44 @@ class GameTimerApp:
         return "★" * rating + "☆" * (5 - rating)
 
     @staticmethod
+    def _hex_to_rgb(hex_color):
+        hex_color = hex_color.lstrip("#")
+        return tuple(int(hex_color[i:i + 2], 16) for i in (0, 2, 4))
+
+    def _make_toggle_image(self, on):
+        """Renders a rounded phone-settings-style on/off switch — track color
+        is the theme accent when on, a muted version of the panel color when
+        off, with a white knob that slides to whichever side is active."""
+        w, h = 68, 32
+        pad = 3
+        knob_d = h - pad * 2
+        img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(img)
+        if on:
+            track_rgb = self._hex_to_rgb(self.accent)
+        else:
+            track_rgb = self._hex_to_rgb(self._shift_color(PANEL, 40))
+        draw.rounded_rectangle([0, 0, w - 1, h - 1], radius=h // 2, fill=(*track_rgb, 255))
+        knob_x = w - pad - knob_d if on else pad
+        draw.ellipse([knob_x, pad, knob_x + knob_d, pad + knob_d], fill=(255, 255, 255, 255))
+        return ImageTk.PhotoImage(img)
+
+    def _update_complete_toggle_visual(self):
+        """Redraws the Complete toggle (or the fallback button, if Pillow
+        isn't available) to match the selected profile's completed state."""
+        completed = bool(self.selected and self.data["profiles"][self.selected].get("completed"))
+        if PIL_AVAILABLE and self.complete_toggle_id is not None:
+            self._toggle_photo = self._make_toggle_image(completed)
+            self.canvas.itemconfig(self.complete_toggle_id, image=self._toggle_photo)
+        elif self.complete_button is not None:
+            if completed:
+                self.complete_button.config(bg=self.accent, activebackground=self.accent)
+                self._add_hover(self.complete_button, self.accent)
+            else:
+                self.complete_button.config(bg=GOLD, activebackground=GOLD)
+                self._add_hover(self.complete_button, GOLD)
+
+    @staticmethod
     def _shift_color(hex_color, amount):
         """Lighten (positive amount) or darken (negative) a #rrggbb color."""
         hex_color = hex_color.lstrip("#")
@@ -807,7 +863,11 @@ class GameTimerApp:
         btn_y = int(h * 0.68)
         gap = max(70, int(70 * scale * 0.6))
         self.canvas.coords(self.play_window_id, cx - gap, btn_y)
-        self.canvas.coords(self.reset_window_id, cx + gap, btn_y)
+        if PIL_AVAILABLE and self.complete_toggle_id is not None:
+            self.canvas.coords(self.complete_toggle_label_id, cx + gap, btn_y - 20)
+            self.canvas.coords(self.complete_toggle_id, cx + gap, btn_y + 4)
+        elif self.reset_window_id is not None:
+            self.canvas.coords(self.reset_window_id, cx + gap, btn_y)
         self.canvas.coords(self.hint_id, cx, h - 20)
 
         self._render_background()
@@ -953,6 +1013,7 @@ class GameTimerApp:
         self._update_timer_display()
         self._highlight_selected()
         self._update_tray_status()
+        self._update_complete_toggle_visual()
         self._render_background()
 
     # ---------- Sort / Filter ----------
@@ -1001,24 +1062,270 @@ class GameTimerApp:
         self._safe_save()
         self._refresh_profile_list()
 
-    def _open_genre_picker(self):
+    # ---------- Modify Game (tabbed) ----------
+    def _open_modify_game(self):
+        """Everything that edits a game's identity/data lives in one tabbed
+        window, kept separate from the quick actions (Duplicate, Reset Time,
+        Rate Game, Export/Import, Delete) that stay on the right-click menu."""
         if not self.selected:
             return
         profile_name = self.selected
         win = tk.Toplevel(self.root)
-        win.title(tr("dlg_select_genres_title"))
+        win.title(tr("dlg_modify_title", name=profile_name))
         win.configure(bg=BG)
-        self._center_window(win, 300, 460)
+        self._center_window(win, 420, 520)
         win.transient(self.root)
         win.grab_set()
 
-        tk.Label(win, text=tr("dlg_genres_for", name=profile_name), bg=BG, fg=TEXT,
-                 font=FONT_MAIN, wraplength=260).pack(pady=(16, 2))
-        tk.Label(win, text=tr("note_select_genres"), bg=BG, fg=SUBTEXT,
-                 font=FONT_SMALL).pack(pady=(0, 10))
+        notebook = ttk.Notebook(win)
+        notebook.pack(fill="both", expand=True, padx=10, pady=(10, 4))
 
-        list_frame = tk.Frame(win, bg=BG)
-        list_frame.pack(fill="both", expand=True, padx=16, pady=(0, 12))
+        tab_general = tk.Frame(notebook, bg=BG)
+        tab_time = tk.Frame(notebook, bg=BG)
+        tab_appearance = tk.Frame(notebook, bg=BG)
+        tab_genres = tk.Frame(notebook, bg=BG)
+        tab_notes = tk.Frame(notebook, bg=BG)
+        notebook.add(tab_general, text=tr("tab_modify_general"))
+        notebook.add(tab_time, text=tr("tab_modify_time"))
+        notebook.add(tab_appearance, text=tr("tab_modify_appearance"))
+        notebook.add(tab_genres, text=tr("tab_modify_genres"))
+        notebook.add(tab_notes, text=tr("tab_modify_notes"))
+
+        # Notes tab is built first so Time tab can keep its Text widget in
+        # sync when Add/Remove Time appends a note line — otherwise saving
+        # Notes afterward in the same session would overwrite that line with
+        # the stale text the Notes tab was first opened with.
+        notes_text_widget = self._build_modify_notes_tab(tab_notes, profile_name)
+        self._build_modify_general_tab(tab_general, profile_name, win)
+        self._build_modify_time_tab(tab_time, profile_name, notes_text_widget)
+        self._build_modify_appearance_tab(tab_appearance, profile_name, win)
+        self._build_modify_genres_tab(tab_genres, profile_name)
+
+        self._make_button(win, tr("btn_close"), win.destroy, bg=CARD, fg=TEXT).pack(pady=(0, 10))
+
+    def _build_modify_general_tab(self, parent, profile_name, win):
+        tk.Label(parent, text=tr("dlg_rename_title"), bg=BG, fg=TEXT,
+                 font=(FONT_FAMILY_UI, 12, "bold")).pack(anchor="w", padx=16, pady=(18, 4))
+        tk.Label(parent, text=profile_name, bg=BG, fg=SUBTEXT, font=FONT_SMALL,
+                 wraplength=360, justify="left").pack(anchor="w", padx=16, pady=(0, 6))
+
+        def do_rename():
+            # Renaming changes the profile's identity key, which every other
+            # tab in this window still refers to by its old name — closing
+            # the window is simpler and safer than trying to re-point them.
+            old_name = profile_name
+            self._rename_profile()
+            if self.selected != old_name:
+                win.destroy()
+
+        self._make_button(parent, tr("ctx_rename"), do_rename, bg=CARD, fg=TEXT).pack(
+            anchor="w", padx=16, pady=(0, 20), fill="x")
+
+        tk.Label(parent, text=tr("label_completion_status"), bg=BG, fg=TEXT,
+                 font=(FONT_FAMILY_UI, 12, "bold")).pack(anchor="w", padx=16, pady=(0, 6))
+        profile = self.data["profiles"][profile_name]
+        if profile.get("completed"):
+            completed_seconds = profile.get("completed_seconds")
+            stamp = format_seconds(completed_seconds) if completed_seconds is not None else "—"
+            status_text = tr("label_completed_status", date=profile.get("completed_at") or "—", time=stamp)
+            tk.Label(parent, text=status_text, bg=BG, fg=SUBTEXT, font=FONT_SMALL,
+                     wraplength=360, justify="left").pack(anchor="w", padx=16, pady=(0, 10))
+
+            def do_unmark():
+                self._remove_completed()
+                win.destroy()
+                self._open_modify_game()
+
+            self._make_button(parent, tr("ctx_unmark_completed"), do_unmark, bg=CARD, fg=RED).pack(
+                anchor="w", padx=16, fill="x")
+        else:
+            tk.Label(parent, text=tr("note_not_completed"), bg=BG, fg=SUBTEXT, font=FONT_SMALL,
+                     wraplength=360, justify="left").pack(anchor="w", padx=16)
+
+    def _build_modify_time_tab(self, parent, profile_name, notes_text_widget=None):
+        tk.Label(parent, text=tr("dlg_add_time_desc"), bg=BG, fg=SUBTEXT, font=FONT_SMALL,
+                 wraplength=360, justify="left").pack(padx=16, pady=(18, 14), anchor="w")
+
+        direction_var = tk.StringVar(value="add")
+        direction_row = tk.Frame(parent, bg=BG)
+        direction_row.pack(padx=16, pady=(0, 10), fill="x")
+        tk.Radiobutton(
+            direction_row, text=tr("label_add"), variable=direction_var, value="add",
+            bg=BG, fg=TEXT, selectcolor=CARD, activebackground=BG,
+            activeforeground=TEXT, font=FONT_MAIN, highlightthickness=0, bd=0
+        ).pack(side="left", expand=True, fill="x")
+        tk.Radiobutton(
+            direction_row, text=tr("label_remove"), variable=direction_var, value="remove",
+            bg=BG, fg=TEXT, selectcolor=CARD, activebackground=BG,
+            activeforeground=TEXT, font=FONT_MAIN, highlightthickness=0, bd=0
+        ).pack(side="left", expand=True, fill="x")
+
+        hours_row = tk.Frame(parent, bg=BG)
+        hours_row.pack(padx=16, pady=(0, 10), fill="x")
+        tk.Label(hours_row, text=tr("label_hours"), bg=BG, fg=TEXT, font=FONT_MAIN,
+                 width=8, anchor="w").pack(side="left")
+        hours_var = tk.StringVar(value="0")
+        tk.Entry(hours_row, textvariable=hours_var, bg=CARD, fg=TEXT, insertbackground=TEXT, bd=0,
+                 highlightthickness=1, highlightbackground=CARD, highlightcolor=self.accent,
+                 font=FONT_MAIN, width=6).pack(side="left", ipady=4)
+
+        minutes_row = tk.Frame(parent, bg=BG)
+        minutes_row.pack(padx=16, pady=(0, 14), fill="x")
+        tk.Label(minutes_row, text=tr("label_minutes"), bg=BG, fg=TEXT, font=FONT_MAIN,
+                 width=8, anchor="w").pack(side="left")
+        minutes_var = tk.StringVar(value="0")
+        tk.Entry(minutes_row, textvariable=minutes_var, bg=CARD, fg=TEXT, insertbackground=TEXT, bd=0,
+                 highlightthickness=1, highlightbackground=CARD, highlightcolor=self.accent,
+                 font=FONT_MAIN, width=6).pack(side="left", ipady=4)
+
+        tk.Label(parent, text=tr("label_note_optional"), bg=BG, fg=TEXT, font=FONT_MAIN).pack(
+            anchor="w", padx=16)
+        note_var = tk.StringVar(value="")
+        tk.Entry(parent, textvariable=note_var, bg=CARD, fg=TEXT, insertbackground=TEXT, bd=0,
+                 highlightthickness=1, highlightbackground=CARD, highlightcolor=self.accent,
+                 font=FONT_MAIN).pack(fill="x", padx=16, pady=(4, 2), ipady=4)
+        tk.Label(parent, text=tr("hint_note_example"), bg=BG, fg=SUBTEXT, font=FONT_SMALL).pack(
+            anchor="w", padx=16, pady=(0, 14))
+
+        def apply_time():
+            try:
+                h = int(hours_var.get() or 0)
+                m = int(minutes_var.get() or 0)
+            except ValueError:
+                messagebox.showwarning(tr("dlg_add_time_title"), tr("err_add_time_empty"))
+                return
+            delta_seconds = h * 3600 + m * 60
+            if delta_seconds <= 0:
+                messagebox.showwarning(tr("dlg_add_time_title"), tr("err_add_time_empty"))
+                return
+            removing = direction_var.get() == "remove"
+            profile = self.data["profiles"][profile_name]
+            if removing:
+                profile["seconds"] = max(0, profile.get("seconds", 0) - delta_seconds)
+            else:
+                profile["seconds"] = profile.get("seconds", 0) + delta_seconds
+                profile["last_played"] = time.time()
+            note = note_var.get().strip()
+            if note:
+                timestamp = time.strftime("%Y-%m-%d")
+                hm = f"{h}h {m}m" if h else f"{m}m"
+                sign = "-" if removing else "+"
+                new_line = f"[{timestamp}] {sign}{hm} — {note}"
+                existing_notes = profile.get("notes", "")
+                profile["notes"] = (existing_notes + "\n" + new_line) if existing_notes else new_line
+                if notes_text_widget is not None:
+                    # Keep the Notes tab's Text widget in sync so saving it
+                    # later in this same session doesn't overwrite this line
+                    # with the stale text it was first opened with.
+                    notes_text_widget.delete("1.0", "end")
+                    notes_text_widget.insert("1.0", profile["notes"])
+            self._safe_save()
+            write_log_file(self.data)
+            if self.selected == profile_name:
+                self._update_timer_display()
+            self._refresh_profile_list()
+            hours_var.set("0")
+            minutes_var.set("0")
+            note_var.set("")
+
+        self._make_button(parent, tr("btn_save"), apply_time, bg=self.accent, fg="#1e1e2e").pack(
+            fill="x", padx=16, pady=(0, 16))
+
+    def _build_modify_appearance_tab(self, parent, profile_name, win):
+        tk.Label(parent, text=tr("label_icon"), bg=BG, fg=TEXT,
+                 font=(FONT_FAMILY_UI, 12, "bold")).pack(anchor="w", padx=16, pady=(18, 6))
+        icon_row = tk.Frame(parent, bg=BG)
+        icon_row.pack(anchor="w", padx=16, pady=(0, 4), fill="x")
+        icon_preview = tk.Label(icon_row, bg=BG)
+        icon_preview.pack(side="left", padx=(0, 10))
+
+        def refresh_icon_preview():
+            icon_file = self.data["profiles"][profile_name].get("icon_file")
+            img = None
+            if icon_file:
+                path = os.path.join(ICONS_DIR, icon_file)
+                if os.path.exists(path):
+                    img = self._load_thumbnail(path, size=(40, 40))
+            if img:
+                icon_preview.config(image=img, text="")
+                icon_preview.image = img
+            else:
+                icon_preview.config(image="", text="—", fg=SUBTEXT)
+                icon_preview.image = None
+
+        refresh_icon_preview()
+
+        def change_icon():
+            self._set_profile_icon()
+            refresh_icon_preview()
+
+        self._make_button(icon_row, tr("ctx_change_icon"), change_icon, bg=CARD, fg=TEXT).pack(side="left")
+
+        tk.Label(parent, text=tr("label_background"), bg=BG, fg=TEXT,
+                 font=(FONT_FAMILY_UI, 12, "bold")).pack(anchor="w", padx=16, pady=(20, 6))
+
+        def choose_color():
+            c = colorchooser.askcolor(parent=win, title=tr("dlg_choose_bg_color_title"))
+            if c and c[1]:
+                self.data["profiles"][profile_name]["bg_color"] = c[1]
+                self.data["profiles"][profile_name]["bg_image"] = None
+                self._safe_save()
+                if self.selected == profile_name:
+                    self._render_background()
+
+        def choose_image():
+            if not PIL_AVAILABLE:
+                messagebox.showerror(tr("err_missing_dep_title"), tr("err_missing_dep_bg_msg"))
+                return
+            path = filedialog.askopenfilename(
+                title=tr("dlg_choose_bg_image_title"),
+                filetypes=[("Images", "*.png *.jpg *.jpeg *.bmp *.webp")]
+            )
+            if not path:
+                return
+            os.makedirs(BACKGROUNDS_DIR, exist_ok=True)
+            ext = os.path.splitext(path)[1].lower() or ".png"
+            fname = f"{uuid.uuid4().hex}{ext}"
+            dest = os.path.join(BACKGROUNDS_DIR, fname)
+            try:
+                shutil.copy(path, dest)
+            except Exception as e:
+                messagebox.showerror(tr("err_set_bg_title"), str(e))
+                return
+            old = self.data["profiles"][profile_name].get("bg_image")
+            if old:
+                old_path = os.path.join(BACKGROUNDS_DIR, old)
+                if os.path.exists(old_path):
+                    try:
+                        os.remove(old_path)
+                    except OSError:
+                        pass
+            self.data["profiles"][profile_name]["bg_image"] = fname
+            self.data["profiles"][profile_name]["bg_color"] = None
+            self._safe_save()
+            if self.selected == profile_name:
+                self._render_background()
+
+        def reset_default():
+            self.data["profiles"][profile_name]["bg_color"] = None
+            self.data["profiles"][profile_name]["bg_image"] = None
+            self._safe_save()
+            if self.selected == profile_name:
+                self._render_background()
+
+        self._make_button(parent, tr("btn_choose_solid_color"), choose_color, bg=CARD, fg=TEXT).pack(
+            fill="x", padx=16, pady=4)
+        self._make_button(parent, tr("btn_choose_image"), choose_image, bg=CARD, fg=TEXT).pack(
+            fill="x", padx=16, pady=4)
+        self._make_button(parent, tr("btn_reset_default"), reset_default, bg=CARD, fg=RED).pack(
+            fill="x", padx=16, pady=(4, 10))
+
+    def _build_modify_genres_tab(self, parent, profile_name):
+        tk.Label(parent, text=tr("note_select_genres"), bg=BG, fg=SUBTEXT, font=FONT_SMALL,
+                 wraplength=360, justify="left").pack(anchor="w", padx=16, pady=(16, 10))
+
+        list_frame = tk.Frame(parent, bg=BG)
+        list_frame.pack(fill="both", expand=True, padx=16, pady=(0, 10))
         scrollbar = ttk.Scrollbar(list_frame, orient="vertical")
         scrollbar.pack(side="right", fill="y")
         listbox = tk.Listbox(list_frame, bg=CARD, fg=TEXT, selectbackground=self.accent,
@@ -1034,7 +1341,7 @@ class GameTimerApp:
             if genre in current_genres:
                 listbox.selection_set(i)
 
-        def assign_and_close():
+        def assign():
             sel = listbox.curselection()
             # Index into the canonical GENRE_OPTIONS rather than reading the
             # (possibly translated) listbox text, so stored genres always stay
@@ -1044,10 +1351,29 @@ class GameTimerApp:
             self._safe_save()
             write_log_file(self.data)
             self._refresh_profile_list()
-            win.destroy()
 
-        self._make_button(win, tr("btn_assign"), assign_and_close, bg=self.accent, fg="#1e1e2e").pack(
+        self._make_button(parent, tr("btn_assign"), assign, bg=self.accent, fg="#1e1e2e").pack(
             fill="x", padx=16, pady=(0, 16))
+
+    def _build_modify_notes_tab(self, parent, profile_name):
+        text_frame = tk.Frame(parent, bg=BG)
+        text_frame.pack(fill="both", expand=True, padx=16, pady=(16, 10))
+        scrollbar = ttk.Scrollbar(text_frame, orient="vertical")
+        scrollbar.pack(side="right", fill="y")
+        text_widget = tk.Text(text_frame, bg=CARD, fg=TEXT, insertbackground=TEXT, bd=0,
+                               highlightthickness=1, highlightbackground=CARD, highlightcolor=self.accent,
+                               font=FONT_MAIN, wrap="word", yscrollcommand=scrollbar.set)
+        text_widget.pack(side="left", fill="both", expand=True)
+        scrollbar.config(command=text_widget.yview)
+        text_widget.insert("1.0", self.data["profiles"][profile_name].get("notes", ""))
+
+        def save_notes():
+            self.data["profiles"][profile_name]["notes"] = text_widget.get("1.0", "end-1c")
+            self._safe_save()
+
+        self._make_button(parent, tr("btn_save"), save_notes, bg=self.accent, fg="#1e1e2e").pack(
+            fill="x", padx=16, pady=(0, 16))
+        return text_widget
 
     # ---------- Context menu ----------
     def _show_context_menu(self, event):
@@ -1059,21 +1385,13 @@ class GameTimerApp:
         if iid:
             self.tree.selection_set(iid)
             self._select_profile(iid)
-            menu.add_command(label=tr("ctx_rename"), command=self._rename_profile)
+            menu.add_command(label=tr("ctx_modify"), command=self._open_modify_game)
             menu.add_command(label=tr("ctx_duplicate"), command=self._duplicate_profile)
             menu.add_command(label=tr("ctx_reset_time"), command=self._reset_time)
-            menu.add_command(label=tr("ctx_add_time"), command=self._open_add_time)
             menu.add_command(label=tr("ctx_rate_game"), command=self._open_rate_game)
-            menu.add_command(label=tr("ctx_notes"), command=self._open_notes)
-            menu.add_command(label=tr("ctx_change_icon"), command=self._set_profile_icon)
-            menu.add_command(label=tr("ctx_change_background"), command=self._set_profile_background)
-            menu.add_command(label=tr("ctx_select_genres"), command=self._open_genre_picker)
             menu.add_separator()
             menu.add_command(label=tr("ctx_export"), command=self._export_profile)
             menu.add_command(label=tr("ctx_import"), command=self._import_profile)
-            if self.data["profiles"][iid].get("completed"):
-                menu.add_separator()
-                menu.add_command(label=tr("ctx_unmark_completed"), command=self._remove_completed)
             menu.add_separator()
             menu.add_command(label=tr("ctx_delete"), command=self._delete_profile)
         else:
@@ -1158,6 +1476,7 @@ class GameTimerApp:
         self.canvas.itemconfig(self.rating_id, text="")
         self.canvas.itemconfig(self.timer_id, text="00:00:00")
         self._set_play_button_state()
+        self._update_complete_toggle_visual()
         self._render_background()
 
     def _reset_time(self):
@@ -1173,98 +1492,6 @@ class GameTimerApp:
         self._update_timer_display()
 
     # ---------- Manual time entry ----------
-    def _open_add_time(self):
-        if not self.selected:
-            return
-        profile_name = self.selected
-        win = tk.Toplevel(self.root)
-        win.title(tr("dlg_add_time_title"))
-        win.configure(bg=BG)
-        self._center_window(win, 340, 420)
-        win.resizable(False, False)
-        win.transient(self.root)
-        win.grab_set()
-
-        tk.Label(win, text=tr("dlg_add_time_desc"), bg=BG, fg=SUBTEXT, font=FONT_SMALL,
-                 wraplength=300, justify="left").pack(padx=20, pady=(18, 14))
-
-        direction_var = tk.StringVar(value="add")
-        direction_row = tk.Frame(win, bg=BG)
-        direction_row.pack(padx=20, pady=(0, 10), fill="x")
-        tk.Radiobutton(
-            direction_row, text=tr("label_add"), variable=direction_var, value="add",
-            bg=BG, fg=TEXT, selectcolor=CARD, activebackground=BG,
-            activeforeground=TEXT, font=FONT_MAIN, highlightthickness=0, bd=0
-        ).pack(side="left", expand=True, fill="x")
-        tk.Radiobutton(
-            direction_row, text=tr("label_remove"), variable=direction_var, value="remove",
-            bg=BG, fg=TEXT, selectcolor=CARD, activebackground=BG,
-            activeforeground=TEXT, font=FONT_MAIN, highlightthickness=0, bd=0
-        ).pack(side="left", expand=True, fill="x")
-
-        hours_row = tk.Frame(win, bg=BG)
-        hours_row.pack(padx=20, pady=(0, 10), fill="x")
-        tk.Label(hours_row, text=tr("label_hours"), bg=BG, fg=TEXT, font=FONT_MAIN,
-                 width=8, anchor="w").pack(side="left")
-        hours_var = tk.StringVar(value="0")
-        tk.Entry(hours_row, textvariable=hours_var, bg=CARD, fg=TEXT, insertbackground=TEXT, bd=0,
-                 highlightthickness=1, highlightbackground=CARD, highlightcolor=self.accent,
-                 font=FONT_MAIN, width=6).pack(side="left", ipady=4)
-
-        minutes_row = tk.Frame(win, bg=BG)
-        minutes_row.pack(padx=20, pady=(0, 14), fill="x")
-        tk.Label(minutes_row, text=tr("label_minutes"), bg=BG, fg=TEXT, font=FONT_MAIN,
-                 width=8, anchor="w").pack(side="left")
-        minutes_var = tk.StringVar(value="0")
-        tk.Entry(minutes_row, textvariable=minutes_var, bg=CARD, fg=TEXT, insertbackground=TEXT, bd=0,
-                 highlightthickness=1, highlightbackground=CARD, highlightcolor=self.accent,
-                 font=FONT_MAIN, width=6).pack(side="left", ipady=4)
-
-        tk.Label(win, text=tr("label_note_optional"), bg=BG, fg=TEXT, font=FONT_MAIN).pack(
-            anchor="w", padx=20)
-        note_var = tk.StringVar(value="")
-        tk.Entry(win, textvariable=note_var, bg=CARD, fg=TEXT, insertbackground=TEXT, bd=0,
-                 highlightthickness=1, highlightbackground=CARD, highlightcolor=self.accent,
-                 font=FONT_MAIN).pack(fill="x", padx=20, pady=(4, 2), ipady=4)
-        tk.Label(win, text=tr("hint_note_example"), bg=BG, fg=SUBTEXT, font=FONT_SMALL).pack(
-            anchor="w", padx=20, pady=(0, 14))
-
-        def save_and_close():
-            try:
-                h = int(hours_var.get() or 0)
-                m = int(minutes_var.get() or 0)
-            except ValueError:
-                messagebox.showwarning(tr("dlg_add_time_title"), tr("err_add_time_empty"))
-                return
-            delta_seconds = h * 3600 + m * 60
-            if delta_seconds <= 0:
-                messagebox.showwarning(tr("dlg_add_time_title"), tr("err_add_time_empty"))
-                return
-            removing = direction_var.get() == "remove"
-            profile = self.data["profiles"][profile_name]
-            if removing:
-                profile["seconds"] = max(0, profile.get("seconds", 0) - delta_seconds)
-            else:
-                profile["seconds"] = profile.get("seconds", 0) + delta_seconds
-                profile["last_played"] = time.time()
-            note = note_var.get().strip()
-            if note:
-                timestamp = time.strftime("%Y-%m-%d")
-                hm = f"{h}h {m}m" if h else f"{m}m"
-                sign = "-" if removing else "+"
-                new_line = f"[{timestamp}] {sign}{hm} — {note}"
-                existing_notes = profile.get("notes", "")
-                profile["notes"] = (existing_notes + "\n" + new_line) if existing_notes else new_line
-            self._safe_save()
-            write_log_file(self.data)
-            if self.selected == profile_name:
-                self._update_timer_display()
-            self._refresh_profile_list()
-            win.destroy()
-
-        self._make_button(win, tr("btn_save"), save_and_close, bg=self.accent, fg="#1e1e2e").pack(
-            fill="x", padx=20, pady=(0, 18))
-
     def _open_rate_game(self):
         if not self.selected:
             return
@@ -1315,56 +1542,24 @@ class GameTimerApp:
         self._make_button(win, tr("btn_save"), save_and_close, bg=self.accent, fg="#1e1e2e").pack(
             fill="x", padx=20, pady=(0, 18))
 
-    def _open_notes(self):
+    def _toggle_complete(self):
+        """The Complete control is a simple on/off switch — flipping it is its
+        own confirmation, the same way a phone settings toggle doesn't ask
+        "are you sure?" before turning on Airplane Mode."""
         if not self.selected:
             return
-        profile_name = self.selected
-        win = tk.Toplevel(self.root)
-        win.title(tr("dlg_notes_title", name=profile_name))
-        win.configure(bg=BG)
-        self._center_window(win, 380, 420)
-        win.transient(self.root)
-        win.grab_set()
+        profile = self.data["profiles"][self.selected]
+        if profile.get("completed"):
+            self._remove_completed()
+        else:
+            self._mark_completed()
 
-        tk.Label(win, text=tr("label_notes"), bg=BG, fg=TEXT, font=(FONT_FAMILY_UI, 12, "bold")).pack(
-            anchor="w", padx=16, pady=(16, 6))
-
-        text_frame = tk.Frame(win, bg=BG)
-        text_frame.pack(fill="both", expand=True, padx=16)
-        scrollbar = ttk.Scrollbar(text_frame, orient="vertical")
-        scrollbar.pack(side="right", fill="y")
-        text_widget = tk.Text(text_frame, bg=CARD, fg=TEXT, insertbackground=TEXT, bd=0,
-                               highlightthickness=1, highlightbackground=CARD, highlightcolor=self.accent,
-                               font=FONT_MAIN, wrap="word", yscrollcommand=scrollbar.set)
-        text_widget.pack(side="left", fill="both", expand=True)
-        scrollbar.config(command=text_widget.yview)
-        text_widget.insert("1.0", self.data["profiles"][profile_name].get("notes", ""))
-
-        def save_and_close():
-            self.data["profiles"][profile_name]["notes"] = text_widget.get("1.0", "end-1c")
-            self._safe_save()
-            win.destroy()
-
-        btn_row = tk.Frame(win, bg=BG)
-        btn_row.pack(fill="x", padx=16, pady=16)
-        self._make_button(btn_row, tr("btn_save"), save_and_close, bg=self.accent, fg="#1e1e2e").pack(
-            side="left", expand=True, fill="x", padx=(0, 4))
-        self._make_button(btn_row, tr("btn_close"), win.destroy, bg=CARD, fg=TEXT).pack(
-            side="left", expand=True, fill="x", padx=(4, 0))
-
-    def _complete_profile(self):
+    def _mark_completed(self):
         if not self.selected:
             return
         if self.running:
             self._pause_current()
         profile = self.data["profiles"][self.selected]
-        already = profile.get("completed", False)
-        if already:
-            prompt = tr("confirm_already_completed_msg", name=self.selected)
-        else:
-            prompt = tr("confirm_complete_msg", name=self.selected)
-        if not messagebox.askyesno(tr("confirm_complete_title"), prompt):
-            return
         profile["completed"] = True
         profile["completed_at"] = time.strftime("%Y-%m-%d")
         # Snapshot the tracked total at the moment of completion, separate from
@@ -1375,13 +1570,10 @@ class GameTimerApp:
         self._safe_save()
         write_log_file(self.data)
         self._refresh_data_tab()
-        messagebox.showinfo(tr("info_nice_work_title"), tr("info_nice_work_msg", name=self.selected))
+        self._update_complete_toggle_visual()
 
     def _remove_completed(self):
         if not self.selected:
-            return
-        if not messagebox.askyesno(tr("confirm_unmark_completed_title"),
-                                    tr("confirm_unmark_completed_msg", name=self.selected)):
             return
         profile = self.data["profiles"][self.selected]
         profile["completed"] = False
@@ -1390,6 +1582,7 @@ class GameTimerApp:
         self._safe_save()
         write_log_file(self.data)
         self._refresh_data_tab()
+        self._update_complete_toggle_visual()
 
     def _duplicate_profile(self):
         if not self.selected:
@@ -1479,74 +1672,6 @@ class GameTimerApp:
         self.data["profiles"][self.selected]["icon_file"] = fname
         self._safe_save()
         self._refresh_profile_list()
-
-    def _set_profile_background(self):
-        if not self.selected:
-            return
-        profile_name = self.selected
-        win = tk.Toplevel(self.root)
-        win.title(tr("dlg_change_bg_title"))
-        win.configure(bg=BG)
-        self._center_window(win, 340, 230)
-        win.resizable(False, False)
-        win.transient(self.root)
-        win.grab_set()
-
-        tk.Label(win, text=tr("dlg_change_bg_label", name=profile_name), bg=BG, fg=TEXT,
-                 font=FONT_MAIN, wraplength=300).pack(pady=(18, 14))
-
-        def choose_color():
-            c = colorchooser.askcolor(parent=win, title=tr("dlg_choose_bg_color_title"))
-            if c and c[1]:
-                self.data["profiles"][profile_name]["bg_color"] = c[1]
-                self.data["profiles"][profile_name]["bg_image"] = None
-                self._safe_save()
-                self._render_background()
-                win.destroy()
-
-        def choose_image():
-            if not PIL_AVAILABLE:
-                messagebox.showerror(tr("err_missing_dep_title"), tr("err_missing_dep_bg_msg"))
-                return
-            path = filedialog.askopenfilename(
-                title=tr("dlg_choose_bg_image_title"),
-                filetypes=[("Images", "*.png *.jpg *.jpeg *.bmp *.webp")]
-            )
-            if not path:
-                return
-            os.makedirs(BACKGROUNDS_DIR, exist_ok=True)
-            ext = os.path.splitext(path)[1].lower() or ".png"
-            fname = f"{uuid.uuid4().hex}{ext}"
-            dest = os.path.join(BACKGROUNDS_DIR, fname)
-            try:
-                shutil.copy(path, dest)
-            except Exception as e:
-                messagebox.showerror(tr("err_set_bg_title"), str(e))
-                return
-            old = self.data["profiles"][profile_name].get("bg_image")
-            if old:
-                old_path = os.path.join(BACKGROUNDS_DIR, old)
-                if os.path.exists(old_path):
-                    try:
-                        os.remove(old_path)
-                    except OSError:
-                        pass
-            self.data["profiles"][profile_name]["bg_image"] = fname
-            self.data["profiles"][profile_name]["bg_color"] = None
-            self._safe_save()
-            self._render_background()
-            win.destroy()
-
-        def reset_default():
-            self.data["profiles"][profile_name]["bg_color"] = None
-            self.data["profiles"][profile_name]["bg_image"] = None
-            self._safe_save()
-            self._render_background()
-            win.destroy()
-
-        self._make_button(win, tr("btn_choose_solid_color"), choose_color, bg=CARD, fg=TEXT).pack(fill="x", padx=24, pady=4)
-        self._make_button(win, tr("btn_choose_image"), choose_image, bg=CARD, fg=TEXT).pack(fill="x", padx=24, pady=4)
-        self._make_button(win, tr("btn_reset_default"), reset_default, bg=CARD, fg=RED).pack(fill="x", padx=24, pady=(4, 10))
 
     # ---------- Export / Import ----------
     def _export_profile(self):
@@ -1969,6 +2094,7 @@ class GameTimerApp:
         if selected_before and selected_before in self.data["profiles"]:
             self._select_profile(selected_before)
         else:
+            self._update_complete_toggle_visual()
             self._render_background()
 
         if was_running:
