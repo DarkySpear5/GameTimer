@@ -183,6 +183,7 @@ def load_data():
         p.setdefault("completed_at", None)
         p.setdefault("last_played", None)
         p.setdefault("notes", "")
+        p.setdefault("rating", 0)
         if "genres" not in p:
             old_genre = p.pop("genre", None)
             p["genres"] = [old_genre] if old_genre else ["Uncategorized"]
@@ -490,6 +491,9 @@ class GameTimerApp:
         self.status_id = self.canvas.create_text(
             0, 0, text="", fill=SUBTEXT, font=FONT_SMALL, anchor="center"
         )
+        self.rating_id = self.canvas.create_text(
+            0, 0, text="", fill=GOLD, font=(FONT_FAMILY_UI, 16), anchor="center"
+        )
         self.timer_id = self.canvas.create_text(
             0, 0, text="00:00:00", fill=TEXT,
             font=("Consolas", FONT_TIMER_BASE, "bold"), anchor="center"
@@ -567,19 +571,21 @@ class GameTimerApp:
         table_frame = tk.Frame(parent, bg=BG)
         table_frame.pack(fill="both", expand=True, padx=24, pady=(0, 20))
 
-        columns = ("time", "status", "completed_on", "genres")
+        columns = ("time", "status", "completed_on", "rating", "genres")
         self.data_tree = ttk.Treeview(table_frame, columns=columns, show="tree headings",
                                        selectmode="browse")
         self.data_tree.heading("#0", text=tr("col_game"))
         self.data_tree.heading("time", text=tr("col_time_played"))
         self.data_tree.heading("status", text=tr("col_status"))
         self.data_tree.heading("completed_on", text=tr("col_completed_on"))
+        self.data_tree.heading("rating", text=tr("col_rating"))
         self.data_tree.heading("genres", text=tr("col_genres"))
-        self.data_tree.column("#0", width=220)
-        self.data_tree.column("time", width=120, anchor="center")
-        self.data_tree.column("status", width=100, anchor="center")
-        self.data_tree.column("completed_on", width=120, anchor="center")
-        self.data_tree.column("genres", width=160, anchor="center")
+        self.data_tree.column("#0", width=200)
+        self.data_tree.column("time", width=110, anchor="center")
+        self.data_tree.column("status", width=90, anchor="center")
+        self.data_tree.column("completed_on", width=100, anchor="center")
+        self.data_tree.column("rating", width=90, anchor="center")
+        self.data_tree.column("genres", width=150, anchor="center")
 
         vsb = ttk.Scrollbar(table_frame, orient="vertical", command=self.data_tree.yview)
         self.data_tree.configure(yscrollcommand=vsb.set)
@@ -602,7 +608,7 @@ class GameTimerApp:
 
         tk.Label(inner, text="Game Timer", bg=BG, fg=TEXT,
                  font=(FONT_FAMILY_UI, 20, "bold")).pack(anchor="w", padx=24, pady=(24, 2))
-        tk.Label(inner, text=f"v1.2 — {tr('about_tagline')}",
+        tk.Label(inner, text=f"v1.3 — {tr('about_tagline')}",
                  bg=BG, fg=SUBTEXT, font=FONT_MAIN).pack(anchor="w", padx=24, pady=(0, 20))
 
         tk.Label(inner, text=tr("about_built_with"), bg=BG, fg=TEXT,
@@ -687,6 +693,7 @@ class GameTimerApp:
             kwargs = dict(
                 text=" " + name,
                 values=(format_seconds(info.get("seconds", 0)), status, completed_on,
+                        self._rating_stars(info.get("rating", 0)) or "—",
                         ", ".join(tr_genre(g) for g in info.get("genres", ["Uncategorized"]))),
                 tags=(row_tag,),
             )
@@ -715,6 +722,14 @@ class GameTimerApp:
             return False
 
     @staticmethod
+    def _rating_stars(rating):
+        rating = int(rating or 0)
+        if rating <= 0:
+            return ""
+        rating = max(0, min(5, rating))
+        return "★" * rating + "☆" * (5 - rating)
+
+    @staticmethod
     def _shift_color(hex_color, amount):
         """Lighten (positive amount) or darken (negative) a #rrggbb color."""
         hex_color = hex_color.lstrip("#")
@@ -737,6 +752,20 @@ class GameTimerApp:
         button.bind("<Leave>", lambda e: button.config(bg=base_bg))
         button.bind("<ButtonPress-1>", lambda e: button.config(bg=press_bg))
         button.bind("<ButtonRelease-1>", lambda e: button.config(bg=hover_bg))
+
+    def _center_window(self, win, width, height, parent=None):
+        """Position a Toplevel centered over its parent window instead of
+        wherever the window manager's default placement happens to land it
+        (often the top-left corner of the monitor, not the app)."""
+        parent = parent or self.root
+        parent.update_idletasks()
+        parent_x = parent.winfo_rootx()
+        parent_y = parent.winfo_rooty()
+        parent_w = parent.winfo_width()
+        parent_h = parent.winfo_height()
+        x = parent_x + (parent_w - width) // 2
+        y = parent_y + (parent_h - height) // 2
+        win.geometry(f"{width}x{height}+{max(0, x)}+{max(0, y)}")
 
     def _make_button(self, parent, text, command, bg, fg, width=16, font=None):
         btn = tk.Button(
@@ -761,6 +790,7 @@ class GameTimerApp:
         self.canvas.coords(self.title_id, cx, int(h * 0.13))
         self.canvas.itemconfig(self.title_id, font=title_font)
         self.canvas.coords(self.status_id, cx, int(h * 0.20))
+        self.canvas.coords(self.rating_id, cx, int(h * 0.27))
         self.canvas.coords(self.timer_id, cx, int(h * 0.45))
         self.canvas.itemconfig(self.timer_id, font=timer_font)
 
@@ -845,6 +875,8 @@ class GameTimerApp:
             items.sort(key=lambda x: x[1].get("last_played") or 0, reverse=True)
         elif self.sort_mode == "genre":
             items.sort(key=lambda x: (", ".join(x[1].get("genres", ["Uncategorized"])), x[0].lower()))
+        elif self.sort_mode == "rating":
+            items.sort(key=lambda x: x[1].get("rating", 0), reverse=True)
         else:  # "name"
             items.sort(key=lambda x: x[0].lower())
         return items
@@ -906,6 +938,8 @@ class GameTimerApp:
         self.data["last_selected"] = name
         self._safe_save()
         self.canvas.itemconfig(self.title_id, text=name)
+        self.canvas.itemconfig(self.rating_id, text=self._rating_stars(
+            self.data["profiles"][name].get("rating", 0)))
         self._update_timer_display()
         self._highlight_selected()
         self._update_tray_status()
@@ -916,7 +950,7 @@ class GameTimerApp:
         menu = tk.Menu(self.root, tearoff=0, bg=CARD, fg=TEXT,
                         activebackground=self.accent, activeforeground="#1e1e2e")
         options = [("name", tr("sort_name_az")), ("last_played", tr("sort_last_played")),
-                   ("genre", tr("sort_genre_az"))]
+                   ("rating", tr("sort_rating_desc")), ("genre", tr("sort_genre_az"))]
         for mode, label in options:
             prefix = "\u2713 " if self.sort_mode == mode else "    "
             menu.add_command(label=prefix + label, command=lambda m=mode: self._set_sort_mode(m))
@@ -964,7 +998,7 @@ class GameTimerApp:
         win = tk.Toplevel(self.root)
         win.title(tr("dlg_select_genres_title"))
         win.configure(bg=BG)
-        win.geometry("300x460")
+        self._center_window(win, 300, 460)
         win.transient(self.root)
         win.grab_set()
 
@@ -1018,6 +1052,7 @@ class GameTimerApp:
             menu.add_command(label=tr("ctx_rename"), command=self._rename_profile)
             menu.add_command(label=tr("ctx_reset_time"), command=self._reset_time)
             menu.add_command(label=tr("ctx_add_time"), command=self._open_add_time)
+            menu.add_command(label=tr("ctx_rate_game"), command=self._open_rate_game)
             menu.add_command(label=tr("ctx_notes"), command=self._open_notes)
             menu.add_command(label=tr("ctx_change_icon"), command=self._set_profile_icon)
             menu.add_command(label=tr("ctx_change_background"), command=self._set_profile_background)
@@ -1048,7 +1083,8 @@ class GameTimerApp:
             return
         self.data["profiles"][name] = {"seconds": 0, "icon_file": None, "bg_color": None, "bg_image": None,
                                         "completed": False, "completed_at": None,
-                                        "genres": ["Uncategorized"], "last_played": None, "notes": ""}
+                                        "genres": ["Uncategorized"], "last_played": None, "notes": "",
+                                        "rating": 0}
         self._safe_save()
         write_log_file(self.data)
         self._refresh_profile_list()
@@ -1105,6 +1141,7 @@ class GameTimerApp:
         write_log_file(self.data)
         self._refresh_profile_list()
         self.canvas.itemconfig(self.title_id, text=tr("canvas_no_profile_selected"))
+        self.canvas.itemconfig(self.rating_id, text="")
         self.canvas.itemconfig(self.timer_id, text="00:00:00")
         self._set_play_button_state()
         self._render_background()
@@ -1129,13 +1166,27 @@ class GameTimerApp:
         win = tk.Toplevel(self.root)
         win.title(tr("dlg_add_time_title"))
         win.configure(bg=BG)
-        win.geometry("340x360")
+        self._center_window(win, 340, 420)
         win.resizable(False, False)
         win.transient(self.root)
         win.grab_set()
 
         tk.Label(win, text=tr("dlg_add_time_desc"), bg=BG, fg=SUBTEXT, font=FONT_SMALL,
                  wraplength=300, justify="left").pack(padx=20, pady=(18, 14))
+
+        direction_var = tk.StringVar(value="add")
+        direction_row = tk.Frame(win, bg=BG)
+        direction_row.pack(padx=20, pady=(0, 10), fill="x")
+        tk.Radiobutton(
+            direction_row, text=tr("label_add"), variable=direction_var, value="add",
+            bg=BG, fg=TEXT, selectcolor=CARD, activebackground=BG,
+            activeforeground=TEXT, font=FONT_MAIN, highlightthickness=0, bd=0
+        ).pack(side="left", expand=True, fill="x")
+        tk.Radiobutton(
+            direction_row, text=tr("label_remove"), variable=direction_var, value="remove",
+            bg=BG, fg=TEXT, selectcolor=CARD, activebackground=BG,
+            activeforeground=TEXT, font=FONT_MAIN, highlightthickness=0, bd=0
+        ).pack(side="left", expand=True, fill="x")
 
         hours_row = tk.Frame(win, bg=BG)
         hours_row.pack(padx=20, pady=(0, 10), fill="x")
@@ -1171,18 +1222,23 @@ class GameTimerApp:
             except ValueError:
                 messagebox.showwarning(tr("dlg_add_time_title"), tr("err_add_time_empty"))
                 return
-            added_seconds = h * 3600 + m * 60
-            if added_seconds <= 0:
+            delta_seconds = h * 3600 + m * 60
+            if delta_seconds <= 0:
                 messagebox.showwarning(tr("dlg_add_time_title"), tr("err_add_time_empty"))
                 return
+            removing = direction_var.get() == "remove"
             profile = self.data["profiles"][profile_name]
-            profile["seconds"] = profile.get("seconds", 0) + added_seconds
-            profile["last_played"] = time.time()
+            if removing:
+                profile["seconds"] = max(0, profile.get("seconds", 0) - delta_seconds)
+            else:
+                profile["seconds"] = profile.get("seconds", 0) + delta_seconds
+                profile["last_played"] = time.time()
             note = note_var.get().strip()
             if note:
                 timestamp = time.strftime("%Y-%m-%d")
                 hm = f"{h}h {m}m" if h else f"{m}m"
-                new_line = f"[{timestamp}] +{hm} — {note}"
+                sign = "-" if removing else "+"
+                new_line = f"[{timestamp}] {sign}{hm} — {note}"
                 existing_notes = profile.get("notes", "")
                 profile["notes"] = (existing_notes + "\n" + new_line) if existing_notes else new_line
             self._safe_save()
@@ -1195,6 +1251,56 @@ class GameTimerApp:
         self._make_button(win, tr("btn_save"), save_and_close, bg=self.accent, fg="#1e1e2e").pack(
             fill="x", padx=20, pady=(0, 18))
 
+    def _open_rate_game(self):
+        if not self.selected:
+            return
+        profile_name = self.selected
+        win = tk.Toplevel(self.root)
+        win.title(tr("dlg_rate_game_title", name=profile_name))
+        win.configure(bg=BG)
+        self._center_window(win, 300, 180)
+        win.resizable(False, False)
+        win.transient(self.root)
+        win.grab_set()
+
+        tk.Label(win, text=tr("label_rating"), bg=BG, fg=TEXT, font=(FONT_FAMILY_UI, 12, "bold")).pack(
+            pady=(20, 10))
+
+        rating_value = tk.IntVar(value=self.data["profiles"][profile_name].get("rating", 0))
+        stars_row = tk.Frame(win, bg=BG)
+        stars_row.pack(pady=(0, 20))
+        star_labels = []
+
+        def redraw_stars():
+            for i, lbl in enumerate(star_labels):
+                filled = i < rating_value.get()
+                lbl.config(text="★" if filled else "☆", fg=GOLD if filled else SUBTEXT)
+
+        def set_rating(i):
+            rating_value.set(0 if rating_value.get() == i + 1 else i + 1)
+            redraw_stars()
+
+        for i in range(5):
+            lbl = tk.Label(stars_row, text="☆", bg=BG, fg=SUBTEXT,
+                            font=(FONT_FAMILY_UI, 24), cursor="hand2")
+            lbl.pack(side="left", padx=2)
+            lbl.bind("<Button-1>", lambda e, i=i: set_rating(i))
+            star_labels.append(lbl)
+        redraw_stars()
+
+        def save_and_close():
+            rating = rating_value.get()
+            self.data["profiles"][profile_name]["rating"] = rating
+            self._safe_save()
+            write_log_file(self.data)
+            self._refresh_profile_list()
+            if self.selected == profile_name:
+                self.canvas.itemconfig(self.rating_id, text=self._rating_stars(rating))
+            win.destroy()
+
+        self._make_button(win, tr("btn_save"), save_and_close, bg=self.accent, fg="#1e1e2e").pack(
+            fill="x", padx=20, pady=(0, 18))
+
     def _open_notes(self):
         if not self.selected:
             return
@@ -1202,7 +1308,7 @@ class GameTimerApp:
         win = tk.Toplevel(self.root)
         win.title(tr("dlg_notes_title", name=profile_name))
         win.configure(bg=BG)
-        win.geometry("380x420")
+        self._center_window(win, 380, 420)
         win.transient(self.root)
         win.grab_set()
 
@@ -1292,7 +1398,7 @@ class GameTimerApp:
         win = tk.Toplevel(self.root)
         win.title(tr("dlg_change_bg_title"))
         win.configure(bg=BG)
-        win.geometry("340x230")
+        self._center_window(win, 340, 230)
         win.resizable(False, False)
         win.transient(self.root)
         win.grab_set()
@@ -1368,6 +1474,7 @@ class GameTimerApp:
             "genres": profile.get("genres", ["Uncategorized"]),
             "last_played": profile.get("last_played"),
             "notes": profile.get("notes", ""),
+            "rating": profile.get("rating", 0),
         }
         icon_file = profile.get("icon_file")
         if icon_file:
@@ -1460,6 +1567,7 @@ class GameTimerApp:
             "genres": imported.get("genres") or ["Uncategorized"],
             "last_played": imported.get("last_played"),
             "notes": imported.get("notes", ""),
+            "rating": imported.get("rating", 0),
         }
         self._safe_save()
         write_log_file(self.data)
@@ -1554,7 +1662,7 @@ class GameTimerApp:
         win = tk.Toplevel(self.root)
         win.title(tr("settings_title"))
         win.configure(bg=BG)
-        win.geometry("460x560")
+        self._center_window(win, 460, 560)
         win.resizable(False, False)
         win.transient(self.root)
         win.grab_set()
@@ -1781,7 +1889,7 @@ class GameTimerApp:
         editor = tk.Toplevel(parent_win)
         editor.title(tr("dlg_customize_colors_title"))
         editor.configure(bg=BG)
-        editor.geometry("340x420")
+        self._center_window(editor, 340, 420, parent=parent_win)
         editor.resizable(False, False)
         editor.transient(parent_win)
         editor.grab_set()

@@ -2,6 +2,24 @@
 
 All notable changes to Game Timer are documented here.
 
+## v1.3 — 2026-07-24
+
+### Added
+- **Star ratings.** Right-click a game → Rate Game to give it 0-5 stars. Shows
+  up next to the timer for the selected game, as a new Rating column in the
+  Data tab, and as a new "Rating (Highest first)" sort option. Fully
+  translated across all 10 languages.
+- **Remove Time.** The time-entry dialog (right-click → Add / Remove Time) now
+  has an Add/Remove toggle, so a mis-logged session can be corrected in the
+  same place instead of only ever being able to add time. Removing never
+  takes a game's total below zero.
+
+### Fixed
+- **Popup dialogs (Settings, Add/Remove Time, Notes, genre picker, background
+  picker, color customizer) now open centered over the main window** instead
+  of wherever the window manager's default placement happened to land them
+  (usually the top-left corner of the monitor).
+
 ## v1.2 — 2026-07-24
 
 ### Added
