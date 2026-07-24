@@ -174,6 +174,7 @@ def load_data():
     data["settings"].setdefault("font_family", "Segoe UI")
     data["settings"].setdefault("sort_mode", "name")
     data["settings"].setdefault("genre_filter", "All")
+    data["settings"].setdefault("status_filter", "All")
     data["settings"].setdefault("language", "en")
     for p in data["profiles"].values():
         p.setdefault("icon_file", None)
@@ -344,6 +345,7 @@ class GameTimerApp:
         self.icon_size = self.data["settings"].get("icon_size", 36)
         self.sort_mode = self.data["settings"].get("sort_mode", "name")
         self.genre_filter = self.data["settings"].get("genre_filter", "All")
+        self.status_filter = self.data["settings"].get("status_filter", "All")
 
         # profile_name -> tick_start (time.time() when it was pressed play).
         # Any number of profiles can be in here at once — timers run
@@ -978,11 +980,13 @@ class GameTimerApp:
         items = list(self.data["profiles"].items())
         if self.genre_filter != "All":
             items = [(n, i) for n, i in items if self.genre_filter in i.get("genres", ["Uncategorized"])]
+        if self.status_filter != "All":
+            items = [(n, i) for n, i in items if i.get("status", "in_progress") == self.status_filter]
         return self._sort_profile_items(items)
 
     def _get_sorted_profiles_all(self):
         """Same ordering as the Games list's current Sort setting, but never
-        genre-filtered — the Data tab is meant to show every tracked game."""
+        filtered — the Data tab is meant to show every tracked game."""
         return self._sort_profile_items(list(self.data["profiles"].items()))
 
     def _refresh_profile_list(self):
@@ -991,7 +995,7 @@ class GameTimerApp:
         items = self._get_sorted_filtered_profiles()
         if not items:
             if self.data["profiles"]:
-                msg = tr("empty_genre_filter", genre=tr_genre(self.genre_filter))
+                msg = tr("empty_filtered")
             else:
                 msg = tr("empty_no_games")
             self.tree.insert("", "end", iid="__empty__", text="  " + msg, tags=("empty",))
@@ -1073,14 +1077,32 @@ class GameTimerApp:
     def _open_filter_menu(self):
         menu = tk.Menu(self.root, tearoff=0, bg=CARD, fg=TEXT,
                         activebackground=self.accent, activeforeground="#1e1e2e")
+
+        genre_menu = tk.Menu(menu, tearoff=0, bg=CARD, fg=TEXT,
+                              activebackground=self.accent, activeforeground="#1e1e2e")
         used_genres = set()
         for p in self.data["profiles"].values():
             used_genres.update(p.get("genres", ["Uncategorized"]))
-        choices = ["All"] + sorted(used_genres)
-        for genre in choices:
+        for genre in ["All"] + sorted(used_genres):
             prefix = "\u2713 " if self.genre_filter == genre else "    "
             label = tr("filter_all") if genre == "All" else tr_genre(genre)
-            menu.add_command(label=prefix + label, command=lambda g=genre: self._set_genre_filter(g))
+            genre_menu.add_command(label=prefix + label, command=lambda g=genre: self._set_genre_filter(g))
+        menu.add_cascade(label=tr("label_genre"), menu=genre_menu)
+
+        status_menu = tk.Menu(menu, tearoff=0, bg=CARD, fg=TEXT,
+                               activebackground=self.accent, activeforeground="#1e1e2e")
+        status_choices = [
+            ("All", tr("filter_all")),
+            ("in_progress", tr("status_in_progress")),
+            ("completed", tr("status_completed")),
+            ("dropped", tr("status_dropped")),
+            ("on_hold", tr("status_on_hold")),
+        ]
+        for value, label in status_choices:
+            prefix = "\u2713 " if self.status_filter == value else "    "
+            status_menu.add_command(label=prefix + label, command=lambda v=value: self._set_status_filter(v))
+        menu.add_cascade(label=tr("label_status"), menu=status_menu)
+
         x = self.root.winfo_pointerx()
         y = self.root.winfo_pointery()
         try:
@@ -1091,6 +1113,12 @@ class GameTimerApp:
     def _set_genre_filter(self, genre):
         self.genre_filter = genre
         self.data["settings"]["genre_filter"] = genre
+        self._safe_save()
+        self._refresh_profile_list()
+
+    def _set_status_filter(self, status):
+        self.status_filter = status
+        self.data["settings"]["status_filter"] = status
         self._safe_save()
         self._refresh_profile_list()
 
