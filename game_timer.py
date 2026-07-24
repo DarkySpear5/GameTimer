@@ -179,12 +179,22 @@ def load_data():
         p.setdefault("icon_file", None)
         p.setdefault("bg_color", None)
         p.setdefault("bg_image", None)
-        p.setdefault("completed", False)
-        p.setdefault("completed_at", None)
-        p.setdefault("completed_seconds", None)
         p.setdefault("last_played", None)
         p.setdefault("notes", "")
         p.setdefault("rating", 0)
+        if "status" not in p:
+            # Migrate from the old completed/completed_at/completed_seconds
+            # boolean triplet (pre-v1.6) into the unified status field.
+            if p.get("completed"):
+                p["status"] = "completed"
+                p["status_at"] = p.get("completed_at")
+                p["status_seconds"] = p.get("completed_seconds")
+            else:
+                p["status"] = "in_progress"
+                p["status_at"] = None
+                p["status_seconds"] = None
+        p.setdefault("status_at", None)
+        p.setdefault("status_seconds", None)
         if "genres" not in p:
             old_genre = p.pop("genre", None)
             p["genres"] = [old_genre] if old_genre else ["Uncategorized"]
@@ -204,7 +214,7 @@ def write_log_file(data):
     """Overwrite a human-readable snapshot log — readable without opening the app."""
     try:
         total_seconds = sum(p.get("seconds", 0) for p in data["profiles"].values())
-        completed = [n for n, p in data["profiles"].items() if p.get("completed")]
+        completed = [n for n, p in data["profiles"].items() if p.get("status") == "completed"]
         lines = []
         lines.append("GAME TIMER — LOG")
         lines.append(f"Last updated: {time.strftime('%Y-%m-%d %H:%M:%S')}")
@@ -216,12 +226,13 @@ def write_log_file(data):
         lines.append("")
         lines.append("GAMES")
         name_width = max([len(n) for n in data["profiles"]] + [10]) + 2
+        status_labels = {"completed": "Completed", "dropped": "Dropped", "on_hold": "On Hold"}
         for name, info in data["profiles"].items():
-            status = "Completed" if info.get("completed") else "In Progress"
-            if info.get("completed_at"):
-                completed_seconds = info.get("completed_seconds")
-                stamp = f", at {format_seconds(completed_seconds)}" if completed_seconds is not None else ""
-                completed_on = f" ({info['completed_at']}{stamp})"
+            status = status_labels.get(info.get("status"), "In Progress")
+            if info.get("status_at"):
+                status_seconds = info.get("status_seconds")
+                stamp = f", at {format_seconds(status_seconds)}" if status_seconds is not None else ""
+                completed_on = f" ({info['status_at']}{stamp})"
             else:
                 completed_on = ""
             genre = ", ".join(info.get("genres", ["Uncategorized"]))
@@ -334,10 +345,12 @@ class GameTimerApp:
         self.sort_mode = self.data["settings"].get("sort_mode", "name")
         self.genre_filter = self.data["settings"].get("genre_filter", "All")
 
-        self.running = False
-        self.tick_start = None
+        # profile_name -> tick_start (time.time() when it was pressed play).
+        # Any number of profiles can be in here at once — timers run
+        # concurrently and are independent of which profile is selected.
+        self.active_timers = {}
         self.selected = None
-        self.last_autosave = None
+        self.last_autosave = time.time()
         self.autosave_interval = 5
         self.last_log_write = time.time()
         self.log_interval = 60
@@ -515,9 +528,13 @@ class GameTimerApp:
         self.play_window_id = self.canvas.create_window(0, 0, window=self.play_button)
 
         # ----- Complete toggle: a phone-settings-style on/off switch -----
+        # Label sits to the left of the switch at the same height (the usual
+        # "Setting Name .......... [toggle]" row layout) rather than stacked
+        # above it, so it can't end up visually lost near the switch.
         if PIL_AVAILABLE:
             self.complete_toggle_label_id = self.canvas.create_text(
-                0, 0, text=tr("label_complete_toggle"), fill=TEXT, font=FONT_MAIN, anchor="s"
+                0, 0, text=tr("label_complete_toggle"), fill=TEXT,
+                font=(FONT_FAMILY_UI, 12, "bold"), anchor="e"
             )
             self._toggle_photo = None
             self.complete_toggle_id = self.canvas.create_image(0, 0, anchor="center")
@@ -601,8 +618,8 @@ class GameTimerApp:
         self.data_tree.heading("#0", text=tr("col_game"))
         self.data_tree.heading("time", text=tr("col_time_played"))
         self.data_tree.heading("status", text=tr("col_status"))
-        self.data_tree.heading("completed_on", text=tr("col_completed_on"))
-        self.data_tree.heading("completed_time", text=tr("col_completed_time"))
+        self.data_tree.heading("completed_on", text=tr("col_status_date"))
+        self.data_tree.heading("completed_time", text=tr("col_status_time"))
         self.data_tree.heading("rating", text=tr("col_rating"))
         self.data_tree.heading("genres", text=tr("col_genres"))
         self.data_tree.column("#0", width=190)
@@ -634,7 +651,7 @@ class GameTimerApp:
 
         tk.Label(inner, text="Game Timer", bg=BG, fg=TEXT,
                  font=(FONT_FAMILY_UI, 20, "bold")).pack(anchor="w", padx=24, pady=(24, 2))
-        tk.Label(inner, text=f"v1.5 — {tr('about_tagline')}",
+        tk.Label(inner, text=f"v1.6 — {tr('about_tagline')}",
                  bg=BG, fg=SUBTEXT, font=FONT_MAIN).pack(anchor="w", padx=24, pady=(0, 20))
 
         tk.Label(inner, text=tr("about_built_with"), bg=BG, fg=TEXT,
@@ -695,7 +712,7 @@ class GameTimerApp:
         completed_count = 0
         for info in self.data["profiles"].values():
             total_seconds += info.get("seconds", 0)
-            if info.get("completed"):
+            if info.get("status") == "completed":
                 completed_count += 1
 
         self.stat_total_time_label.config(text=format_seconds(total_seconds))
@@ -704,11 +721,16 @@ class GameTimerApp:
 
         self.data_tree.delete(*self.data_tree.get_children())
         self.data_thumb_refs = {}
+        status_label_keys = {
+            "completed": "status_completed", "dropped": "status_dropped",
+            "on_hold": "status_on_hold", "in_progress": "status_in_progress",
+        }
         for i, (name, info) in enumerate(self._get_sorted_profiles_all()):
-            status = tr("status_completed") if info.get("completed") else tr("status_in_progress")
-            completed_on = info.get("completed_at") or "\u2014"
-            completed_seconds = info.get("completed_seconds")
-            completed_time = format_seconds(completed_seconds) if completed_seconds is not None else "\u2014"
+            status_key = status_label_keys.get(info.get("status"), "status_in_progress")
+            status = tr(status_key)
+            completed_on = info.get("status_at") or "\u2014"
+            status_seconds = info.get("status_seconds")
+            completed_time = format_seconds(status_seconds) if status_seconds is not None else "\u2014"
             row_tag = "rowA" if i % 2 == 0 else "rowB"
 
             icon_file = info.get("icon_file")
@@ -783,7 +805,7 @@ class GameTimerApp:
     def _update_complete_toggle_visual(self):
         """Redraws the Complete toggle (or the fallback button, if Pillow
         isn't available) to match the selected profile's completed state."""
-        completed = bool(self.selected and self.data["profiles"][self.selected].get("completed"))
+        completed = bool(self.selected and self.data["profiles"][self.selected].get("status") == "completed")
         if PIL_AVAILABLE and self.complete_toggle_id is not None:
             self._toggle_photo = self._make_toggle_image(completed)
             self.canvas.itemconfig(self.complete_toggle_id, image=self._toggle_photo)
@@ -864,8 +886,9 @@ class GameTimerApp:
         gap = max(70, int(70 * scale * 0.6))
         self.canvas.coords(self.play_window_id, cx - gap, btn_y)
         if PIL_AVAILABLE and self.complete_toggle_id is not None:
-            self.canvas.coords(self.complete_toggle_label_id, cx + gap, btn_y - 20)
-            self.canvas.coords(self.complete_toggle_id, cx + gap, btn_y + 4)
+            toggle_cx = cx + gap
+            self.canvas.coords(self.complete_toggle_label_id, toggle_cx - 40, btn_y)
+            self.canvas.coords(self.complete_toggle_id, toggle_cx + 12, btn_y)
         elif self.reset_window_id is not None:
             self.canvas.coords(self.reset_window_id, cx + gap, btn_y)
         self.canvas.coords(self.hint_id, cx, h - 20)
@@ -974,6 +997,7 @@ class GameTimerApp:
             self.tree.insert("", "end", iid="__empty__", text="  " + msg, tags=("empty",))
             self.tree.tag_configure("empty", foreground=SUBTEXT)
             return
+        self.tree.tag_configure("running", foreground=GREEN)
         for name, info in items:
             icon_file = info.get("icon_file")
             img = None
@@ -981,11 +1005,17 @@ class GameTimerApp:
                 path = os.path.join(ICONS_DIR, icon_file)
                 if os.path.exists(path):
                     img = self._load_thumbnail(path)
+            # Any number of games can be running at once now, not just the
+            # selected one — mark every one that's actively ticking so it
+            # doesn't look like its time silently stopped in the background.
+            running = name in self.active_timers
+            label = ("▶ " if running else " ") + name
+            tags = ("running",) if running else ()
             if img:
                 self.thumb_refs[name] = img
-                self.tree.insert("", "end", iid=name, text=" " + name, image=img)
+                self.tree.insert("", "end", iid=name, text=label, image=img, tags=tags)
             else:
-                self.tree.insert("", "end", iid=name, text=" " + name)
+                self.tree.insert("", "end", iid=name, text=label, tags=tags)
         self._highlight_selected()
 
     def _highlight_selected(self):
@@ -1002,8 +1032,10 @@ class GameTimerApp:
             self._select_profile(name)
 
     def _select_profile(self, name):
-        if self.running:
-            self._pause_current()
+        # Switching the selected game no longer pauses anything — any number
+        # of games can have their timers running concurrently. Selecting a
+        # game just changes which one the timer display and Play/Pause
+        # button are currently pointed at.
         self.selected = name
         self.data["last_selected"] = name
         self._safe_save()
@@ -1012,7 +1044,7 @@ class GameTimerApp:
             self.data["profiles"][name].get("rating", 0)))
         self._update_timer_display()
         self._highlight_selected()
-        self._update_tray_status()
+        self._set_play_button_state()
         self._update_complete_toggle_visual()
         self._render_background()
 
@@ -1073,7 +1105,10 @@ class GameTimerApp:
         win = tk.Toplevel(self.root)
         win.title(tr("dlg_modify_title", name=profile_name))
         win.configure(bg=BG)
-        self._center_window(win, 420, 520)
+        self._center_window(win, 500, 540)
+        # Keep a floor on the window size — shrink it too far and the 4 tab
+        # labels get clipped to unreadable fragments by ttk's Notebook.
+        win.minsize(460, 420)
         win.transient(self.root)
         win.grab_set()
 
@@ -1084,24 +1119,23 @@ class GameTimerApp:
         tab_time = tk.Frame(notebook, bg=BG)
         tab_appearance = tk.Frame(notebook, bg=BG)
         tab_genres = tk.Frame(notebook, bg=BG)
-        tab_notes = tk.Frame(notebook, bg=BG)
         notebook.add(tab_general, text=tr("tab_modify_general"))
         notebook.add(tab_time, text=tr("tab_modify_time"))
         notebook.add(tab_appearance, text=tr("tab_modify_appearance"))
         notebook.add(tab_genres, text=tr("tab_modify_genres"))
-        notebook.add(tab_notes, text=tr("tab_modify_notes"))
 
-        # Notes tab is built first so Time tab can keep its Text widget in
-        # sync when Add/Remove Time appends a note line — otherwise saving
-        # Notes afterward in the same session would overwrite that line with
-        # the stale text the Notes tab was first opened with.
-        notes_text_widget = self._build_modify_notes_tab(tab_notes, profile_name)
         self._build_modify_general_tab(tab_general, profile_name, win)
-        self._build_modify_time_tab(tab_time, profile_name, notes_text_widget)
+        self._build_modify_time_tab(tab_time, profile_name)
         self._build_modify_appearance_tab(tab_appearance, profile_name, win)
         self._build_modify_genres_tab(tab_genres, profile_name)
 
-        self._make_button(win, tr("btn_close"), win.destroy, bg=CARD, fg=TEXT).pack(pady=(0, 10))
+        bottom_bar = tk.Frame(win, bg=BG)
+        bottom_bar.pack(side="bottom", fill="x")
+        self._make_button(bottom_bar, tr("btn_close"), win.destroy, bg=CARD, fg=TEXT).pack(
+            side="left", expand=True, fill="x", padx=(10, 0), pady=(0, 10))
+        # The OS window-edge resize handle is razor-thin and easy to miss —
+        # ttk.Sizegrip gives a much bigger, obvious drag target in the corner.
+        ttk.Sizegrip(bottom_bar).pack(side="right", anchor="se", padx=(4, 4), pady=(0, 4))
 
     def _build_modify_general_tab(self, parent, profile_name, win):
         tk.Label(parent, text=tr("dlg_rename_title"), bg=BG, fg=TEXT,
@@ -1121,28 +1155,54 @@ class GameTimerApp:
         self._make_button(parent, tr("ctx_rename"), do_rename, bg=CARD, fg=TEXT).pack(
             anchor="w", padx=16, pady=(0, 20), fill="x")
 
-        tk.Label(parent, text=tr("label_completion_status"), bg=BG, fg=TEXT,
+        tk.Label(parent, text=tr("label_status"), bg=BG, fg=TEXT,
                  font=(FONT_FAMILY_UI, 12, "bold")).pack(anchor="w", padx=16, pady=(0, 6))
-        profile = self.data["profiles"][profile_name]
-        if profile.get("completed"):
-            completed_seconds = profile.get("completed_seconds")
-            stamp = format_seconds(completed_seconds) if completed_seconds is not None else "—"
-            status_text = tr("label_completed_status", date=profile.get("completed_at") or "—", time=stamp)
-            tk.Label(parent, text=status_text, bg=BG, fg=SUBTEXT, font=FONT_SMALL,
-                     wraplength=360, justify="left").pack(anchor="w", padx=16, pady=(0, 10))
 
-            def do_unmark():
-                self._remove_completed()
-                win.destroy()
-                self._open_modify_game()
+        status_row = tk.Frame(parent, bg=BG)
+        status_row.pack(anchor="w", padx=16, fill="x")
+        status_info = tk.Label(parent, text="", bg=BG, fg=SUBTEXT, font=FONT_SMALL,
+                                wraplength=360, justify="left")
 
-            self._make_button(parent, tr("ctx_unmark_completed"), do_unmark, bg=CARD, fg=RED).pack(
-                anchor="w", padx=16, fill="x")
-        else:
-            tk.Label(parent, text=tr("note_not_completed"), bg=BG, fg=SUBTEXT, font=FONT_SMALL,
-                     wraplength=360, justify="left").pack(anchor="w", padx=16)
+        status_options = [
+            ("in_progress", tr("status_in_progress")),
+            ("completed", tr("status_completed")),
+            ("dropped", tr("status_dropped")),
+            ("on_hold", tr("status_on_hold")),
+        ]
+        status_buttons = {}
 
-    def _build_modify_time_tab(self, parent, profile_name, notes_text_widget=None):
+        def refresh_status_ui():
+            profile = self.data["profiles"][profile_name]
+            current = profile.get("status", "in_progress")
+            for key, btn in status_buttons.items():
+                active = key == current
+                bg = self.accent if active else CARD
+                fg = "#1e1e2e" if active else TEXT
+                btn.config(bg=bg, fg=fg, activebackground=bg, activeforeground=fg)
+                self._add_hover(btn, bg)  # re-bind hover targets to the new base color
+            if current != "in_progress" and profile.get("status_at"):
+                status_seconds = profile.get("status_seconds")
+                stamp = format_seconds(status_seconds) if status_seconds is not None else "—"
+                status_info.config(text=tr("label_status_snapshot", date=profile["status_at"], time=stamp))
+                status_info.pack(anchor="w", padx=16, pady=(6, 10))
+            else:
+                status_info.pack_forget()
+
+        def make_setter(key):
+            def setter():
+                self._set_status(key)
+                refresh_status_ui()
+            return setter
+
+        for key, label in status_options:
+            btn = self._make_button(status_row, label, make_setter(key), bg=CARD, fg=TEXT,
+                                     width=8, font=FONT_SMALL)
+            btn.pack(side="left", padx=(0, 4), pady=(0, 2), expand=True, fill="x")
+            status_buttons[key] = btn
+
+        refresh_status_ui()
+
+    def _build_modify_time_tab(self, parent, profile_name):
         tk.Label(parent, text=tr("dlg_add_time_desc"), bg=BG, fg=SUBTEXT, font=FONT_SMALL,
                  wraplength=360, justify="left").pack(padx=16, pady=(18, 14), anchor="w")
 
@@ -1213,12 +1273,6 @@ class GameTimerApp:
                 new_line = f"[{timestamp}] {sign}{hm} — {note}"
                 existing_notes = profile.get("notes", "")
                 profile["notes"] = (existing_notes + "\n" + new_line) if existing_notes else new_line
-                if notes_text_widget is not None:
-                    # Keep the Notes tab's Text widget in sync so saving it
-                    # later in this same session doesn't overwrite this line
-                    # with the stale text it was first opened with.
-                    notes_text_widget.delete("1.0", "end")
-                    notes_text_widget.insert("1.0", profile["notes"])
             self._safe_save()
             write_log_file(self.data)
             if self.selected == profile_name:
@@ -1355,9 +1409,22 @@ class GameTimerApp:
         self._make_button(parent, tr("btn_assign"), assign, bg=self.accent, fg="#1e1e2e").pack(
             fill="x", padx=16, pady=(0, 16))
 
-    def _build_modify_notes_tab(self, parent, profile_name):
-        text_frame = tk.Frame(parent, bg=BG)
-        text_frame.pack(fill="both", expand=True, padx=16, pady=(16, 10))
+    def _open_notes(self):
+        if not self.selected:
+            return
+        profile_name = self.selected
+        win = tk.Toplevel(self.root)
+        win.title(tr("dlg_notes_title", name=profile_name))
+        win.configure(bg=BG)
+        self._center_window(win, 380, 420)
+        win.transient(self.root)
+        win.grab_set()
+
+        tk.Label(win, text=tr("label_notes"), bg=BG, fg=TEXT, font=(FONT_FAMILY_UI, 12, "bold")).pack(
+            anchor="w", padx=16, pady=(16, 6))
+
+        text_frame = tk.Frame(win, bg=BG)
+        text_frame.pack(fill="both", expand=True, padx=16)
         scrollbar = ttk.Scrollbar(text_frame, orient="vertical")
         scrollbar.pack(side="right", fill="y")
         text_widget = tk.Text(text_frame, bg=CARD, fg=TEXT, insertbackground=TEXT, bd=0,
@@ -1367,13 +1434,17 @@ class GameTimerApp:
         scrollbar.config(command=text_widget.yview)
         text_widget.insert("1.0", self.data["profiles"][profile_name].get("notes", ""))
 
-        def save_notes():
+        def save_and_close():
             self.data["profiles"][profile_name]["notes"] = text_widget.get("1.0", "end-1c")
             self._safe_save()
+            win.destroy()
 
-        self._make_button(parent, tr("btn_save"), save_notes, bg=self.accent, fg="#1e1e2e").pack(
-            fill="x", padx=16, pady=(0, 16))
-        return text_widget
+        btn_row = tk.Frame(win, bg=BG)
+        btn_row.pack(fill="x", padx=16, pady=16)
+        self._make_button(btn_row, tr("btn_save"), save_and_close, bg=self.accent, fg="#1e1e2e").pack(
+            side="left", expand=True, fill="x", padx=(0, 4))
+        self._make_button(btn_row, tr("btn_close"), win.destroy, bg=CARD, fg=TEXT).pack(
+            side="left", expand=True, fill="x", padx=(4, 0))
 
     # ---------- Context menu ----------
     def _show_context_menu(self, event):
@@ -1389,6 +1460,7 @@ class GameTimerApp:
             menu.add_command(label=tr("ctx_duplicate"), command=self._duplicate_profile)
             menu.add_command(label=tr("ctx_reset_time"), command=self._reset_time)
             menu.add_command(label=tr("ctx_rate_game"), command=self._open_rate_game)
+            menu.add_command(label=tr("ctx_notes"), command=self._open_notes)
             menu.add_separator()
             menu.add_command(label=tr("ctx_export"), command=self._export_profile)
             menu.add_command(label=tr("ctx_import"), command=self._import_profile)
@@ -1414,7 +1486,7 @@ class GameTimerApp:
             messagebox.showwarning(tr("warn_already_exists_title"), tr("warn_already_exists_msg"))
             return
         self.data["profiles"][name] = {"seconds": 0, "icon_file": None, "bg_color": None, "bg_image": None,
-                                        "completed": False, "completed_at": None, "completed_seconds": None,
+                                        "status": "in_progress", "status_at": None, "status_seconds": None,
                                         "genres": ["Uncategorized"], "last_played": None, "notes": "",
                                         "rating": 0}
         self._safe_save()
@@ -1435,18 +1507,19 @@ class GameTimerApp:
         if new_name in self.data["profiles"]:
             messagebox.showwarning(tr("warn_already_exists_title"), tr("warn_already_exists_msg"))
             return
-        was_running = self.running
-        if was_running:
-            self._pause_current()
-        self.data["profiles"][new_name] = self.data["profiles"].pop(self.selected)
+        old_name = self.selected
+        self.data["profiles"][new_name] = self.data["profiles"].pop(old_name)
+        if old_name in self.active_timers:
+            # Preserve a running timer's live tick_start across the rename
+            # instead of pausing/restarting it, so no progress is lost.
+            self.active_timers[new_name] = self.active_timers.pop(old_name)
         self.selected = new_name
         self.data["last_selected"] = new_name
         self._safe_save()
         write_log_file(self.data)
         self._refresh_profile_list()
         self.canvas.itemconfig(self.title_id, text=new_name)
-        if was_running:
-            self._start_current()
+        self._set_play_button_state()
 
     def _delete_profile(self):
         if not self.selected:
@@ -1454,8 +1527,7 @@ class GameTimerApp:
         if not messagebox.askyesno(tr("confirm_delete_title"),
                                     tr("confirm_delete_msg", name=self.selected)):
             return
-        if self.running:
-            self.running = False
+        self.active_timers.pop(self.selected, None)
         info = self.data["profiles"][self.selected]
         for key, folder in (("icon_file", ICONS_DIR), ("bg_image", BACKGROUNDS_DIR)):
             fname = info.get(key)
@@ -1485,9 +1557,9 @@ class GameTimerApp:
         if not messagebox.askyesno(tr("confirm_reset_time_title"),
                                     tr("confirm_reset_time_msg", name=self.selected)):
             return
-        if self.running:
-            self._pause_current()
         self.data["profiles"][self.selected]["seconds"] = 0
+        if self.selected in self.active_timers:
+            self.active_timers[self.selected] = time.time()
         self._safe_save()
         self._update_timer_display()
 
@@ -1542,53 +1614,45 @@ class GameTimerApp:
         self._make_button(win, tr("btn_save"), save_and_close, bg=self.accent, fg="#1e1e2e").pack(
             fill="x", padx=20, pady=(0, 18))
 
-    def _toggle_complete(self):
-        """The Complete control is a simple on/off switch — flipping it is its
-        own confirmation, the same way a phone settings toggle doesn't ask
-        "are you sure?" before turning on Airplane Mode."""
+    def _set_status(self, status):
+        """status is one of "in_progress", "completed", "dropped", "on_hold".
+        Snapshots the tracked total at the moment of the change (separate from
+        "seconds", which keeps counting if the game is played again) for
+        anything other than "in_progress" — this is how a completion/drop/hold
+        timestamp stays meaningful even after a post-status replay session."""
         if not self.selected:
             return
+        if status != "in_progress" and self.selected in self.active_timers:
+            self._pause_profile(self.selected)
         profile = self.data["profiles"][self.selected]
-        if profile.get("completed"):
-            self._remove_completed()
+        if status == "in_progress":
+            profile["status"] = "in_progress"
+            profile["status_at"] = None
+            profile["status_seconds"] = None
         else:
-            self._mark_completed()
-
-    def _mark_completed(self):
-        if not self.selected:
-            return
-        if self.running:
-            self._pause_current()
-        profile = self.data["profiles"][self.selected]
-        profile["completed"] = True
-        profile["completed_at"] = time.strftime("%Y-%m-%d")
-        # Snapshot the tracked total at the moment of completion, separate from
-        # "seconds" which keeps counting if the game is played after this point —
-        # this is how a completion time stays meaningful even after a post-game
-        # replay session.
-        profile["completed_seconds"] = profile.get("seconds", 0)
+            profile["status"] = status
+            profile["status_at"] = time.strftime("%Y-%m-%d")
+            profile["status_seconds"] = profile.get("seconds", 0)
         self._safe_save()
         write_log_file(self.data)
         self._refresh_data_tab()
+        self._refresh_profile_list()
         self._update_complete_toggle_visual()
 
-    def _remove_completed(self):
+    def _toggle_complete(self):
+        """The Complete toggle is a simple on/off switch for the "completed"
+        status specifically — flipping it is its own confirmation, the same
+        way a phone settings toggle doesn't ask "are you sure?" before turning
+        on Airplane Mode."""
         if not self.selected:
             return
-        profile = self.data["profiles"][self.selected]
-        profile["completed"] = False
-        profile["completed_at"] = None
-        profile["completed_seconds"] = None
-        self._safe_save()
-        write_log_file(self.data)
-        self._refresh_data_tab()
-        self._update_complete_toggle_visual()
+        status = self.data["profiles"][self.selected].get("status", "in_progress")
+        self._set_status("in_progress" if status == "completed" else "completed")
 
     def _duplicate_profile(self):
         if not self.selected:
             return
-        if self.running:
-            self._pause_current()  # commit elapsed time before the copy is taken
+        self._checkpoint_one(self.selected)  # copy reflects the live count, original keeps running
         original = self.data["profiles"][self.selected]
         base_name = self.selected
         copy_word = tr("label_copy")
@@ -1627,9 +1691,9 @@ class GameTimerApp:
             "icon_file": new_icon_file,
             "bg_color": original.get("bg_color") if not new_bg_image else None,
             "bg_image": new_bg_image,
-            "completed": original.get("completed", False),
-            "completed_at": original.get("completed_at"),
-            "completed_seconds": original.get("completed_seconds"),
+            "status": original.get("status", "in_progress"),
+            "status_at": original.get("status_at"),
+            "status_seconds": original.get("status_seconds"),
             "genres": list(original.get("genres", ["Uncategorized"])),
             "last_played": original.get("last_played"),
             "notes": original.get("notes", ""),
@@ -1677,15 +1741,14 @@ class GameTimerApp:
     def _export_profile(self):
         if not self.selected:
             return
-        if self.running:
-            self._checkpoint()  # make sure "seconds" reflects the live session, not a stale value
+        self._checkpoint_one(self.selected)  # make sure "seconds" reflects the live session, not a stale value
         profile = self.data["profiles"][self.selected]
         export = {
             "name": self.selected,
             "seconds": profile.get("seconds", 0),
-            "completed": profile.get("completed", False),
-            "completed_at": profile.get("completed_at"),
-            "completed_seconds": profile.get("completed_seconds"),
+            "status": profile.get("status", "in_progress"),
+            "status_at": profile.get("status_at"),
+            "status_seconds": profile.get("status_seconds"),
             "genres": profile.get("genres", ["Uncategorized"]),
             "last_played": profile.get("last_played"),
             "notes": profile.get("notes", ""),
@@ -1777,9 +1840,9 @@ class GameTimerApp:
             "seconds": imported.get("seconds", 0), "icon_file": icon_file,
             "bg_color": imported.get("bg_color") if not bg_image_file else None,
             "bg_image": bg_image_file,
-            "completed": imported.get("completed", False),
-            "completed_at": imported.get("completed_at"),
-            "completed_seconds": imported.get("completed_seconds"),
+            "status": imported.get("status", "in_progress"),
+            "status_at": imported.get("status_at"),
+            "status_seconds": imported.get("status_seconds"),
             "genres": imported.get("genres") or ["Uncategorized"],
             "last_played": imported.get("last_played"),
             "notes": imported.get("notes", ""),
@@ -1792,52 +1855,86 @@ class GameTimerApp:
         messagebox.showinfo(tr("info_imported_title"), tr("info_imported_msg", name=name))
 
     # ---------- Timer logic ----------
+    # Any number of profiles can be actively running at once — self.active_timers
+    # maps profile_name -> tick_start (time.time() when Play was pressed), and a
+    # profile only appears in it while it's ticking. Selecting a different game
+    # never touches other profiles' entries, so switching the visible timer no
+    # longer pauses whatever else is running in the background.
     def _toggle_play(self):
         if not self.selected:
             return
-        if self.running:
-            self._pause_current()
+        if self.selected in self.active_timers:
+            self._pause_profile(self.selected)
         else:
-            self._start_current()
+            self._start_profile(self.selected)
 
-    def _start_current(self):
-        self.running = True
-        self.tick_start = time.time()
-        self.last_autosave = time.time()
-        if self.selected:
-            self.data["profiles"][self.selected]["last_played"] = time.time()
-        self._set_play_button_state()
+    def _start_profile(self, name):
+        if name not in self.data["profiles"]:
+            return
+        profile = self.data["profiles"][name]
+        if profile.get("status") in ("dropped", "on_hold"):
+            # Pressing Play is the natural "I'm actually playing this again"
+            # signal — Completed survives replay (see _mark_completed's
+            # comment), but a stale Dropped/On Hold label doesn't.
+            profile["status"] = "in_progress"
+            profile["status_at"] = None
+            profile["status_seconds"] = None
+        self.active_timers[name] = time.time()
+        profile["last_played"] = time.time()
+        self._safe_save()
+        if name == self.selected:
+            self._set_play_button_state()
+        self._refresh_profile_list()
 
-    def _pause_current(self):
-        if self.running and self.tick_start is not None:
+    def _pause_profile(self, name):
+        tick_start = self.active_timers.pop(name, None)
+        if tick_start is not None:
             try:
-                elapsed = time.time() - self.tick_start
-                if self.selected in self.data["profiles"]:
-                    self.data["profiles"][self.selected]["seconds"] += elapsed
+                elapsed = time.time() - tick_start
+                if name in self.data["profiles"]:
+                    self.data["profiles"][name]["seconds"] += elapsed
                 save_data(self.data)
                 write_log_file(self.data)
             except Exception:
                 pass  # never let a save/log failure block pausing or closing
-        self.running = False
-        self.tick_start = None
-        self._set_play_button_state()
-        self._update_timer_display()
+        if name == self.selected:
+            self._set_play_button_state()
+            self._update_timer_display()
+        self._refresh_profile_list()
 
-    def _checkpoint(self):
-        if self.running and self.tick_start is not None and self.selected:
-            now = time.time()
-            elapsed = now - self.tick_start
+    def _checkpoint_all(self):
+        """Periodic autosave for every concurrently running timer, without
+        stopping any of them — called from the tick loop."""
+        now = time.time()
+        touched = False
+        for name in list(self.active_timers.keys()):
+            if name not in self.data["profiles"]:
+                del self.active_timers[name]
+                continue
+            elapsed = now - self.active_timers[name]
+            self.data["profiles"][name]["seconds"] += elapsed
+            self.active_timers[name] = now
+            touched = True
+        if touched:
             try:
-                if self.selected in self.data["profiles"]:
-                    self.data["profiles"][self.selected]["seconds"] += elapsed
                 save_data(self.data)
             except Exception:
                 pass
-            self.tick_start = now
-            self.last_autosave = now
+
+    def _checkpoint_one(self, name):
+        """Commits a running profile's elapsed time so far without stopping
+        it — used before reading "seconds" for Duplicate/Export so the copy
+        reflects the live count instead of a stale pre-session value."""
+        if name in self.active_timers:
+            now = time.time()
+            elapsed = now - self.active_timers[name]
+            if name in self.data["profiles"]:
+                self.data["profiles"][name]["seconds"] += elapsed
+            self.active_timers[name] = now
 
     def _set_play_button_state(self):
-        if self.running:
+        running = bool(self.selected and self.selected in self.active_timers)
+        if running:
             self.play_button.config(text=tr("btn_pause"), bg=RED, activebackground=RED)
             self._add_hover(self.play_button, RED)
             self.canvas.itemconfig(self.status_id, text=tr("status_tracking"), fill=GREEN)
@@ -1851,8 +1948,8 @@ class GameTimerApp:
         if not self.selected:
             return 0
         base = self.data["profiles"][self.selected]["seconds"]
-        if self.running and self.tick_start is not None:
-            base += time.time() - self.tick_start
+        if self.selected in self.active_timers:
+            base += time.time() - self.active_timers[self.selected]
         return base
 
     def _update_timer_display(self):
@@ -1861,10 +1958,10 @@ class GameTimerApp:
     def _tick(self):
         if self.selected:
             self._update_timer_display()
-        if self.running and self.last_autosave is not None:
-            if time.time() - self.last_autosave >= self.autosave_interval:
-                self._checkpoint()
-        if self.running and time.time() - self.last_log_write >= self.log_interval:
+        if self.active_timers and time.time() - self.last_autosave >= self.autosave_interval:
+            self._checkpoint_all()
+            self.last_autosave = time.time()
+        if self.active_timers and time.time() - self.last_log_write >= self.log_interval:
             write_log_file(self.data)
             self.last_log_write = time.time()
         today = time.strftime("%Y-%m-%d")
@@ -1879,7 +1976,7 @@ class GameTimerApp:
         win.title(tr("settings_title"))
         win.configure(bg=BG)
         self._center_window(win, 460, 560)
-        win.resizable(False, False)
+        win.minsize(440, 480)
         win.transient(self.root)
         win.grab_set()
 
@@ -2057,7 +2154,11 @@ class GameTimerApp:
             win.destroy()
             self._apply_appearance_and_rebuild()
 
-        self._make_button(win, tr("btn_save"), save_and_close, bg=self.accent, fg="#1e1e2e").pack(pady=(10, 4))
+        settings_bottom_bar = tk.Frame(win, bg=BG)
+        settings_bottom_bar.pack(side="bottom", fill="x")
+        self._make_button(settings_bottom_bar, tr("btn_save"), save_and_close, bg=self.accent, fg="#1e1e2e").pack(
+            side="left", expand=True, fill="x", padx=(10, 0), pady=(10, 4))
+        ttk.Sizegrip(settings_bottom_bar).pack(side="right", anchor="se", padx=(4, 4), pady=(10, 4))
 
     def _apply_appearance_and_rebuild(self):
         """Re-applies theme/font/accent/icon-size from settings and rebuilds the
@@ -2078,11 +2179,9 @@ class GameTimerApp:
     def _rebuild_ui(self):
         """Tears down and rebuilds the entire window in place — used after an
         appearance change so it applies instantly without a restart. Running
-        timers and current selection are preserved across the rebuild."""
-        was_running = self.running
+        timers live in self.active_timers, not in any widget, so they keep
+        ticking through the rebuild without needing to be paused/restarted."""
         selected_before = self.selected
-        if self.running:
-            self._pause_current()  # commit elapsed time before tearing anything down
 
         for child in self.root.winfo_children():
             child.destroy()
@@ -2094,11 +2193,9 @@ class GameTimerApp:
         if selected_before and selected_before in self.data["profiles"]:
             self._select_profile(selected_before)
         else:
+            self._set_play_button_state()
             self._update_complete_toggle_visual()
             self._render_background()
-
-        if was_running:
-            self._start_current()
 
         self._update_tray_status()
 
@@ -2154,11 +2251,11 @@ class GameTimerApp:
             self._stop_tray()
 
     def _start_tray(self):
-        color = GREEN_RGBA if self.running else RED_RGBA
+        color = GREEN_RGBA if self.active_timers else RED_RGBA
         image = make_tray_image(color)
         menu = pystray.Menu(
             pystray.MenuItem(lambda item: tr("tray_menu_show"), lambda: self.root.after(0, self._show_window), default=True),
-            pystray.MenuItem(lambda item: tr("tray_menu_pause") if self.running else tr("tray_menu_play"),
+            pystray.MenuItem(lambda item: tr("tray_menu_pause") if (self.selected in self.active_timers) else tr("tray_menu_play"),
                               lambda: self.root.after(0, self._toggle_play)),
             pystray.MenuItem(lambda item: tr("tray_quit"), lambda: self.root.after(0, self._quit_app)),
         )
@@ -2175,10 +2272,16 @@ class GameTimerApp:
 
     def _update_tray_status(self):
         if self.tray_icon:
-            color = GREEN_RGBA if self.running else RED_RGBA
+            running_count = len(self.active_timers)
+            color = GREEN_RGBA if running_count else RED_RGBA
             try:
                 self.tray_icon.icon = make_tray_image(color)
-                status = tr("tray_status_tracking") if self.running else tr("tray_status_paused")
+                if running_count > 1:
+                    status = tr("tray_status_tracking_count", count=running_count)
+                elif self.selected in self.active_timers:
+                    status = tr("tray_status_tracking")
+                else:
+                    status = tr("tray_status_paused")
                 self.tray_icon.title = f"Game Timer \u2014 {self.selected or tr('canvas_no_profile_selected')} ({status})"
             except Exception:
                 pass
@@ -2204,8 +2307,8 @@ class GameTimerApp:
         # full, file locked by antivirus, etc.) must never prevent the window
         # from actually closing.
         try:
-            if self.running:
-                self._pause_current()
+            for name in list(self.active_timers.keys()):
+                self._pause_profile(name)
         except Exception:
             pass
         try:

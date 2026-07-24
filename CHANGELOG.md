@@ -2,6 +2,38 @@
 
 All notable changes to Game Timer are documented here.
 
+## v1.6 — 2026-07-24
+
+### Added
+- **Dropped and On Hold statuses.** Completed was previously the only way to
+  mark a game as "not actively playing" — there's now a real 4-state status
+  (Playing / Completed / Dropped / On Hold) with its own snapshot of tracked
+  time and date whenever it changes. Set it from the Modify window's General
+  tab, now a proper status selector instead of the info-only section it used
+  to be. Pressing Play on a Dropped or On Hold game automatically clears the
+  status back to Playing (Completed is the one status that survives replay,
+  unchanged from v1.4/v1.5's design).
+- **Multiple games can run concurrently.** Selecting a different game in the
+  list no longer pauses whatever was already running — any number of timers
+  can tick at once in the background, each saved independently. A running
+  game now shows a ▶ marker and green text in the games list so it's clear
+  which ones are active, even if they're not the one currently selected.
+
+### Changed
+- **Notes moved back to the right-click menu** as its own popup (right-click
+  → Notes), out of the Modify window.
+- **The Complete toggle's label** now sits to the left of the switch instead
+  of stacked above it (matching a real "Setting Name — [toggle]" phone
+  settings row), fixing a legibility complaint with the old layout.
+- **The Modify window is wider by default and has a minimum size** so its 4
+  tab labels (General / Time / Icon & Background / Genres) can't get shrunk
+  into unreadable fragments — this was happening in some languages where the
+  translated labels run longer than English.
+- **Modify and Settings windows gained a visible resize handle** (bottom-right
+  corner) since the actual OS window-edge border is thin and easy to miss.
+
+All of the above is translated across the existing 10 languages.
+
 ## v1.5 — 2026-07-24
 
 ### Changed — right-click menu decluttered into a "Modify" window
