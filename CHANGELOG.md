@@ -2,6 +2,23 @@
 
 All notable changes to Game Timer are documented here.
 
+## v1.4 — 2026-07-24
+
+### Added
+- **Time Completed snapshot.** Marking a game Completed now records the tracked
+  total *at that moment* in a new "Time Completed" column in the Data tab,
+  separate from "Time Played" — which keeps counting if you play the game
+  again afterward (e.g. post-game content, a replay). Re-confirming
+  completion on an already-completed game re-snapshots this timestamp.
+- **Duplicate** (right-click a game) — clones a profile's tracked time,
+  icon, background, genres, notes, and rating into a new entry ("Name
+  (Copy)", numbered on repeat), for tracking separate playthroughs.
+- **Unmark Completed** (right-click a completed game) — clears the
+  completed status and its Time Completed snapshot without touching your
+  tracked play time, in case Complete was pressed by mistake.
+
+All three additions are translated across all 10 languages.
+
 ## v1.3 — 2026-07-24
 
 ### Added

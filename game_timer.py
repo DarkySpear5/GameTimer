@@ -181,6 +181,7 @@ def load_data():
         p.setdefault("bg_image", None)
         p.setdefault("completed", False)
         p.setdefault("completed_at", None)
+        p.setdefault("completed_seconds", None)
         p.setdefault("last_played", None)
         p.setdefault("notes", "")
         p.setdefault("rating", 0)
@@ -217,7 +218,12 @@ def write_log_file(data):
         name_width = max([len(n) for n in data["profiles"]] + [10]) + 2
         for name, info in data["profiles"].items():
             status = "Completed" if info.get("completed") else "In Progress"
-            completed_on = f" ({info['completed_at']})" if info.get("completed_at") else ""
+            if info.get("completed_at"):
+                completed_seconds = info.get("completed_seconds")
+                stamp = f", at {format_seconds(completed_seconds)}" if completed_seconds is not None else ""
+                completed_on = f" ({info['completed_at']}{stamp})"
+            else:
+                completed_on = ""
             genre = ", ".join(info.get("genres", ["Uncategorized"]))
             lines.append(
                 f"  {name.ljust(name_width)} {format_seconds(info.get('seconds', 0)).rjust(14)}  "
@@ -571,21 +577,23 @@ class GameTimerApp:
         table_frame = tk.Frame(parent, bg=BG)
         table_frame.pack(fill="both", expand=True, padx=24, pady=(0, 20))
 
-        columns = ("time", "status", "completed_on", "rating", "genres")
+        columns = ("time", "status", "completed_on", "completed_time", "rating", "genres")
         self.data_tree = ttk.Treeview(table_frame, columns=columns, show="tree headings",
                                        selectmode="browse")
         self.data_tree.heading("#0", text=tr("col_game"))
         self.data_tree.heading("time", text=tr("col_time_played"))
         self.data_tree.heading("status", text=tr("col_status"))
         self.data_tree.heading("completed_on", text=tr("col_completed_on"))
+        self.data_tree.heading("completed_time", text=tr("col_completed_time"))
         self.data_tree.heading("rating", text=tr("col_rating"))
         self.data_tree.heading("genres", text=tr("col_genres"))
-        self.data_tree.column("#0", width=200)
-        self.data_tree.column("time", width=110, anchor="center")
+        self.data_tree.column("#0", width=190)
+        self.data_tree.column("time", width=100, anchor="center")
         self.data_tree.column("status", width=90, anchor="center")
-        self.data_tree.column("completed_on", width=100, anchor="center")
+        self.data_tree.column("completed_on", width=95, anchor="center")
+        self.data_tree.column("completed_time", width=100, anchor="center")
         self.data_tree.column("rating", width=90, anchor="center")
-        self.data_tree.column("genres", width=150, anchor="center")
+        self.data_tree.column("genres", width=140, anchor="center")
 
         vsb = ttk.Scrollbar(table_frame, orient="vertical", command=self.data_tree.yview)
         self.data_tree.configure(yscrollcommand=vsb.set)
@@ -608,7 +616,7 @@ class GameTimerApp:
 
         tk.Label(inner, text="Game Timer", bg=BG, fg=TEXT,
                  font=(FONT_FAMILY_UI, 20, "bold")).pack(anchor="w", padx=24, pady=(24, 2))
-        tk.Label(inner, text=f"v1.3 — {tr('about_tagline')}",
+        tk.Label(inner, text=f"v1.4 — {tr('about_tagline')}",
                  bg=BG, fg=SUBTEXT, font=FONT_MAIN).pack(anchor="w", padx=24, pady=(0, 20))
 
         tk.Label(inner, text=tr("about_built_with"), bg=BG, fg=TEXT,
@@ -681,6 +689,8 @@ class GameTimerApp:
         for i, (name, info) in enumerate(self._get_sorted_profiles_all()):
             status = tr("status_completed") if info.get("completed") else tr("status_in_progress")
             completed_on = info.get("completed_at") or "\u2014"
+            completed_seconds = info.get("completed_seconds")
+            completed_time = format_seconds(completed_seconds) if completed_seconds is not None else "\u2014"
             row_tag = "rowA" if i % 2 == 0 else "rowB"
 
             icon_file = info.get("icon_file")
@@ -692,7 +702,7 @@ class GameTimerApp:
 
             kwargs = dict(
                 text=" " + name,
-                values=(format_seconds(info.get("seconds", 0)), status, completed_on,
+                values=(format_seconds(info.get("seconds", 0)), status, completed_on, completed_time,
                         self._rating_stars(info.get("rating", 0)) or "—",
                         ", ".join(tr_genre(g) for g in info.get("genres", ["Uncategorized"]))),
                 tags=(row_tag,),
@@ -1050,6 +1060,7 @@ class GameTimerApp:
             self.tree.selection_set(iid)
             self._select_profile(iid)
             menu.add_command(label=tr("ctx_rename"), command=self._rename_profile)
+            menu.add_command(label=tr("ctx_duplicate"), command=self._duplicate_profile)
             menu.add_command(label=tr("ctx_reset_time"), command=self._reset_time)
             menu.add_command(label=tr("ctx_add_time"), command=self._open_add_time)
             menu.add_command(label=tr("ctx_rate_game"), command=self._open_rate_game)
@@ -1060,6 +1071,9 @@ class GameTimerApp:
             menu.add_separator()
             menu.add_command(label=tr("ctx_export"), command=self._export_profile)
             menu.add_command(label=tr("ctx_import"), command=self._import_profile)
+            if self.data["profiles"][iid].get("completed"):
+                menu.add_separator()
+                menu.add_command(label=tr("ctx_unmark_completed"), command=self._remove_completed)
             menu.add_separator()
             menu.add_command(label=tr("ctx_delete"), command=self._delete_profile)
         else:
@@ -1082,7 +1096,7 @@ class GameTimerApp:
             messagebox.showwarning(tr("warn_already_exists_title"), tr("warn_already_exists_msg"))
             return
         self.data["profiles"][name] = {"seconds": 0, "icon_file": None, "bg_color": None, "bg_image": None,
-                                        "completed": False, "completed_at": None,
+                                        "completed": False, "completed_at": None, "completed_seconds": None,
                                         "genres": ["Uncategorized"], "last_played": None, "notes": "",
                                         "rating": 0}
         self._safe_save()
@@ -1353,10 +1367,85 @@ class GameTimerApp:
             return
         profile["completed"] = True
         profile["completed_at"] = time.strftime("%Y-%m-%d")
+        # Snapshot the tracked total at the moment of completion, separate from
+        # "seconds" which keeps counting if the game is played after this point —
+        # this is how a completion time stays meaningful even after a post-game
+        # replay session.
+        profile["completed_seconds"] = profile.get("seconds", 0)
         self._safe_save()
         write_log_file(self.data)
         self._refresh_data_tab()
         messagebox.showinfo(tr("info_nice_work_title"), tr("info_nice_work_msg", name=self.selected))
+
+    def _remove_completed(self):
+        if not self.selected:
+            return
+        if not messagebox.askyesno(tr("confirm_unmark_completed_title"),
+                                    tr("confirm_unmark_completed_msg", name=self.selected)):
+            return
+        profile = self.data["profiles"][self.selected]
+        profile["completed"] = False
+        profile["completed_at"] = None
+        profile["completed_seconds"] = None
+        self._safe_save()
+        write_log_file(self.data)
+        self._refresh_data_tab()
+
+    def _duplicate_profile(self):
+        if not self.selected:
+            return
+        if self.running:
+            self._pause_current()  # commit elapsed time before the copy is taken
+        original = self.data["profiles"][self.selected]
+        base_name = self.selected
+        copy_word = tr("label_copy")
+        new_name = f"{base_name} ({copy_word})"
+        counter = 2
+        while new_name in self.data["profiles"]:
+            new_name = f"{base_name} ({copy_word} {counter})"
+            counter += 1
+
+        new_icon_file = None
+        old_icon = original.get("icon_file")
+        if old_icon:
+            old_path = os.path.join(ICONS_DIR, old_icon)
+            if os.path.exists(old_path):
+                ext = os.path.splitext(old_icon)[1]
+                new_icon_file = f"{uuid.uuid4().hex}{ext}"
+                try:
+                    shutil.copy(old_path, os.path.join(ICONS_DIR, new_icon_file))
+                except Exception:
+                    new_icon_file = None
+
+        new_bg_image = None
+        old_bg = original.get("bg_image")
+        if old_bg:
+            old_path = os.path.join(BACKGROUNDS_DIR, old_bg)
+            if os.path.exists(old_path):
+                ext = os.path.splitext(old_bg)[1]
+                new_bg_image = f"{uuid.uuid4().hex}{ext}"
+                try:
+                    shutil.copy(old_path, os.path.join(BACKGROUNDS_DIR, new_bg_image))
+                except Exception:
+                    new_bg_image = None
+
+        self.data["profiles"][new_name] = {
+            "seconds": original.get("seconds", 0),
+            "icon_file": new_icon_file,
+            "bg_color": original.get("bg_color") if not new_bg_image else None,
+            "bg_image": new_bg_image,
+            "completed": original.get("completed", False),
+            "completed_at": original.get("completed_at"),
+            "completed_seconds": original.get("completed_seconds"),
+            "genres": list(original.get("genres", ["Uncategorized"])),
+            "last_played": original.get("last_played"),
+            "notes": original.get("notes", ""),
+            "rating": original.get("rating", 0),
+        }
+        self._safe_save()
+        write_log_file(self.data)
+        self._refresh_profile_list()
+        self._select_profile(new_name)
 
     def _set_profile_icon(self):
         if not self.selected:
@@ -1471,6 +1560,7 @@ class GameTimerApp:
             "seconds": profile.get("seconds", 0),
             "completed": profile.get("completed", False),
             "completed_at": profile.get("completed_at"),
+            "completed_seconds": profile.get("completed_seconds"),
             "genres": profile.get("genres", ["Uncategorized"]),
             "last_played": profile.get("last_played"),
             "notes": profile.get("notes", ""),
@@ -1564,6 +1654,7 @@ class GameTimerApp:
             "bg_image": bg_image_file,
             "completed": imported.get("completed", False),
             "completed_at": imported.get("completed_at"),
+            "completed_seconds": imported.get("completed_seconds"),
             "genres": imported.get("genres") or ["Uncategorized"],
             "last_played": imported.get("last_played"),
             "notes": imported.get("notes", ""),
