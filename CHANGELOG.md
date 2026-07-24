@@ -2,6 +2,21 @@
 
 All notable changes to Game Timer are documented here.
 
+## v1.2 — 2026-07-24
+
+### Added
+- **10 languages** — English, French, Spanish, Russian, Japanese, Korean, Italian,
+  German, Portuguese (Brazil), and Chinese (Simplified). Switch anytime from the
+  gear icon → Settings → Language; genre names, dialogs, menus, and messages are
+  all translated. Missing translations fall back to English rather than showing
+  a blank label.
+- **Add Play Time** — log time you spent playing elsewhere (another device, a
+  split session) straight from the right-click menu, with an optional note.
+- **Notes** — a per-game notes field (right-click → Notes), so the entries logged
+  by Add Play Time are actually visible and editable afterward.
+- **About tab** now has a GitHub link back to this repo alongside the existing
+  Discord contact.
+
 ## v1.1 — 2026-07-23
 
 ### Fixed

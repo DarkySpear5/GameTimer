@@ -30,7 +30,7 @@
 ; to write there. The suggested default avoids this entirely.
 
 #define MyAppName "Game Timer"
-#define MyAppVersion "1.1"
+#define MyAppVersion "1.2"
 #define MyAppExeName "GameTimer.exe"
 
 [Setup]

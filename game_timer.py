@@ -30,6 +30,11 @@ import base64
 import uuid
 import shutil
 import threading
+import webbrowser
+
+from translations import (
+    GENRE_OPTIONS, LANGUAGE_NAMES, LANGUAGE_ORDER, apply_language_global, tr, tr_genre,
+)
 
 try:
     from PIL import Image, ImageDraw, ImageTk, ImageOps
@@ -84,6 +89,7 @@ def get_app_icon_path():
 
 STARTUP_REG_PATH = r"Software\Microsoft\Windows\CurrentVersion\Run"
 STARTUP_APP_NAME = "GameTimer"
+GITHUB_URL = "https://github.com/DarkySpear5/GameTimer"
 
 # ---------- Theme presets ----------
 # Each preset defines the whole palette. GREEN/RED/GOLD stay constant across
@@ -124,13 +130,6 @@ FONT_TITLE_BASE = 15
 FONT_TIMER_BASE = 42
 
 ICON_SIZE_OPTIONS = {"Small": 24, "Medium": 36, "Large": 52, "Extra Large": 72}
-
-GENRE_OPTIONS = [
-    "Uncategorized", "Action", "Adventure", "RPG", "Strategy", "Simulation",
-    "Sports", "Racing", "Puzzle", "Platformer", "Shooter", "Fighting",
-    "Horror", "Survival", "Open World", "MMO", "Visual Novel", "Rhythm",
-    "Card / Board Game", "Party", "Roguelike", "Other",
-]
 
 
 def apply_theme_globals(theme_dict):
@@ -175,6 +174,7 @@ def load_data():
     data["settings"].setdefault("font_family", "Segoe UI")
     data["settings"].setdefault("sort_mode", "name")
     data["settings"].setdefault("genre_filter", "All")
+    data["settings"].setdefault("language", "en")
     for p in data["profiles"].values():
         p.setdefault("icon_file", None)
         p.setdefault("bg_color", None)
@@ -182,6 +182,7 @@ def load_data():
         p.setdefault("completed", False)
         p.setdefault("completed_at", None)
         p.setdefault("last_played", None)
+        p.setdefault("notes", "")
         if "genres" not in p:
             old_genre = p.pop("genre", None)
             p["genres"] = [old_genre] if old_genre else ["Uncategorized"]
@@ -319,6 +320,7 @@ class GameTimerApp:
         else:
             apply_theme_globals(THEMES.get(theme_name, THEMES["Midnight Blue"]))
         apply_font_globals(self.data["settings"].get("font_family", "Segoe UI"))
+        apply_language_global(self.data["settings"].get("language", "en"))
 
         self.accent = self.data["settings"].get("accent", ACCENT_DEFAULT)
         self.icon_size = self.data["settings"].get("icon_size", 36)
@@ -421,9 +423,9 @@ class GameTimerApp:
         timer_tab = tk.Frame(self.main_notebook, bg=BG)
         data_tab = tk.Frame(self.main_notebook, bg=BG)
         about_tab = tk.Frame(self.main_notebook, bg=BG)
-        self.main_notebook.add(timer_tab, text="Game Timer")
-        self.main_notebook.add(data_tab, text="Data")
-        self.main_notebook.add(about_tab, text="About")
+        self.main_notebook.add(timer_tab, text=tr("tab_game_timer"))
+        self.main_notebook.add(data_tab, text=tr("tab_data"))
+        self.main_notebook.add(about_tab, text=tr("tab_about"))
         self.main_notebook.bind("<<NotebookTabChanged>>", self._on_main_tab_changed)
 
         body = timer_tab
@@ -437,25 +439,25 @@ class GameTimerApp:
         # always reserve their space, no matter how short the window gets.
         # The scrollable game list is packed last and simply fills whatever
         # vertical space remains — it never pushes the button off-screen.
-        hint_label = tk.Label(left, text="Right-click a game for more options",
+        hint_label = tk.Label(left, text=tr("hint_right_click"),
                                bg=PANEL, fg=SUBTEXT, font=FONT_SMALL, wraplength=200)
         hint_label.pack(side="bottom", padx=12, pady=(0, 10))
 
         btn_frame = tk.Frame(left, bg=PANEL)
         btn_frame.pack(side="bottom", fill="x", padx=10, pady=10)
-        self._make_button(btn_frame, "+ Add Game", self._new_profile,
+        self._make_button(btn_frame, tr("btn_add_game"), self._new_profile,
                            bg=self.accent, fg="#1e1e2e").pack(fill="x", pady=2)
 
         top_row = tk.Frame(left, bg=PANEL)
         top_row.pack(side="top", fill="x", padx=16, pady=(16, 4))
-        tk.Label(top_row, text="GAMES", bg=PANEL, fg=SUBTEXT,
+        tk.Label(top_row, text=tr("label_games"), bg=PANEL, fg=SUBTEXT,
                  font=FONT_SMALL).pack(side="left")
 
         sort_filter_row = tk.Frame(left, bg=PANEL)
         sort_filter_row.pack(side="top", fill="x", padx=10, pady=(0, 6))
-        self._make_button(sort_filter_row, "Sort \u25be", self._open_sort_menu, bg=CARD, fg=TEXT,
+        self._make_button(sort_filter_row, tr("btn_sort"), self._open_sort_menu, bg=CARD, fg=TEXT,
                            width=9, font=FONT_SMALL).pack(side="left", expand=True, fill="x", padx=(0, 3))
-        self._make_button(sort_filter_row, "Filter \u25be", self._open_filter_menu, bg=CARD, fg=TEXT,
+        self._make_button(sort_filter_row, tr("btn_filter"), self._open_filter_menu, bg=CARD, fg=TEXT,
                            width=9, font=FONT_SMALL).pack(side="left", expand=True, fill="x", padx=(3, 0))
 
         list_frame = tk.Frame(left, bg=PANEL)
@@ -482,7 +484,7 @@ class GameTimerApp:
         self.canvas.pack(fill="both", expand=True)
 
         self.title_id = self.canvas.create_text(
-            0, 0, text="No profile selected", fill=TEXT,
+            0, 0, text=tr("canvas_no_profile_selected"), fill=TEXT,
             font=(FONT_FAMILY_UI, FONT_TITLE_BASE, "bold"), anchor="center"
         )
         self.status_id = self.canvas.create_text(
@@ -494,12 +496,12 @@ class GameTimerApp:
         )
 
         self.play_button = tk.Button(
-            self.canvas, text="\u25b6  Play", command=self._toggle_play, bg=GREEN, fg="#1e1e2e",
+            self.canvas, text=tr("btn_play"), command=self._toggle_play, bg=GREEN, fg="#1e1e2e",
             activebackground=GREEN, activeforeground="#1e1e2e", bd=0, relief="flat",
             highlightthickness=0, font=(FONT_FAMILY_UI, 13, "bold"), width=12, padx=6, pady=8, cursor="hand2"
         )
         self.complete_button = tk.Button(
-            self.canvas, text="\u2713 Complete", command=self._complete_profile, bg=GOLD, fg="#1e1e2e",
+            self.canvas, text=tr("btn_complete"), command=self._complete_profile, bg=GOLD, fg="#1e1e2e",
             activebackground=GOLD, activeforeground="#1e1e2e", bd=0, relief="flat",
             highlightthickness=0, font=FONT_MAIN, width=11, padx=6, pady=8, cursor="hand2"
         )
@@ -509,7 +511,7 @@ class GameTimerApp:
         self.reset_window_id = self.canvas.create_window(0, 0, window=self.complete_button)
 
         self.hint_id = self.canvas.create_text(
-            0, 0, text="Right-click a game in the list for more options",
+            0, 0, text=tr("hint_canvas"),
             fill=SUBTEXT, font=FONT_SMALL, anchor="center"
         )
 
@@ -547,20 +549,20 @@ class GameTimerApp:
         ])
 
     def _on_main_tab_changed(self, event=None):
-        tab_text = self.main_notebook.tab(self.main_notebook.select(), "text")
-        if tab_text == "Data":
+        idx = self.main_notebook.index(self.main_notebook.select())
+        if idx == 1:  # Data tab
             self._refresh_data_tab()
 
     def _build_data_tab(self, parent):
-        tk.Label(parent, text="Your Stats", bg=BG, fg=TEXT,
+        tk.Label(parent, text=tr("stats_title"), bg=BG, fg=TEXT,
                  font=(FONT_FAMILY_UI, 18, "bold")).pack(anchor="w", padx=24, pady=(22, 12))
 
         stats_row = tk.Frame(parent, bg=BG)
         stats_row.pack(fill="x", padx=24, pady=(0, 18))
 
-        self.stat_total_time_label = self._make_stat_card(stats_row, "Total Time Played", "00:00:00")
-        self.stat_games_tracked_label = self._make_stat_card(stats_row, "Games Tracked", "0")
-        self.stat_completed_label = self._make_stat_card(stats_row, "Games Completed", "0")
+        self.stat_total_time_label = self._make_stat_card(stats_row, tr("stat_total_time"), "00:00:00")
+        self.stat_games_tracked_label = self._make_stat_card(stats_row, tr("stat_games_tracked"), "0")
+        self.stat_completed_label = self._make_stat_card(stats_row, tr("stat_games_completed"), "0")
 
         table_frame = tk.Frame(parent, bg=BG)
         table_frame.pack(fill="both", expand=True, padx=24, pady=(0, 20))
@@ -568,11 +570,11 @@ class GameTimerApp:
         columns = ("time", "status", "completed_on", "genres")
         self.data_tree = ttk.Treeview(table_frame, columns=columns, show="tree headings",
                                        selectmode="browse")
-        self.data_tree.heading("#0", text="Game")
-        self.data_tree.heading("time", text="Time Played")
-        self.data_tree.heading("status", text="Status")
-        self.data_tree.heading("completed_on", text="Completed On")
-        self.data_tree.heading("genres", text="Genres")
+        self.data_tree.heading("#0", text=tr("col_game"))
+        self.data_tree.heading("time", text=tr("col_time_played"))
+        self.data_tree.heading("status", text=tr("col_status"))
+        self.data_tree.heading("completed_on", text=tr("col_completed_on"))
+        self.data_tree.heading("genres", text=tr("col_genres"))
         self.data_tree.column("#0", width=220)
         self.data_tree.column("time", width=120, anchor="center")
         self.data_tree.column("status", width=100, anchor="center")
@@ -600,19 +602,19 @@ class GameTimerApp:
 
         tk.Label(inner, text="Game Timer", bg=BG, fg=TEXT,
                  font=(FONT_FAMILY_UI, 20, "bold")).pack(anchor="w", padx=24, pady=(24, 2))
-        tk.Label(inner, text="v1.1 — a small, offline, manual play/pause game time tracker.",
+        tk.Label(inner, text=f"v1.2 — {tr('about_tagline')}",
                  bg=BG, fg=SUBTEXT, font=FONT_MAIN).pack(anchor="w", padx=24, pady=(0, 20))
 
-        tk.Label(inner, text="Built With", bg=BG, fg=TEXT,
+        tk.Label(inner, text=tr("about_built_with"), bg=BG, fg=TEXT,
                  font=(FONT_FAMILY_UI, 13, "bold")).pack(anchor="w", padx=24, pady=(0, 8))
 
         third_party = [
-            ("Python", "The language this app is written in.", "Python Software Foundation License"),
-            ("Tkinter", "The UI toolkit used for every window and widget.", "Bundled with Python, same license"),
-            ("Pillow (PIL)", "Loads and resizes profile icons and backgrounds.", "HPND License"),
-            ("pystray", "Powers the system tray icon and status dot.", "LGPL v3"),
-            ("PyInstaller", "Packages this app into a standalone .exe.", "GPL-licensed bootloader; doesn't license your own script"),
-            ("Inno Setup", "Builds the Windows installer.", "Free for any use, including commercial"),
+            ("Python", tr("about_lib_python_desc"), tr("about_lic_psf")),
+            ("Tkinter", tr("about_lib_tkinter_desc"), tr("about_lic_bundled")),
+            ("Pillow (PIL)", tr("about_lib_pillow_desc"), tr("about_lic_hpnd")),
+            ("pystray", tr("about_lib_pystray_desc"), tr("about_lic_lgpl")),
+            ("PyInstaller", tr("about_lib_pyinstaller_desc"), tr("about_lic_gpl_bootloader")),
+            ("Inno Setup", tr("about_lib_innosetup_desc"), tr("about_lic_free_commercial")),
         ]
         for lib_name, desc, license_note in third_party:
             card = tk.Frame(inner, bg=CARD)
@@ -624,19 +626,27 @@ class GameTimerApp:
             tk.Label(card, text=license_note, bg=CARD, fg=SUBTEXT, font=FONT_SMALL,
                      wraplength=480, justify="left").pack(anchor="w", padx=14, pady=(2, 10))
 
-        tk.Label(inner, text="License details are as commonly published by each project; check their "
-                              "official pages for the full, current text.",
+        tk.Label(inner, text=tr("about_license_disclaimer"),
                  bg=BG, fg=SUBTEXT, font=FONT_SMALL, wraplength=520, justify="left").pack(
             anchor="w", padx=24, pady=(8, 20))
 
-        tk.Label(inner, text="Contact", bg=BG, fg=TEXT,
+        tk.Label(inner, text=tr("about_contact_header"), bg=BG, fg=TEXT,
                  font=(FONT_FAMILY_UI, 13, "bold")).pack(anchor="w", padx=24, pady=(0, 8))
         contact_card = tk.Frame(inner, bg=CARD)
-        contact_card.pack(fill="x", padx=24, pady=(0, 30))
-        tk.Label(contact_card, text="Discord", bg=CARD, fg=self.accent,
+        contact_card.pack(fill="x", padx=24, pady=(0, 12))
+        tk.Label(contact_card, text=tr("about_contact_discord_label"), bg=CARD, fg=self.accent,
                  font=(FONT_FAMILY_UI, 11, "bold")).pack(anchor="w", padx=14, pady=(10, 0))
         tk.Label(contact_card, text="rawwwwwrr", bg=CARD, fg=TEXT, font=FONT_MAIN).pack(
             anchor="w", padx=14, pady=(2, 12))
+
+        github_card = tk.Frame(inner, bg=CARD)
+        github_card.pack(fill="x", padx=24, pady=(0, 30))
+        tk.Label(github_card, text=tr("about_contact_github_label"), bg=CARD, fg=self.accent,
+                 font=(FONT_FAMILY_UI, 11, "bold")).pack(anchor="w", padx=14, pady=(10, 0))
+        github_link = tk.Label(github_card, text=tr("about_github_link_text"), bg=CARD, fg=self.accent,
+                                font=(FONT_FAMILY_UI, 11, "underline"), cursor="hand2")
+        github_link.pack(anchor="w", padx=14, pady=(2, 12))
+        github_link.bind("<Button-1>", lambda e: webbrowser.open(GITHUB_URL))
 
     def _make_stat_card(self, parent, label, value):
         card = tk.Frame(parent, bg=CARD)
@@ -663,7 +673,7 @@ class GameTimerApp:
         self.data_tree.delete(*self.data_tree.get_children())
         self.data_thumb_refs = {}
         for i, (name, info) in enumerate(self._get_sorted_profiles_all()):
-            status = "Completed" if info.get("completed") else "In Progress"
+            status = tr("status_completed") if info.get("completed") else tr("status_in_progress")
             completed_on = info.get("completed_at") or "\u2014"
             row_tag = "rowA" if i % 2 == 0 else "rowB"
 
@@ -677,7 +687,7 @@ class GameTimerApp:
             kwargs = dict(
                 text=" " + name,
                 values=(format_seconds(info.get("seconds", 0)), status, completed_on,
-                        ", ".join(info.get("genres", ["Uncategorized"]))),
+                        ", ".join(tr_genre(g) for g in info.get("genres", ["Uncategorized"]))),
                 tags=(row_tag,),
             )
             if img:
@@ -701,16 +711,7 @@ class GameTimerApp:
             save_data(self.data)
             return True
         except Exception as e:
-            messagebox.showerror(
-                "Couldn't save",
-                "Game Timer couldn't save your data.\n\n"
-                f"Reason: {e}\n\n"
-                "This usually means the folder it's installed in isn't writable "
-                "by your account — most commonly because it's installed inside "
-                "Program Files. Try reinstalling to a normal user folder (the "
-                "installer's suggested default, or somewhere like Documents), "
-                "or run Game Timer as Administrator."
-            )
+            messagebox.showerror(tr("err_cant_save_title"), tr("err_cant_save_msg", reason=str(e)))
             return False
 
     @staticmethod
@@ -865,9 +866,9 @@ class GameTimerApp:
         items = self._get_sorted_filtered_profiles()
         if not items:
             if self.data["profiles"]:
-                msg = f"No games match genre '{self.genre_filter}'"
+                msg = tr("empty_genre_filter", genre=tr_genre(self.genre_filter))
             else:
-                msg = "No games yet — click + Add Game"
+                msg = tr("empty_no_games")
             self.tree.insert("", "end", iid="__empty__", text="  " + msg, tags=("empty",))
             self.tree.tag_configure("empty", foreground=SUBTEXT)
             return
@@ -914,8 +915,8 @@ class GameTimerApp:
     def _open_sort_menu(self):
         menu = tk.Menu(self.root, tearoff=0, bg=CARD, fg=TEXT,
                         activebackground=self.accent, activeforeground="#1e1e2e")
-        options = [("name", "Name (A-Z)"), ("last_played", "Last Played (Recent first)"),
-                   ("genre", "Genre (A-Z)")]
+        options = [("name", tr("sort_name_az")), ("last_played", tr("sort_last_played")),
+                   ("genre", tr("sort_genre_az"))]
         for mode, label in options:
             prefix = "\u2713 " if self.sort_mode == mode else "    "
             menu.add_command(label=prefix + label, command=lambda m=mode: self._set_sort_mode(m))
@@ -941,7 +942,8 @@ class GameTimerApp:
         choices = ["All"] + sorted(used_genres)
         for genre in choices:
             prefix = "\u2713 " if self.genre_filter == genre else "    "
-            menu.add_command(label=prefix + genre, command=lambda g=genre: self._set_genre_filter(g))
+            label = tr("filter_all") if genre == "All" else tr_genre(genre)
+            menu.add_command(label=prefix + label, command=lambda g=genre: self._set_genre_filter(g))
         x = self.root.winfo_pointerx()
         y = self.root.winfo_pointery()
         try:
@@ -960,15 +962,15 @@ class GameTimerApp:
             return
         profile_name = self.selected
         win = tk.Toplevel(self.root)
-        win.title("Select Genres")
+        win.title(tr("dlg_select_genres_title"))
         win.configure(bg=BG)
         win.geometry("300x460")
         win.transient(self.root)
         win.grab_set()
 
-        tk.Label(win, text=f"Genres for '{profile_name}'", bg=BG, fg=TEXT,
+        tk.Label(win, text=tr("dlg_genres_for", name=profile_name), bg=BG, fg=TEXT,
                  font=FONT_MAIN, wraplength=260).pack(pady=(16, 2))
-        tk.Label(win, text="Click to select any number of genres.", bg=BG, fg=SUBTEXT,
+        tk.Label(win, text=tr("note_select_genres"), bg=BG, fg=SUBTEXT,
                  font=FONT_SMALL).pack(pady=(0, 10))
 
         list_frame = tk.Frame(win, bg=BG)
@@ -984,20 +986,23 @@ class GameTimerApp:
 
         current_genres = self.data["profiles"][profile_name].get("genres", ["Uncategorized"])
         for i, genre in enumerate(GENRE_OPTIONS):
-            listbox.insert("end", genre)
+            listbox.insert("end", tr_genre(genre))
             if genre in current_genres:
                 listbox.selection_set(i)
 
         def assign_and_close():
             sel = listbox.curselection()
-            genres = [listbox.get(i) for i in sel] or ["Uncategorized"]
+            # Index into the canonical GENRE_OPTIONS rather than reading the
+            # (possibly translated) listbox text, so stored genres always stay
+            # in the English canonical form regardless of display language.
+            genres = [GENRE_OPTIONS[i] for i in sel] or ["Uncategorized"]
             self.data["profiles"][profile_name]["genres"] = genres
             self._safe_save()
             write_log_file(self.data)
             self._refresh_profile_list()
             win.destroy()
 
-        self._make_button(win, "Assign", assign_and_close, bg=self.accent, fg="#1e1e2e").pack(
+        self._make_button(win, tr("btn_assign"), assign_and_close, bg=self.accent, fg="#1e1e2e").pack(
             fill="x", padx=16, pady=(0, 16))
 
     # ---------- Context menu ----------
@@ -1010,19 +1015,21 @@ class GameTimerApp:
         if iid:
             self.tree.selection_set(iid)
             self._select_profile(iid)
-            menu.add_command(label="Rename", command=self._rename_profile)
-            menu.add_command(label="Reset Time", command=self._reset_time)
-            menu.add_command(label="Change Icon", command=self._set_profile_icon)
-            menu.add_command(label="Change Background", command=self._set_profile_background)
-            menu.add_command(label="Select Genres", command=self._open_genre_picker)
+            menu.add_command(label=tr("ctx_rename"), command=self._rename_profile)
+            menu.add_command(label=tr("ctx_reset_time"), command=self._reset_time)
+            menu.add_command(label=tr("ctx_add_time"), command=self._open_add_time)
+            menu.add_command(label=tr("ctx_notes"), command=self._open_notes)
+            menu.add_command(label=tr("ctx_change_icon"), command=self._set_profile_icon)
+            menu.add_command(label=tr("ctx_change_background"), command=self._set_profile_background)
+            menu.add_command(label=tr("ctx_select_genres"), command=self._open_genre_picker)
             menu.add_separator()
-            menu.add_command(label="Export", command=self._export_profile)
-            menu.add_command(label="Import", command=self._import_profile)
+            menu.add_command(label=tr("ctx_export"), command=self._export_profile)
+            menu.add_command(label=tr("ctx_import"), command=self._import_profile)
             menu.add_separator()
-            menu.add_command(label="Delete", command=self._delete_profile)
+            menu.add_command(label=tr("ctx_delete"), command=self._delete_profile)
         else:
-            menu.add_command(label="Add Game", command=self._new_profile)
-            menu.add_command(label="Import", command=self._import_profile)
+            menu.add_command(label=tr("menu_add_game"), command=self._new_profile)
+            menu.add_command(label=tr("ctx_import"), command=self._import_profile)
         try:
             menu.tk_popup(event.x_root, event.y_root)
         finally:
@@ -1030,18 +1037,18 @@ class GameTimerApp:
 
     # ---------- Profile CRUD ----------
     def _new_profile(self):
-        name = simpledialog.askstring("Add Game", "Game name:", parent=self.root)
+        name = simpledialog.askstring(tr("dlg_add_game_title"), tr("dlg_add_game_prompt"), parent=self.root)
         if not name:
             return
         name = name.strip()
         if not name:
             return
         if name in self.data["profiles"]:
-            messagebox.showwarning("Already exists", "A profile with that name already exists.")
+            messagebox.showwarning(tr("warn_already_exists_title"), tr("warn_already_exists_msg"))
             return
         self.data["profiles"][name] = {"seconds": 0, "icon_file": None, "bg_color": None, "bg_image": None,
                                         "completed": False, "completed_at": None,
-                                        "genres": ["Uncategorized"], "last_played": None}
+                                        "genres": ["Uncategorized"], "last_played": None, "notes": ""}
         self._safe_save()
         write_log_file(self.data)
         self._refresh_profile_list()
@@ -1050,7 +1057,7 @@ class GameTimerApp:
     def _rename_profile(self):
         if not self.selected:
             return
-        new_name = simpledialog.askstring("Rename Profile", "New name:",
+        new_name = simpledialog.askstring(tr("dlg_rename_title"), tr("dlg_rename_prompt"),
                                            initialvalue=self.selected, parent=self.root)
         if not new_name:
             return
@@ -1058,7 +1065,7 @@ class GameTimerApp:
         if not new_name or new_name == self.selected:
             return
         if new_name in self.data["profiles"]:
-            messagebox.showwarning("Already exists", "A profile with that name already exists.")
+            messagebox.showwarning(tr("warn_already_exists_title"), tr("warn_already_exists_msg"))
             return
         was_running = self.running
         if was_running:
@@ -1076,8 +1083,8 @@ class GameTimerApp:
     def _delete_profile(self):
         if not self.selected:
             return
-        if not messagebox.askyesno("Delete profile",
-                                    f"Delete '{self.selected}' and its tracked time? This cannot be undone."):
+        if not messagebox.askyesno(tr("confirm_delete_title"),
+                                    tr("confirm_delete_msg", name=self.selected)):
             return
         if self.running:
             self.running = False
@@ -1097,7 +1104,7 @@ class GameTimerApp:
         self._safe_save()
         write_log_file(self.data)
         self._refresh_profile_list()
-        self.canvas.itemconfig(self.title_id, text="No profile selected")
+        self.canvas.itemconfig(self.title_id, text=tr("canvas_no_profile_selected"))
         self.canvas.itemconfig(self.timer_id, text="00:00:00")
         self._set_play_button_state()
         self._render_background()
@@ -1105,13 +1112,125 @@ class GameTimerApp:
     def _reset_time(self):
         if not self.selected:
             return
-        if not messagebox.askyesno("Reset time", f"Reset tracked time for '{self.selected}' to zero?"):
+        if not messagebox.askyesno(tr("confirm_reset_time_title"),
+                                    tr("confirm_reset_time_msg", name=self.selected)):
             return
         if self.running:
             self._pause_current()
         self.data["profiles"][self.selected]["seconds"] = 0
         self._safe_save()
         self._update_timer_display()
+
+    # ---------- Manual time entry ----------
+    def _open_add_time(self):
+        if not self.selected:
+            return
+        profile_name = self.selected
+        win = tk.Toplevel(self.root)
+        win.title(tr("dlg_add_time_title"))
+        win.configure(bg=BG)
+        win.geometry("340x360")
+        win.resizable(False, False)
+        win.transient(self.root)
+        win.grab_set()
+
+        tk.Label(win, text=tr("dlg_add_time_desc"), bg=BG, fg=SUBTEXT, font=FONT_SMALL,
+                 wraplength=300, justify="left").pack(padx=20, pady=(18, 14))
+
+        hours_row = tk.Frame(win, bg=BG)
+        hours_row.pack(padx=20, pady=(0, 10), fill="x")
+        tk.Label(hours_row, text=tr("label_hours"), bg=BG, fg=TEXT, font=FONT_MAIN,
+                 width=8, anchor="w").pack(side="left")
+        hours_var = tk.StringVar(value="0")
+        tk.Entry(hours_row, textvariable=hours_var, bg=CARD, fg=TEXT, insertbackground=TEXT, bd=0,
+                 highlightthickness=1, highlightbackground=CARD, highlightcolor=self.accent,
+                 font=FONT_MAIN, width=6).pack(side="left", ipady=4)
+
+        minutes_row = tk.Frame(win, bg=BG)
+        minutes_row.pack(padx=20, pady=(0, 14), fill="x")
+        tk.Label(minutes_row, text=tr("label_minutes"), bg=BG, fg=TEXT, font=FONT_MAIN,
+                 width=8, anchor="w").pack(side="left")
+        minutes_var = tk.StringVar(value="0")
+        tk.Entry(minutes_row, textvariable=minutes_var, bg=CARD, fg=TEXT, insertbackground=TEXT, bd=0,
+                 highlightthickness=1, highlightbackground=CARD, highlightcolor=self.accent,
+                 font=FONT_MAIN, width=6).pack(side="left", ipady=4)
+
+        tk.Label(win, text=tr("label_note_optional"), bg=BG, fg=TEXT, font=FONT_MAIN).pack(
+            anchor="w", padx=20)
+        note_var = tk.StringVar(value="")
+        tk.Entry(win, textvariable=note_var, bg=CARD, fg=TEXT, insertbackground=TEXT, bd=0,
+                 highlightthickness=1, highlightbackground=CARD, highlightcolor=self.accent,
+                 font=FONT_MAIN).pack(fill="x", padx=20, pady=(4, 2), ipady=4)
+        tk.Label(win, text=tr("hint_note_example"), bg=BG, fg=SUBTEXT, font=FONT_SMALL).pack(
+            anchor="w", padx=20, pady=(0, 14))
+
+        def save_and_close():
+            try:
+                h = int(hours_var.get() or 0)
+                m = int(minutes_var.get() or 0)
+            except ValueError:
+                messagebox.showwarning(tr("dlg_add_time_title"), tr("err_add_time_empty"))
+                return
+            added_seconds = h * 3600 + m * 60
+            if added_seconds <= 0:
+                messagebox.showwarning(tr("dlg_add_time_title"), tr("err_add_time_empty"))
+                return
+            profile = self.data["profiles"][profile_name]
+            profile["seconds"] = profile.get("seconds", 0) + added_seconds
+            profile["last_played"] = time.time()
+            note = note_var.get().strip()
+            if note:
+                timestamp = time.strftime("%Y-%m-%d")
+                hm = f"{h}h {m}m" if h else f"{m}m"
+                new_line = f"[{timestamp}] +{hm} — {note}"
+                existing_notes = profile.get("notes", "")
+                profile["notes"] = (existing_notes + "\n" + new_line) if existing_notes else new_line
+            self._safe_save()
+            write_log_file(self.data)
+            if self.selected == profile_name:
+                self._update_timer_display()
+            self._refresh_profile_list()
+            win.destroy()
+
+        self._make_button(win, tr("btn_save"), save_and_close, bg=self.accent, fg="#1e1e2e").pack(
+            fill="x", padx=20, pady=(0, 18))
+
+    def _open_notes(self):
+        if not self.selected:
+            return
+        profile_name = self.selected
+        win = tk.Toplevel(self.root)
+        win.title(tr("dlg_notes_title", name=profile_name))
+        win.configure(bg=BG)
+        win.geometry("380x420")
+        win.transient(self.root)
+        win.grab_set()
+
+        tk.Label(win, text=tr("label_notes"), bg=BG, fg=TEXT, font=(FONT_FAMILY_UI, 12, "bold")).pack(
+            anchor="w", padx=16, pady=(16, 6))
+
+        text_frame = tk.Frame(win, bg=BG)
+        text_frame.pack(fill="both", expand=True, padx=16)
+        scrollbar = ttk.Scrollbar(text_frame, orient="vertical")
+        scrollbar.pack(side="right", fill="y")
+        text_widget = tk.Text(text_frame, bg=CARD, fg=TEXT, insertbackground=TEXT, bd=0,
+                               highlightthickness=1, highlightbackground=CARD, highlightcolor=self.accent,
+                               font=FONT_MAIN, wrap="word", yscrollcommand=scrollbar.set)
+        text_widget.pack(side="left", fill="both", expand=True)
+        scrollbar.config(command=text_widget.yview)
+        text_widget.insert("1.0", self.data["profiles"][profile_name].get("notes", ""))
+
+        def save_and_close():
+            self.data["profiles"][profile_name]["notes"] = text_widget.get("1.0", "end-1c")
+            self._safe_save()
+            win.destroy()
+
+        btn_row = tk.Frame(win, bg=BG)
+        btn_row.pack(fill="x", padx=16, pady=16)
+        self._make_button(btn_row, tr("btn_save"), save_and_close, bg=self.accent, fg="#1e1e2e").pack(
+            side="left", expand=True, fill="x", padx=(0, 4))
+        self._make_button(btn_row, tr("btn_close"), win.destroy, bg=CARD, fg=TEXT).pack(
+            side="left", expand=True, fill="x", padx=(4, 0))
 
     def _complete_profile(self):
         if not self.selected:
@@ -1121,27 +1240,26 @@ class GameTimerApp:
         profile = self.data["profiles"][self.selected]
         already = profile.get("completed", False)
         if already:
-            prompt = f"'{self.selected}' is already marked completed.\nUpdate the completion date to today?"
+            prompt = tr("confirm_already_completed_msg", name=self.selected)
         else:
-            prompt = f"Mark '{self.selected}' as completed?\nThe timer will stop and this will show up in the Data tab."
-        if not messagebox.askyesno("Mark as Completed", prompt):
+            prompt = tr("confirm_complete_msg", name=self.selected)
+        if not messagebox.askyesno(tr("confirm_complete_title"), prompt):
             return
         profile["completed"] = True
         profile["completed_at"] = time.strftime("%Y-%m-%d")
         self._safe_save()
         write_log_file(self.data)
         self._refresh_data_tab()
-        messagebox.showinfo("Nice work!", f"'{self.selected}' marked as completed.\nCheck the Data tab for your stats.")
+        messagebox.showinfo(tr("info_nice_work_title"), tr("info_nice_work_msg", name=self.selected))
 
     def _set_profile_icon(self):
         if not self.selected:
             return
         if not PIL_AVAILABLE:
-            messagebox.showerror("Missing dependency",
-                                  "Custom icons need Pillow.\nInstall with: pip install pillow")
+            messagebox.showerror(tr("err_missing_dep_title"), tr("err_missing_dep_icons_msg"))
             return
         path = filedialog.askopenfilename(
-            title="Choose an image",
+            title=tr("dlg_choose_image_title"),
             filetypes=[("Images", "*.png *.jpg *.jpeg *.bmp *.gif *.webp")]
         )
         if not path:
@@ -1153,7 +1271,7 @@ class GameTimerApp:
         try:
             shutil.copy(path, dest)
         except Exception as e:
-            messagebox.showerror("Couldn't set icon", str(e))
+            messagebox.showerror(tr("err_set_icon_title"), str(e))
             return
         old = self.data["profiles"][self.selected].get("icon_file")
         if old:
@@ -1172,18 +1290,18 @@ class GameTimerApp:
             return
         profile_name = self.selected
         win = tk.Toplevel(self.root)
-        win.title("Change Background")
+        win.title(tr("dlg_change_bg_title"))
         win.configure(bg=BG)
         win.geometry("340x230")
         win.resizable(False, False)
         win.transient(self.root)
         win.grab_set()
 
-        tk.Label(win, text=f"Background for '{profile_name}'", bg=BG, fg=TEXT,
+        tk.Label(win, text=tr("dlg_change_bg_label", name=profile_name), bg=BG, fg=TEXT,
                  font=FONT_MAIN, wraplength=300).pack(pady=(18, 14))
 
         def choose_color():
-            c = colorchooser.askcolor(parent=win, title="Choose background color")
+            c = colorchooser.askcolor(parent=win, title=tr("dlg_choose_bg_color_title"))
             if c and c[1]:
                 self.data["profiles"][profile_name]["bg_color"] = c[1]
                 self.data["profiles"][profile_name]["bg_image"] = None
@@ -1193,11 +1311,10 @@ class GameTimerApp:
 
         def choose_image():
             if not PIL_AVAILABLE:
-                messagebox.showerror("Missing dependency",
-                                      "Custom backgrounds need Pillow.\nInstall with: pip install pillow")
+                messagebox.showerror(tr("err_missing_dep_title"), tr("err_missing_dep_bg_msg"))
                 return
             path = filedialog.askopenfilename(
-                title="Choose a background image",
+                title=tr("dlg_choose_bg_image_title"),
                 filetypes=[("Images", "*.png *.jpg *.jpeg *.bmp *.webp")]
             )
             if not path:
@@ -1209,7 +1326,7 @@ class GameTimerApp:
             try:
                 shutil.copy(path, dest)
             except Exception as e:
-                messagebox.showerror("Couldn't set background", str(e))
+                messagebox.showerror(tr("err_set_bg_title"), str(e))
                 return
             old = self.data["profiles"][profile_name].get("bg_image")
             if old:
@@ -1232,9 +1349,9 @@ class GameTimerApp:
             self._render_background()
             win.destroy()
 
-        self._make_button(win, "Choose Solid Color", choose_color, bg=CARD, fg=TEXT).pack(fill="x", padx=24, pady=4)
-        self._make_button(win, "Choose Image", choose_image, bg=CARD, fg=TEXT).pack(fill="x", padx=24, pady=4)
-        self._make_button(win, "Reset to Default", reset_default, bg=CARD, fg=RED).pack(fill="x", padx=24, pady=(4, 10))
+        self._make_button(win, tr("btn_choose_solid_color"), choose_color, bg=CARD, fg=TEXT).pack(fill="x", padx=24, pady=4)
+        self._make_button(win, tr("btn_choose_image"), choose_image, bg=CARD, fg=TEXT).pack(fill="x", padx=24, pady=4)
+        self._make_button(win, tr("btn_reset_default"), reset_default, bg=CARD, fg=RED).pack(fill="x", padx=24, pady=(4, 10))
 
     # ---------- Export / Import ----------
     def _export_profile(self):
@@ -1250,6 +1367,7 @@ class GameTimerApp:
             "completed_at": profile.get("completed_at"),
             "genres": profile.get("genres", ["Uncategorized"]),
             "last_played": profile.get("last_played"),
+            "notes": profile.get("notes", ""),
         }
         icon_file = profile.get("icon_file")
         if icon_file:
@@ -1285,9 +1403,9 @@ class GameTimerApp:
         try:
             with open(path, "w", encoding="utf-8") as f:
                 json.dump(export, f)
-            messagebox.showinfo("Exported", f"Profile exported to:\n{path}")
+            messagebox.showinfo(tr("info_exported_title"), tr("info_exported_msg", path=path))
         except Exception as e:
-            messagebox.showerror("Export failed", str(e))
+            messagebox.showerror(tr("err_export_failed_title"), str(e))
 
     def _import_profile(self):
         os.makedirs(PROFILES_DIR, exist_ok=True)
@@ -1301,10 +1419,10 @@ class GameTimerApp:
             with open(path, "r", encoding="utf-8") as f:
                 imported = json.load(f)
         except Exception as e:
-            messagebox.showerror("Import failed", str(e))
+            messagebox.showerror(tr("err_import_failed_title"), str(e))
             return
 
-        name = imported.get("name", "Imported Game")
+        name = imported.get("name", tr("default_imported_game_name"))
         original_name = name
         counter = 2
         while name in self.data["profiles"]:
@@ -1341,12 +1459,13 @@ class GameTimerApp:
             "completed_at": imported.get("completed_at"),
             "genres": imported.get("genres") or ["Uncategorized"],
             "last_played": imported.get("last_played"),
+            "notes": imported.get("notes", ""),
         }
         self._safe_save()
         write_log_file(self.data)
         self._refresh_profile_list()
         self._select_profile(name)
-        messagebox.showinfo("Imported", f"Imported profile as '{name}'")
+        messagebox.showinfo(tr("info_imported_title"), tr("info_imported_msg", name=name))
 
     # ---------- Timer logic ----------
     def _toggle_play(self):
@@ -1395,13 +1514,13 @@ class GameTimerApp:
 
     def _set_play_button_state(self):
         if self.running:
-            self.play_button.config(text="\u23f8  Pause", bg=RED, activebackground=RED)
+            self.play_button.config(text=tr("btn_pause"), bg=RED, activebackground=RED)
             self._add_hover(self.play_button, RED)
-            self.canvas.itemconfig(self.status_id, text="Tracking time\u2026", fill=GREEN)
+            self.canvas.itemconfig(self.status_id, text=tr("status_tracking"), fill=GREEN)
         else:
-            self.play_button.config(text="\u25b6  Play", bg=GREEN, activebackground=GREEN)
+            self.play_button.config(text=tr("btn_play"), bg=GREEN, activebackground=GREEN)
             self._add_hover(self.play_button, GREEN)
-            self.canvas.itemconfig(self.status_id, text="Paused" if self.selected else "", fill=SUBTEXT)
+            self.canvas.itemconfig(self.status_id, text=tr("status_paused") if self.selected else "", fill=SUBTEXT)
         self._update_tray_status()
 
     def _current_total_seconds(self):
@@ -1433,7 +1552,7 @@ class GameTimerApp:
     # ---------- Settings (tabbed) ----------
     def _open_settings(self):
         win = tk.Toplevel(self.root)
-        win.title("Settings")
+        win.title(tr("settings_title"))
         win.configure(bg=BG)
         win.geometry("460x560")
         win.resizable(False, False)
@@ -1446,41 +1565,55 @@ class GameTimerApp:
         tab_general = tk.Frame(notebook, bg=BG)
         tab_tray = tk.Frame(notebook, bg=BG)
         tab_appearance_outer = tk.Frame(notebook, bg=BG)
-        notebook.add(tab_general, text="General")
-        notebook.add(tab_tray, text="Tray")
-        notebook.add(tab_appearance_outer, text="Appearance")
+        tab_language = tk.Frame(notebook, bg=BG)
+        notebook.add(tab_general, text=tr("tab_general"))
+        notebook.add(tab_tray, text=tr("tab_tray"))
+        notebook.add(tab_appearance_outer, text=tr("tab_appearance"))
+        notebook.add(tab_language, text=tr("tab_language"))
 
         # --- General tab ---
         startup_var = tk.BooleanVar(value=self.data["settings"].get("run_at_startup", False))
-        tk.Label(tab_general, text="Startup", bg=BG, fg=TEXT, font=(FONT_FAMILY_UI, 12, "bold")).pack(
+        tk.Label(tab_general, text=tr("label_startup"), bg=BG, fg=TEXT, font=(FONT_FAMILY_UI, 12, "bold")).pack(
             anchor="w", padx=16, pady=(18, 6))
         tk.Checkbutton(
-            tab_general, text="Launch Game Timer when Windows starts",
+            tab_general, text=tr("chk_launch_at_startup"),
             variable=startup_var, bg=BG, fg=TEXT, selectcolor=CARD, activebackground=BG,
             activeforeground=TEXT, font=FONT_MAIN, anchor="w", highlightthickness=0, bd=0
         ).pack(fill="x", padx=16)
         if not getattr(sys, "frozen", False):
-            tk.Label(tab_general, text="Only works from the built .exe, not the .py script",
+            tk.Label(tab_general, text=tr("note_startup_exe_only"),
                      bg=BG, fg=SUBTEXT, font=FONT_SMALL).pack(anchor="w", padx=16, pady=(2, 0))
 
         # --- Tray tab ---
         tray_var = tk.BooleanVar(value=self.data["settings"].get("tray_enabled", True))
-        tk.Label(tab_tray, text="System Tray", bg=BG, fg=TEXT, font=(FONT_FAMILY_UI, 12, "bold")).pack(
+        tk.Label(tab_tray, text=tr("label_system_tray"), bg=BG, fg=TEXT, font=(FONT_FAMILY_UI, 12, "bold")).pack(
             anchor="w", padx=16, pady=(18, 6))
         tray_chk = tk.Checkbutton(
-            tab_tray, text="Enable tray icon (green = tracking, red = paused)",
+            tab_tray, text=tr("chk_enable_tray"),
             variable=tray_var, bg=BG, fg=TEXT, selectcolor=CARD, activebackground=BG,
             activeforeground=TEXT, font=FONT_MAIN, anchor="w", highlightthickness=0, bd=0
         )
         tray_chk.pack(fill="x", padx=16)
         tk.Label(tab_tray,
-                 text="When enabled, closing the window (X) hides it to the tray\ninstead of quitting. "
-                      "Use 'Quit' in the tray's right-click menu to exit fully.",
+                 text=tr("note_tray_behavior"),
                  bg=BG, fg=SUBTEXT, font=FONT_SMALL, justify="left").pack(anchor="w", padx=16, pady=(10, 0))
         if not TRAY_AVAILABLE:
-            tk.Label(tab_tray, text="Requires: pip install pillow pystray",
+            tk.Label(tab_tray, text=tr("note_tray_requires"),
                      bg=BG, fg=SUBTEXT, font=FONT_SMALL).pack(anchor="w", padx=16, pady=(8, 0))
             tray_chk.config(state="disabled")
+
+        # --- Language tab ---
+        tk.Label(tab_language, text=tr("label_language"), bg=BG, fg=TEXT, font=(FONT_FAMILY_UI, 12, "bold")).pack(
+            anchor="w", padx=16, pady=(18, 6))
+        tk.Label(tab_language, text=tr("note_choose_language"), bg=BG, fg=SUBTEXT, font=FONT_SMALL,
+                 wraplength=380, justify="left").pack(anchor="w", padx=16, pady=(0, 10))
+        language_var = tk.StringVar(value=self.data["settings"].get("language", "en"))
+        for code in LANGUAGE_ORDER:
+            tk.Radiobutton(
+                tab_language, text=LANGUAGE_NAMES[code], variable=language_var, value=code,
+                bg=BG, fg=TEXT, selectcolor=CARD, activebackground=BG,
+                activeforeground=TEXT, font=FONT_MAIN, anchor="w", highlightthickness=0, bd=0
+            ).pack(anchor="w", padx=16, pady=2)
 
         # --- Appearance tab (scrollable — a lot lives here) ---
         appearance_canvas = tk.Canvas(tab_appearance_outer, bg=BG, highlightthickness=0)
@@ -1496,7 +1629,7 @@ class GameTimerApp:
         self._bind_mousewheel(win, appearance_canvas)
 
         # Theme presets
-        tk.Label(tab_appearance, text="Theme", bg=BG, fg=TEXT, font=(FONT_FAMILY_UI, 12, "bold")).pack(
+        tk.Label(tab_appearance, text=tr("label_theme"), bg=BG, fg=TEXT, font=(FONT_FAMILY_UI, 12, "bold")).pack(
             anchor="w", padx=16, pady=(18, 6))
         theme_var = tk.StringVar(value=self.data["settings"].get("theme", "Midnight Blue"))
         for theme_name in THEME_ORDER:
@@ -1526,13 +1659,13 @@ class GameTimerApp:
             base = custom_colors_ref if theme_var.get() == "Custom" else THEMES.get(theme_var.get(), THEMES["Midnight Blue"])
             self._open_color_customizer(win, base, custom_colors_ref, theme_var)
 
-        self._make_button(tab_appearance, "Customize Colors\u2026", open_customizer, bg=CARD, fg=TEXT).pack(
+        self._make_button(tab_appearance, tr("btn_customize_colors"), open_customizer, bg=CARD, fg=TEXT).pack(
             anchor="w", padx=16, pady=(8, 4))
-        tk.Label(tab_appearance, text="Applies instantly when you hit Save.",
+        tk.Label(tab_appearance, text=tr("note_applies_on_save"),
                  bg=BG, fg=SUBTEXT, font=FONT_SMALL).pack(anchor="w", padx=16, pady=(0, 4))
 
         # Accent override (fine-tune on top of whichever theme is active)
-        tk.Label(tab_appearance, text="Accent Color", bg=BG, fg=TEXT, font=(FONT_FAMILY_UI, 12, "bold")).pack(
+        tk.Label(tab_appearance, text=tr("label_accent_color"), bg=BG, fg=TEXT, font=(FONT_FAMILY_UI, 12, "bold")).pack(
             anchor="w", padx=16, pady=(16, 6))
         color_row = tk.Frame(tab_appearance, bg=BG)
         color_row.pack(fill="x", padx=16)
@@ -1541,33 +1674,35 @@ class GameTimerApp:
 
         def pick_color():
             c = colorchooser.askcolor(color=self.data["settings"].get("accent", ACCENT_DEFAULT),
-                                       parent=win, title="Choose accent color")
+                                       parent=win, title=tr("label_accent_color"))
             if c and c[1]:
                 self.data["settings"]["accent"] = c[1]
                 swatch.config(bg=c[1])
 
-        self._make_button(color_row, "Change", pick_color, bg=CARD, fg=TEXT, width=8).pack(side="left")
-        tk.Label(tab_appearance, text="Applies instantly when you hit Save.",
+        self._make_button(color_row, tr("btn_change"), pick_color, bg=CARD, fg=TEXT, width=8).pack(side="left")
+        tk.Label(tab_appearance, text=tr("note_applies_on_save"),
                  bg=BG, fg=SUBTEXT, font=FONT_SMALL).pack(anchor="w", padx=16, pady=(4, 0))
 
         # Icon size
-        tk.Label(tab_appearance, text="Profile Icon Size", bg=BG, fg=TEXT, font=(FONT_FAMILY_UI, 12, "bold")).pack(
+        tk.Label(tab_appearance, text=tr("label_icon_size"), bg=BG, fg=TEXT, font=(FONT_FAMILY_UI, 12, "bold")).pack(
             anchor="w", padx=16, pady=(20, 6))
+        size_key_to_label = {"Small": tr("size_small"), "Medium": tr("size_medium"),
+                              "Large": tr("size_large"), "Extra Large": tr("size_xl")}
         current_label = next((k for k, v in ICON_SIZE_OPTIONS.items() if v == self.icon_size), "Medium")
         icon_size_var = tk.StringVar(value=current_label)
         size_row = tk.Frame(tab_appearance, bg=BG)
         size_row.pack(fill="x", padx=16)
-        for label in ICON_SIZE_OPTIONS:
+        for size_key in ICON_SIZE_OPTIONS:
             tk.Radiobutton(
-                size_row, text=label, variable=icon_size_var, value=label,
+                size_row, text=size_key_to_label[size_key], variable=icon_size_var, value=size_key,
                 bg=BG, fg=TEXT, selectcolor=CARD, activebackground=BG,
                 activeforeground=TEXT, font=FONT_SMALL, highlightthickness=0, bd=0
             ).pack(anchor="w")
-        tk.Label(tab_appearance, text="Applies immediately.",
+        tk.Label(tab_appearance, text=tr("note_applies_immediately"),
                  bg=BG, fg=SUBTEXT, font=FONT_SMALL).pack(anchor="w", padx=16, pady=(4, 0))
 
         # Font
-        tk.Label(tab_appearance, text="Font", bg=BG, fg=TEXT, font=(FONT_FAMILY_UI, 12, "bold")).pack(
+        tk.Label(tab_appearance, text=tr("label_font"), bg=BG, fg=TEXT, font=(FONT_FAMILY_UI, 12, "bold")).pack(
             anchor="w", padx=16, pady=(20, 6))
         font_var = tk.StringVar(value=self.data["settings"].get("font_family", "Segoe UI"))
         font_menu = tk.OptionMenu(tab_appearance, font_var, *FONT_CHOICES)
@@ -1575,7 +1710,7 @@ class GameTimerApp:
                          bd=0, highlightthickness=0, font=FONT_MAIN, width=16)
         font_menu["menu"].config(bg=CARD, fg=TEXT)
         font_menu.pack(anchor="w", padx=16)
-        tk.Label(tab_appearance, text="Timer digits stay monospaced for alignment.\nApplies instantly when you hit Save.",
+        tk.Label(tab_appearance, text=tr("note_font_timer"),
                  bg=BG, fg=SUBTEXT, font=FONT_SMALL, justify="left").pack(anchor="w", padx=16, pady=(4, 16))
 
         def save_and_close():
@@ -1586,18 +1721,19 @@ class GameTimerApp:
             self.data["settings"]["theme"] = theme_var.get()
             self.data["settings"]["custom_colors"] = custom_colors_ref
             self.data["settings"]["font_family"] = font_var.get()
+            self.data["settings"]["language"] = language_var.get()
             self._safe_save()
 
             if getattr(sys, "frozen", False) and WINREG_AVAILABLE:
                 try:
                     set_startup(wanted_startup)
                 except Exception as e:
-                    messagebox.showerror("Startup setting failed", str(e))
+                    messagebox.showerror(tr("err_startup_failed_title"), str(e))
 
             win.destroy()
             self._apply_appearance_and_rebuild()
 
-        self._make_button(win, "Save", save_and_close, bg=self.accent, fg="#1e1e2e").pack(pady=(10, 4))
+        self._make_button(win, tr("btn_save"), save_and_close, bg=self.accent, fg="#1e1e2e").pack(pady=(10, 4))
 
     def _apply_appearance_and_rebuild(self):
         """Re-applies theme/font/accent/icon-size from settings and rebuilds the
@@ -1609,6 +1745,7 @@ class GameTimerApp:
         else:
             apply_theme_globals(THEMES.get(theme_name, THEMES["Midnight Blue"]))
         apply_font_globals(self.data["settings"].get("font_family", "Segoe UI"))
+        apply_language_global(self.data["settings"].get("language", "en"))
         self.accent = self.data["settings"].get("accent", ACCENT_DEFAULT)
         self.icon_size = self.data["settings"].get("icon_size", 36)
         self._apply_tray_setting()
@@ -1642,7 +1779,7 @@ class GameTimerApp:
 
     def _open_color_customizer(self, parent_win, base_colors, custom_colors_ref, theme_var):
         editor = tk.Toplevel(parent_win)
-        editor.title("Customize Colors")
+        editor.title(tr("dlg_customize_colors_title"))
         editor.configure(bg=BG)
         editor.geometry("340x420")
         editor.resizable(False, False)
@@ -1651,10 +1788,10 @@ class GameTimerApp:
 
         working = dict(base_colors)
         roles = [
-            ("bg", "Background"), ("panel", "Sidebar Panel"), ("card", "Cards / Buttons"),
-            ("text", "Text"), ("subtext", "Muted Text"), ("accent", "Accent"),
+            ("bg", tr("role_background")), ("panel", tr("role_panel")), ("card", tr("role_cards")),
+            ("text", tr("role_text")), ("subtext", tr("role_subtext")), ("accent", tr("role_accent")),
         ]
-        tk.Label(editor, text="Pick a color for each part of the UI", bg=BG, fg=TEXT,
+        tk.Label(editor, text=tr("dlg_customize_colors_desc"), bg=BG, fg=TEXT,
                  font=FONT_MAIN, wraplength=300).pack(pady=(16, 10))
 
         for key, label in roles:
@@ -1672,7 +1809,7 @@ class GameTimerApp:
                         swatch_label.config(bg=c[1])
                 return picker
 
-            self._make_button(row, "Change", make_picker(), bg=CARD, fg=TEXT, width=8).pack(side="left")
+            self._make_button(row, tr("btn_change"), make_picker(), bg=CARD, fg=TEXT, width=8).pack(side="left")
 
         def use_these_colors():
             custom_colors_ref.clear()
@@ -1680,7 +1817,7 @@ class GameTimerApp:
             theme_var.set("Custom")
             editor.destroy()
 
-        self._make_button(editor, "Use These Colors", use_these_colors,
+        self._make_button(editor, tr("btn_use_these_colors"), use_these_colors,
                            bg=working.get("accent", ACCENT_DEFAULT), fg="#1e1e2e").pack(pady=16)
 
     # ---------- System tray ----------
@@ -1695,10 +1832,10 @@ class GameTimerApp:
         color = GREEN_RGBA if self.running else RED_RGBA
         image = make_tray_image(color)
         menu = pystray.Menu(
-            pystray.MenuItem("Show Game Timer", lambda: self.root.after(0, self._show_window), default=True),
-            pystray.MenuItem(lambda item: "Pause" if self.running else "Play",
+            pystray.MenuItem(lambda item: tr("tray_menu_show"), lambda: self.root.after(0, self._show_window), default=True),
+            pystray.MenuItem(lambda item: tr("tray_menu_pause") if self.running else tr("tray_menu_play"),
                               lambda: self.root.after(0, self._toggle_play)),
-            pystray.MenuItem("Quit", lambda: self.root.after(0, self._quit_app)),
+            pystray.MenuItem(lambda item: tr("tray_quit"), lambda: self.root.after(0, self._quit_app)),
         )
         self.tray_icon = pystray.Icon("GameTimer", image, "Game Timer", menu)
         threading.Thread(target=self.tray_icon.run, daemon=True).start()
@@ -1716,8 +1853,8 @@ class GameTimerApp:
             color = GREEN_RGBA if self.running else RED_RGBA
             try:
                 self.tray_icon.icon = make_tray_image(color)
-                status = "Tracking" if self.running else "Paused"
-                self.tray_icon.title = f"Game Timer \u2014 {self.selected or 'No profile'} ({status})"
+                status = tr("tray_status_tracking") if self.running else tr("tray_status_paused")
+                self.tray_icon.title = f"Game Timer \u2014 {self.selected or tr('canvas_no_profile_selected')} ({status})"
             except Exception:
                 pass
 
@@ -1763,13 +1900,11 @@ class GameTimerApp:
 
 if __name__ == "__main__":
     if not acquire_single_instance():
+        _data_for_lang = load_data()
+        apply_language_global(_data_for_lang["settings"].get("language", "en"))
         _tmp = tk.Tk()
         _tmp.withdraw()
-        messagebox.showwarning(
-            "Game Timer is already running",
-            "Game Timer is already open.\nCheck your system tray, or close the existing window "
-            "before opening another."
-        )
+        messagebox.showwarning(tr("err_already_running_title"), tr("err_already_running_msg"))
         _tmp.destroy()
         sys.exit(0)
 
