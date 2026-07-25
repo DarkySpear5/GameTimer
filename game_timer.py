@@ -654,8 +654,11 @@ class GameTimerApp:
         # Real frozen-left-column behavior needs two Treeviews kept in sync —
         # vanilla ttk.Treeview scrolls its whole row horizontally, #0 column
         # included, so a single tree can't pin "Game" while the rest scrolls.
-        # Left: just the Game column, never scrolls horizontally.
-        self.data_tree_left = ttk.Treeview(table_frame, show="tree", selectmode="browse",
+        # Left: just the Game column, never scrolls horizontally. Must use
+        # show="tree headings" (not "tree") — otherwise this tree has no
+        # header row at all, which both hides the "Game" label and throws
+        # off row alignment against the right tree by one header-row height.
+        self.data_tree_left = ttk.Treeview(table_frame, show="tree headings", selectmode="browse",
                                             style="Data.Treeview")
         self.data_tree_left.heading("#0", text=tr("col_game"))
         self.data_tree_left.column("#0", width=190, stretch=False)
@@ -749,7 +752,7 @@ class GameTimerApp:
 
         tk.Label(inner, text="Game Timer", bg=BG, fg=TEXT,
                  font=scaled_font(20, "bold")).pack(anchor="w", padx=24, pady=(24, 2))
-        tk.Label(inner, text=f"v1.8 — {tr('about_tagline')}",
+        tk.Label(inner, text=f"v1.9 — {tr('about_tagline')}",
                  bg=BG, fg=SUBTEXT, font=FONT_MAIN).pack(anchor="w", padx=24, pady=(0, 20))
 
         tk.Label(inner, text=tr("about_built_with"), bg=BG, fg=TEXT,

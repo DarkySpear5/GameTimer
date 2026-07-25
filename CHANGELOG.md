@@ -2,6 +2,19 @@
 
 All notable changes to Game Timer are documented here.
 
+## v1.9 — 2026-07-25
+
+### Fixed
+- **Data tab: the "Game" column header and the row-stripe alignment were
+  broken in v1.8's frozen-column rework.** The left (frozen) tree was built
+  with `show="tree"` instead of `show="tree headings"`, which hid its header
+  row entirely — that both erased the "Game" label and, since the right tree
+  still had a header row, shifted every row in the left tree up by one
+  header's height relative to the right tree, breaking the alternating
+  row-stripe colors between the two panes. Fixed and verified pixel-aligned
+  row-for-row, with stripe colors matching, across resizing the window
+  smaller and larger.
+
 ## v1.8 — 2026-07-25
 
 ### Fixed
