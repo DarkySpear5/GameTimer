@@ -1,6 +1,6 @@
 {
   "name": "gametimer",
-  "version": "2.0.0-beta.1",
+  "version": "2.0.0-beta.2",
   "description": "Game Timer — a game playtime tracker",
   "main": "./out/main/index.js",
   "author": "DarkySpear5",
