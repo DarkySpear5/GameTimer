@@ -11,10 +11,11 @@ function configure(): void {
   configured = true
   autoUpdater.autoDownload = false // always ask first — see updater.ipc.ts's downloadUpdate handler
   autoUpdater.autoInstallOnAppQuit = false
-  // We only ever publish prerelease-tagged versions (v2.0.0-beta.N) —
-  // without this, electron-updater ignores them entirely and never finds
-  // an update.
-  autoUpdater.allowPrerelease = true
+  // Deliberately NOT forcing allowPrerelease here — electron-updater's own
+  // default is "true if the running version itself has a prerelease tag,
+  // else false", which is exactly right: a 2.0.0-beta.N install should keep
+  // finding newer betas, but a stable 2.0.0 install should NOT get silently
+  // offered a future risky beta.
 
   autoUpdater.on('update-available', (info) => {
     const payload: UpdateInfo = { version: info.version, releaseNotes: normalizeReleaseNotes(info.releaseNotes) }

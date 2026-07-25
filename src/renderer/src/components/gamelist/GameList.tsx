@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useProfilesStore } from '../../state/profilesStore'
 import { useSettingsStore, updateSettings } from '../../state/settingsStore'
@@ -92,6 +92,22 @@ export function GameList(): React.JSX.Element {
     useProfilesStore.getState().remove(name)
     if (selected === name) await selectProfile(null)
   }
+
+  // Delete key deletes the selected game (still confirms) — matches v1's
+  // <Delete> binding on the games list. Skipped while typing anywhere
+  // (rename field, notes, add-game input, etc.) so it never eats a
+  // legitimate keystroke.
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent): void {
+      if (e.key !== 'Delete') return
+      const tag = (document.activeElement?.tagName ?? '').toLowerCase()
+      const isEditable = tag === 'input' || tag === 'textarea' || (document.activeElement as HTMLElement)?.isContentEditable
+      if (isEditable || !selected) return
+      void handleDelete(selected)
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [selected])
 
   async function handleExport(name: string): Promise<void> {
     const result = await window.api.importExport.exportProfile(name)

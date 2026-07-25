@@ -5,7 +5,7 @@ const GITHUB_URL = 'https://github.com/DarkySpear5/GameTimer'
 
 export function AboutTab(): React.JSX.Element {
   const { t } = useTranslation()
-  const [version, setVersion] = useState('2.0.0-beta.1')
+  const [version, setVersion] = useState('2.0.0')
 
   useEffect(() => {
     void window.api.app.getVersion().then(setVersion)
@@ -34,7 +34,7 @@ export function AboutTab(): React.JSX.Element {
         <div>
           <span className="text-subtext">{t('about_contact_github_label')}: </span>
           <a href={GITHUB_URL} target="_blank" rel="noreferrer" className="text-accent hover:underline">
-            Link
+            {GITHUB_URL}
           </a>
         </div>
       </div>
