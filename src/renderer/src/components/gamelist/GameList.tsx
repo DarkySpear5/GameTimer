@@ -6,6 +6,8 @@ import { useUiStore, selectProfile } from '../../state/uiStore'
 import { sortAndFilterProfiles } from '../../state/selectors'
 import { formatSeconds } from '@shared/format'
 import { GENRE_OPTIONS } from '@shared/constants'
+import { ContextMenu, type ContextMenuItem } from '../common/ContextMenu'
+import { toast } from '../common/Toast'
 import type { SortMode, Status } from '@shared/types'
 
 const STATUS_OPTIONS: { value: 'All' | Status; label: string }[] = [
@@ -21,6 +23,10 @@ export function GameList(): React.JSX.Element {
   const settings = useSettingsStore((s) => s.settings)
   const running = useTimerStore((s) => s.running)
   const selected = useUiStore((s) => s.selected)
+  const contextMenu = useUiStore((s) => s.contextMenu)
+  const openContextMenu = useUiStore((s) => s.openContextMenu)
+  const closeContextMenu = useUiStore((s) => s.closeContextMenu)
+  const openDialog = useUiStore((s) => s.openDialog)
   const [adding, setAdding] = useState(false)
   const [newName, setNewName] = useState('')
 
@@ -42,8 +48,50 @@ export function GameList(): React.JSX.Element {
       useProfilesStore.getState().upsert(profile)
       await selectProfile(profile.name)
     } catch (err) {
-      window.alert(err instanceof Error ? err.message : String(err))
+      toast.error(err instanceof Error ? err.message : String(err))
     }
+  }
+
+  async function handleDuplicate(name: string): Promise<void> {
+    const copy = await window.api.profiles.duplicate(name)
+    useProfilesStore.getState().upsert(copy)
+  }
+
+  async function handleResetTime(name: string): Promise<void> {
+    if (!window.confirm(`Reset "${name}"'s tracked time to zero? This cannot be undone.`)) return
+    useProfilesStore.getState().upsert(await window.api.profiles.resetTime(name))
+  }
+
+  async function handleDelete(name: string): Promise<void> {
+    if (!window.confirm(`Delete "${name}" and its tracked time? This cannot be undone.`)) return
+    await window.api.profiles.delete(name)
+    useProfilesStore.getState().remove(name)
+    if (selected === name) await selectProfile(null)
+  }
+
+  async function handleExport(name: string): Promise<void> {
+    const result = await window.api.importExport.exportProfile(name)
+    if (result) toast.info(`Exported to ${result.path}`)
+  }
+
+  async function handleImport(): Promise<void> {
+    const profile = await window.api.importExport.importProfile()
+    if (profile) {
+      useProfilesStore.getState().upsert(profile)
+      await selectProfile(profile.name)
+    }
+  }
+
+  function menuItemsFor(name: string): ContextMenuItem[] {
+    return [
+      { label: 'Modify', onClick: () => openDialog('modify', name) },
+      { label: 'Duplicate', onClick: () => void handleDuplicate(name) },
+      { label: 'Reset Time', onClick: () => void handleResetTime(name) },
+      { label: 'Notes', onClick: () => openDialog('notes', name) },
+      { label: 'Export…', onClick: () => void handleExport(name), separatorBefore: true },
+      { label: 'Import…', onClick: () => void handleImport() },
+      { label: 'Delete', onClick: () => void handleDelete(name), danger: true, separatorBefore: true }
+    ]
   }
 
   return (
@@ -88,7 +136,15 @@ export function GameList(): React.JSX.Element {
         </select>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-1.5">
+      <div
+        className="flex-1 overflow-y-auto px-1.5"
+        onContextMenu={(e) => {
+          if (e.target === e.currentTarget) {
+            e.preventDefault()
+            openContextMenu(e.clientX, e.clientY, null)
+          }
+        }}
+      >
         {sorted.length === 0 && (
           <div className="px-3 py-6 text-center text-xs text-subtext">No games yet — click + Add Game</div>
         )}
@@ -99,6 +155,11 @@ export function GameList(): React.JSX.Element {
             <button
               key={p.name}
               onClick={() => void selectProfile(p.name)}
+              onContextMenu={(e) => {
+                e.preventDefault()
+                void selectProfile(p.name)
+                openContextMenu(e.clientX, e.clientY, p.name)
+              }}
               className={`mb-1 flex w-full items-center gap-2 rounded px-2.5 py-2 text-left text-sm transition-colors ${
                 selected === p.name ? 'bg-card' : 'hover:bg-card/60'
               }`}
@@ -110,6 +171,22 @@ export function GameList(): React.JSX.Element {
           )
         })}
       </div>
+
+      {contextMenu && (
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          onClose={closeContextMenu}
+          items={
+            contextMenu.target
+              ? menuItemsFor(contextMenu.target)
+              : [
+                  { label: '+ Add Game', onClick: () => setAdding(true) },
+                  { label: 'Import…', onClick: () => void handleImport() }
+                ]
+          }
+        />
+      )}
 
       <div className="p-2.5">
         {adding ? (

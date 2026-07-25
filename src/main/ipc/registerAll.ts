@@ -6,6 +6,7 @@ import { registerTimerIpc } from './timer.ipc'
 import { registerSettingsIpc } from './settings.ipc'
 import { registerSystemIpc } from './system.ipc'
 import { registerLegacyImportIpc } from './legacyImport.ipc'
+import { registerImportExportIpc } from './importExport.ipc'
 
 /** Single place every ipcMain.handle/on registration goes through, so there's one spot to audit what's wired up. */
 export function registerAllIpcHandlers(win: BrowserWindow): void {
@@ -24,4 +25,5 @@ export function registerAllIpcHandlers(win: BrowserWindow): void {
   registerSettingsIpc()
   registerSystemIpc()
   registerLegacyImportIpc(win)
+  registerImportExportIpc(win)
 }
