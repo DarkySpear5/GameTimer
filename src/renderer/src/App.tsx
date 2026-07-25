@@ -9,7 +9,7 @@ function App(): React.JSX.Element {
   }, [])
 
   return (
-    <div className="flex h-full flex-col bg-bg text-text">
+    <div className="flex h-full flex-col text-text">
       <TitleBar />
       <div className="flex flex-1 items-center justify-center">
         <div className="text-center">

@@ -21,7 +21,19 @@ body,
 }
 
 body {
-  background-color: var(--gt-bg);
+  /*
+   * Every theme gets this same gradient treatment "for free" — it's a
+   * formula over each theme's own bg/panel/accent variables, not a
+   * hand-authored gradient per preset, so switching themes (or editing the
+   * custom color picker) just recomputes it automatically.
+   */
+  background: linear-gradient(
+    160deg,
+    color-mix(in srgb, var(--gt-accent) 16%, var(--gt-bg)) 0%,
+    var(--gt-bg) 45%,
+    var(--gt-panel) 100%
+  );
+  background-attachment: fixed;
   color: var(--gt-text);
   font-family:
     'Segoe UI',
