@@ -43,9 +43,10 @@ const api: GameTimerApi = {
     importProfile: () => ipcRenderer.invoke(IPC.importExport.importProfile)
   },
   legacyImport: {
-    detect: () => ipcRenderer.invoke(IPC.legacyImport.detect),
+    detect: (force) => ipcRenderer.invoke(IPC.legacyImport.detect, force),
     run: (path) => ipcRenderer.invoke(IPC.legacyImport.run, path),
-    skip: () => ipcRenderer.invoke(IPC.legacyImport.skip)
+    skip: () => ipcRenderer.invoke(IPC.legacyImport.skip),
+    browseForFile: () => ipcRenderer.invoke(IPC.legacyImport.browseForFile)
   },
   system: {
     setRunAtStartup: (enabled) => ipcRenderer.invoke(IPC.system.setRunAtStartup, enabled),

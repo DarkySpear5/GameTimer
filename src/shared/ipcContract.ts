@@ -38,7 +38,8 @@ export const IPC = {
   legacyImport: {
     detect: 'legacyImport:detect',
     run: 'legacyImport:run',
-    skip: 'legacyImport:skip'
+    skip: 'legacyImport:skip',
+    browseForFile: 'legacyImport:browseForFile'
   },
   system: {
     setRunAtStartup: 'system:setRunAtStartup',
@@ -98,9 +99,12 @@ export interface GameTimerApi {
     importProfile(): Promise<Profile | null>
   }
   legacyImport: {
-    detect(): Promise<LegacyDetectResult>
+    /** force=true always re-scans (Settings' manual "Import v1 library" action); otherwise skips if a first-run decision was already made. */
+    detect(force?: boolean): Promise<LegacyDetectResult>
     run(path: string): Promise<{ importedCount: number }>
     skip(): Promise<void>
+    /** Native file picker for "Choose a different file…" when auto-detect misses. */
+    browseForFile(): Promise<string | null>
   }
   system: {
     setRunAtStartup(enabled: boolean): Promise<void>
