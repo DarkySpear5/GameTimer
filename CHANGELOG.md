@@ -2,6 +2,24 @@
 
 All notable changes to Game Timer are documented here.
 
+## v1.8 — 2026-07-25
+
+### Fixed
+- **Data tab horizontal scroll now genuinely pins the Game column on the
+  left.** The v1.7 claim that ttk.Treeview does this natively was wrong —
+  vanilla Tk scrolls the whole row together. It's now two Treeviews kept in
+  sync (shared vertical scroll and selection, independent horizontal scroll
+  on the data side), which is the correct way to do this in Tkinter.
+- **Data tab scrollbars now only appear when there's actually something to
+  scroll to**, instead of always showing a trough — auto-hide, appear on
+  demand.
+- **Settings and Modify's Save/Close buttons no longer get pushed off-screen
+  on a short window.** Both windows packed their scrollable notebook before
+  the bottom button bar, so the expanding notebook could claim all the space
+  and require resizing the window just to see Save. Packing the bottom bar
+  first (reserving its space) fixes it — the same ordering rule already used
+  for the left panel's Add Game button.
+
 ## v1.7 — 2026-07-25
 
 ### Added

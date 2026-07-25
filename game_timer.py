@@ -649,12 +649,21 @@ class GameTimerApp:
         table_frame = tk.Frame(parent, bg=BG)
         table_frame.pack(fill="both", expand=True, padx=24, pady=(0, 20))
         table_frame.grid_rowconfigure(0, weight=1)
-        table_frame.grid_columnconfigure(0, weight=1)
+        table_frame.grid_columnconfigure(1, weight=1)
 
+        # Real frozen-left-column behavior needs two Treeviews kept in sync —
+        # vanilla ttk.Treeview scrolls its whole row horizontally, #0 column
+        # included, so a single tree can't pin "Game" while the rest scrolls.
+        # Left: just the Game column, never scrolls horizontally.
+        self.data_tree_left = ttk.Treeview(table_frame, show="tree", selectmode="browse",
+                                            style="Data.Treeview")
+        self.data_tree_left.heading("#0", text=tr("col_game"))
+        self.data_tree_left.column("#0", width=190, stretch=False)
+
+        # Right: every other column, horizontally scrollable.
         columns = ("time", "status", "started", "completed_on", "completed_time", "rating", "genres")
-        self.data_tree = ttk.Treeview(table_frame, columns=columns, show="tree headings",
+        self.data_tree = ttk.Treeview(table_frame, columns=columns, show="headings",
                                        selectmode="browse", style="Data.Treeview")
-        self.data_tree.heading("#0", text=tr("col_game"))
         self.data_tree.heading("time", text=tr("col_time_played"))
         self.data_tree.heading("status", text=tr("col_status"))
         self.data_tree.heading("started", text=tr("col_started"))
@@ -662,12 +671,6 @@ class GameTimerApp:
         self.data_tree.heading("completed_time", text=tr("col_completed_time"))
         self.data_tree.heading("rating", text=tr("col_rating"))
         self.data_tree.heading("genres", text=tr("col_genres"))
-        # stretch=False on every column so the table can genuinely overflow
-        # its frame width and be scrolled horizontally, instead of columns
-        # auto-shrinking/stretching to always fit (which leaves nothing to
-        # scroll to). The #0 "Game" column stays fixed on the left as the
-        # rest scrolls — that's native ttk.Treeview behavior.
-        self.data_tree.column("#0", width=190, stretch=False)
         self.data_tree.column("time", width=100, anchor="center", stretch=False)
         self.data_tree.column("status", width=90, anchor="center", stretch=False)
         self.data_tree.column("started", width=90, anchor="center", stretch=False)
@@ -676,15 +679,62 @@ class GameTimerApp:
         self.data_tree.column("rating", width=90, anchor="center", stretch=False)
         self.data_tree.column("genres", width=200, anchor="w", stretch=False)
 
-        vsb = ttk.Scrollbar(table_frame, orient="vertical", command=self.data_tree.yview)
+        vsb = ttk.Scrollbar(table_frame, orient="vertical")
         hsb = ttk.Scrollbar(table_frame, orient="horizontal", command=self.data_tree.xview)
-        self.data_tree.configure(yscrollcommand=vsb.set, xscrollcommand=hsb.set)
-        self.data_tree.grid(row=0, column=0, sticky="nsew")
-        vsb.grid(row=0, column=1, sticky="ns")
-        hsb.grid(row=1, column=0, sticky="ew")
 
-        self.data_tree.tag_configure("rowA", background=PANEL, foreground=TEXT)
-        self.data_tree.tag_configure("rowB", background=CARD, foreground=TEXT)
+        def sync_yview(*args):
+            self.data_tree_left.yview(*args)
+            self.data_tree.yview(*args)
+
+        vsb.configure(command=sync_yview)
+
+        def show_or_hide(scrollbar, first, last, **grid_kwargs):
+            # Scrollbars only take up space when there's actually something
+            # to scroll to — an always-visible trough for a table that fits
+            # is just clutter.
+            if float(first) <= 0.0 and float(last) >= 1.0:
+                scrollbar.grid_remove()
+            else:
+                scrollbar.grid(**grid_kwargs)
+
+        def on_left_yscroll(first, last):
+            vsb.set(first, last)
+            show_or_hide(vsb, first, last, row=0, column=2, sticky="ns")
+            self.data_tree.yview_moveto(first)
+
+        def on_right_yscroll(first, last):
+            vsb.set(first, last)
+            show_or_hide(vsb, first, last, row=0, column=2, sticky="ns")
+            self.data_tree_left.yview_moveto(first)
+
+        def on_xscroll(first, last):
+            hsb.set(first, last)
+            show_or_hide(hsb, first, last, row=1, column=1, sticky="ew")
+
+        self.data_tree_left.configure(yscrollcommand=on_left_yscroll)
+        self.data_tree.configure(yscrollcommand=on_right_yscroll, xscrollcommand=on_xscroll)
+
+        # Selecting a row in either tree highlights the matching row (same
+        # iid — both trees are always inserted with the game's name) in the
+        # other, so they read as one table rather than two separate ones.
+        def mirror_selection(source, target):
+            sel = source.selection()
+            if sel and target.selection() != sel:
+                target.selection_set(sel)
+
+        self.data_tree_left.bind("<<TreeviewSelect>>",
+                                  lambda e: mirror_selection(self.data_tree_left, self.data_tree))
+        self.data_tree.bind("<<TreeviewSelect>>",
+                             lambda e: mirror_selection(self.data_tree, self.data_tree_left))
+
+        self.data_tree_left.grid(row=0, column=0, sticky="ns")
+        self.data_tree.grid(row=0, column=1, sticky="nsew")
+        # vsb/hsb grid themselves on demand via show_or_hide once there's
+        # data to size against.
+
+        for tree in (self.data_tree_left, self.data_tree):
+            tree.tag_configure("rowA", background=PANEL, foreground=TEXT)
+            tree.tag_configure("rowB", background=CARD, foreground=TEXT)
 
     def _build_about_tab(self, parent):
         canvas = tk.Canvas(parent, bg=BG, highlightthickness=0)
@@ -699,7 +749,7 @@ class GameTimerApp:
 
         tk.Label(inner, text="Game Timer", bg=BG, fg=TEXT,
                  font=scaled_font(20, "bold")).pack(anchor="w", padx=24, pady=(24, 2))
-        tk.Label(inner, text=f"v1.7 — {tr('about_tagline')}",
+        tk.Label(inner, text=f"v1.8 — {tr('about_tagline')}",
                  bg=BG, fg=SUBTEXT, font=FONT_MAIN).pack(anchor="w", padx=24, pady=(0, 20))
 
         tk.Label(inner, text=tr("about_built_with"), bg=BG, fg=TEXT,
@@ -767,6 +817,7 @@ class GameTimerApp:
         self.stat_games_tracked_label.config(text=str(len(self.data["profiles"])))
         self.stat_completed_label.config(text=str(completed_count))
 
+        self.data_tree_left.delete(*self.data_tree_left.get_children())
         self.data_tree.delete(*self.data_tree.get_children())
         self.data_thumb_refs = {}
         status_label_keys = {
@@ -790,17 +841,21 @@ class GameTimerApp:
                 if os.path.exists(path):
                     img = self._load_thumbnail(path, size=(24, 24))
 
-            kwargs = dict(
-                text=" " + name,
+            # Same iid (the game's name) in both trees is what lets vertical
+            # scroll position and row selection stay mapped 1:1 between them.
+            left_kwargs = dict(text=" " + name, tags=(row_tag,))
+            if img:
+                self.data_thumb_refs[name] = img
+                left_kwargs["image"] = img
+            self.data_tree_left.insert("", "end", iid=name, **left_kwargs)
+
+            self.data_tree.insert(
+                "", "end", iid=name,
                 values=(format_seconds(info.get("seconds", 0)), status, started, completed_on, completed_time,
                         self._rating_stars(info.get("rating", 0)) or "—",
                         self._wrap_genres(info.get("genres", ["Uncategorized"]))),
                 tags=(row_tag,),
             )
-            if img:
-                self.data_thumb_refs[name] = img
-                kwargs["image"] = img
-            self.data_tree.insert("", "end", **kwargs)
 
     def _bind_mousewheel(self, window, scrollable):
         """Makes the mouse wheel scroll `scrollable` (a Canvas or Listbox) while
@@ -1172,6 +1227,12 @@ class GameTimerApp:
         win.transient(self.root)
         win.grab_set()
 
+        # Packed — and its space reserved — before the notebook, so Close
+        # stays visible no matter how short the window gets (see the same
+        # note in _open_settings).
+        modify_bottom_bar = tk.Frame(win, bg=BG)
+        modify_bottom_bar.pack(side="bottom", fill="x")
+
         notebook = ttk.Notebook(win)
         notebook.pack(fill="both", expand=True, padx=10, pady=(10, 4))
 
@@ -1189,13 +1250,11 @@ class GameTimerApp:
         self._build_modify_appearance_tab(tab_appearance, profile_name, win)
         self._build_modify_genres_tab(tab_genres, profile_name)
 
-        bottom_bar = tk.Frame(win, bg=BG)
-        bottom_bar.pack(side="bottom", fill="x")
-        self._make_button(bottom_bar, tr("btn_close"), win.destroy, bg=CARD, fg=TEXT).pack(
+        self._make_button(modify_bottom_bar, tr("btn_close"), win.destroy, bg=CARD, fg=TEXT).pack(
             side="left", expand=True, fill="x", padx=(10, 0), pady=(0, 10))
         # The OS window-edge resize handle is razor-thin and easy to miss —
         # ttk.Sizegrip gives a much bigger, obvious drag target in the corner.
-        ttk.Sizegrip(bottom_bar).pack(side="right", anchor="se", padx=(4, 4), pady=(0, 4))
+        ttk.Sizegrip(modify_bottom_bar).pack(side="right", anchor="se", padx=(4, 4), pady=(0, 4))
 
     def _build_modify_general_tab(self, parent, profile_name, win):
         tk.Label(parent, text=tr("dlg_rename_title"), bg=BG, fg=TEXT,
@@ -2045,6 +2104,14 @@ class GameTimerApp:
         win.transient(self.root)
         win.grab_set()
 
+        # Packed — and its space reserved — before the notebook, so Save
+        # stays visible no matter how short the window gets. An expand=True
+        # sibling packed first would otherwise claim all the space and push
+        # a later side="bottom" sibling off-screen; packing bottom-anchored
+        # widgets first avoids that regardless of packing order elsewhere.
+        settings_bottom_bar = tk.Frame(win, bg=BG)
+        settings_bottom_bar.pack(side="bottom", fill="x")
+
         notebook = ttk.Notebook(win)
         notebook.pack(fill="both", expand=True, padx=10, pady=10)
 
@@ -2254,8 +2321,6 @@ class GameTimerApp:
             win.destroy()
             self._apply_appearance_and_rebuild()
 
-        settings_bottom_bar = tk.Frame(win, bg=BG)
-        settings_bottom_bar.pack(side="bottom", fill="x")
         self._make_button(settings_bottom_bar, tr("btn_save"), save_and_close, bg=self.accent, fg="#1e1e2e").pack(
             side="left", expand=True, fill="x", padx=(10, 0), pady=(10, 4))
         ttk.Sizegrip(settings_bottom_bar).pack(side="right", anchor="se", padx=(4, 4), pady=(10, 4))
