@@ -29,7 +29,7 @@
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^5.2.0",
     "electron": "^37.0.0",
-    "electron-builder": "^26.0.0",
+    "electron-builder": "^26.15.7",
     "electron-vite": "^5.0.0",
     "playwright-core": "^1.55.0",
     "tailwindcss": "^4.0.0",
@@ -38,5 +38,8 @@
   },
   "optionalDependencies": {
     "@tailwindcss/oxide-win32-x64-msvc": "^4.3.3"
+  },
+  "overrides": {
+    "@noble/hashes": "^1.8.0"
   }
 }
