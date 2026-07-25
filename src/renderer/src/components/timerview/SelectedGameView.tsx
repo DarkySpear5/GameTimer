@@ -1,26 +1,28 @@
 import type { CSSProperties } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useProfilesStore } from '../../state/profilesStore'
 import { useTimerStore } from '../../state/timerStore'
 import { useUiStore } from '../../state/uiStore'
 import { formatSeconds } from '@shared/format'
 import type { Status } from '@shared/types'
 
-const STATUS_LABEL: Record<Status, string> = {
-  in_progress: 'Paused',
-  completed: 'Completed',
-  dropped: 'Dropped',
-  on_hold: 'On Hold'
-}
-
 export function SelectedGameView(): React.JSX.Element {
+  const { t } = useTranslation()
   const selected = useUiStore((s) => s.selected)
   const profile = useProfilesStore((s) => (selected ? s.profiles[selected] : null))
   const running = useTimerStore((s) => s.running)
 
+  const STATUS_LABEL: Record<Status, string> = {
+    in_progress: t('status_paused'),
+    completed: t('status_completed'),
+    dropped: t('status_dropped'),
+    on_hold: t('status_on_hold')
+  }
+
   if (!profile) {
     return (
       <div className="flex flex-1 items-center justify-center">
-        <div className="text-subtext">No profile selected</div>
+        <div className="text-subtext">{t('canvas_no_profile_selected')}</div>
       </div>
     )
   }
@@ -60,7 +62,7 @@ export function SelectedGameView(): React.JSX.Element {
       <div className="relative z-10 flex flex-col items-center gap-3">
         <div className="text-2xl font-semibold text-text">{profile.name}</div>
         <div className={isRunning ? 'text-sm text-green' : 'text-sm text-subtext'}>
-          {isRunning ? 'Tracking time…' : STATUS_LABEL[profile.status]}
+          {isRunning ? t('status_tracking') : STATUS_LABEL[profile.status]}
         </div>
         {profile.rating > 0 && (
           <div className="text-base text-gold">
@@ -76,7 +78,7 @@ export function SelectedGameView(): React.JSX.Element {
               isRunning ? 'bg-red' : 'bg-green'
             }`}
           >
-            {isRunning ? 'Pause' : 'Play'}
+            {isRunning ? t('btn_pause') : t('btn_play')}
           </button>
           <button
             onClick={() => void toggleComplete()}
@@ -84,7 +86,7 @@ export function SelectedGameView(): React.JSX.Element {
               profile.status === 'completed' ? 'bg-accent text-bg' : 'bg-gold text-bg'
             }`}
           >
-            {profile.status === 'completed' ? '✓ Completed' : '✓ Complete'}
+            {t('btn_complete')}
           </button>
         </div>
       </div>

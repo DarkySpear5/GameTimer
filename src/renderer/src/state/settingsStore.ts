@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import i18n from '../i18n/i18n'
 import type { Settings } from '@shared/types'
 import { THEMES } from '@shared/constants'
 
@@ -16,12 +17,14 @@ export async function loadSettings(): Promise<void> {
   const settings = await window.api.settings.get()
   useSettingsStore.getState().setSettings(settings)
   applyThemeToDocument(settings)
+  void i18n.changeLanguage(settings.language)
 }
 
 export async function updateSettings(patch: Partial<Settings>): Promise<void> {
   const settings = await window.api.settings.update(patch)
   useSettingsStore.getState().setSettings(settings)
   applyThemeToDocument(settings)
+  if (patch.language) void i18n.changeLanguage(patch.language)
 }
 
 /** Pushes the active theme's colors onto :root as CSS custom properties — see styles/tailwind.css's gradient formula. */

@@ -1,8 +1,10 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Modal } from '../common/Modal'
 import { useProfilesStore } from '../../state/profilesStore'
 
 export function NotesDialog({ name, onClose }: { name: string; onClose: () => void }): React.JSX.Element | null {
+  const { t } = useTranslation()
   const profile = useProfilesStore((s) => s.profiles[name])
   const [text, setText] = useState(profile?.notes ?? '')
 
@@ -14,7 +16,7 @@ export function NotesDialog({ name, onClose }: { name: string; onClose: () => vo
   }
 
   return (
-    <Modal title={`Notes — ${profile.name}`} onClose={onClose} width="max-w-lg">
+    <Modal title={t('dlg_notes_title', { name: profile.name })} onClose={onClose} width="max-w-lg">
       <textarea
         value={text}
         onChange={(e) => setText(e.target.value)}
@@ -23,13 +25,13 @@ export function NotesDialog({ name, onClose }: { name: string; onClose: () => vo
       />
       <div className="mt-3 flex justify-end gap-2">
         <button onClick={onClose} className="rounded bg-card px-4 py-1.5 text-sm text-text hover:bg-card/70">
-          Cancel
+          {t('btn_close')}
         </button>
         <button
           onClick={() => void save()}
           className="rounded bg-accent px-4 py-1.5 text-sm font-medium text-bg hover:opacity-90"
         >
-          Save
+          {t('btn_save')}
         </button>
       </div>
     </Modal>

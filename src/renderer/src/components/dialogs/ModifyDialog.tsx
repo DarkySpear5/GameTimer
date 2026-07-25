@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Modal } from '../common/Modal'
 import { useProfilesStore } from '../../state/profilesStore'
 import { toast } from '../common/Toast'
@@ -8,38 +9,32 @@ import type { Profile, Status } from '@shared/types'
 
 type Tab = 'general' | 'time' | 'appearance' | 'genres'
 
-const TABS: { id: Tab; label: string }[] = [
-  { id: 'general', label: 'General' },
-  { id: 'time', label: 'Time' },
-  { id: 'appearance', label: 'Appearance' },
-  { id: 'genres', label: 'Genres' }
-]
-
-const STATUS_OPTIONS: { value: Status; label: string }[] = [
-  { value: 'in_progress', label: 'In Progress' },
-  { value: 'completed', label: 'Completed' },
-  { value: 'dropped', label: 'Dropped' },
-  { value: 'on_hold', label: 'On Hold' }
-]
-
 export function ModifyDialog({ name, onClose }: { name: string; onClose: () => void }): React.JSX.Element | null {
+  const { t } = useTranslation()
   const profile = useProfilesStore((s) => s.profiles[name])
   const [tab, setTab] = useState<Tab>('general')
 
   if (!profile) return null
 
+  const TABS: { id: Tab; label: string }[] = [
+    { id: 'general', label: t('tab_modify_general') },
+    { id: 'time', label: t('tab_modify_time') },
+    { id: 'appearance', label: t('tab_modify_appearance') },
+    { id: 'genres', label: t('tab_modify_genres') }
+  ]
+
   return (
-    <Modal title={`Modify — ${profile.name}`} onClose={onClose} width="max-w-lg">
+    <Modal title={t('dlg_modify_title', { name: profile.name })} onClose={onClose} width="max-w-lg">
       <div className="mb-4 flex gap-1 border-b border-card">
-        {TABS.map((t) => (
+        {TABS.map((tb) => (
           <button
-            key={t.id}
-            onClick={() => setTab(t.id)}
+            key={tb.id}
+            onClick={() => setTab(tb.id)}
             className={`px-3 py-2 text-sm font-medium transition-colors ${
-              tab === t.id ? 'border-b-2 border-accent text-accent' : 'text-subtext hover:text-text'
+              tab === tb.id ? 'border-b-2 border-accent text-accent' : 'text-subtext hover:text-text'
             }`}
           >
-            {t.label}
+            {tb.label}
           </button>
         ))}
       </div>
@@ -52,7 +47,15 @@ export function ModifyDialog({ name, onClose }: { name: string; onClose: () => v
 }
 
 function GeneralTab({ profile, onClose }: { profile: Profile; onClose: () => void }): React.JSX.Element {
+  const { t } = useTranslation()
   const [newName, setNewName] = useState(profile.name)
+
+  const STATUS_OPTIONS: { value: Status; label: string }[] = [
+    { value: 'in_progress', label: t('status_in_progress') },
+    { value: 'completed', label: t('status_completed') },
+    { value: 'dropped', label: t('status_dropped') },
+    { value: 'on_hold', label: t('status_on_hold') }
+  ]
 
   async function handleRename(): Promise<void> {
     const trimmed = newName.trim()
@@ -77,7 +80,7 @@ function GeneralTab({ profile, onClose }: { profile: Profile; onClose: () => voi
   return (
     <div className="flex flex-col gap-5">
       <div>
-        <label className="mb-1 block text-xs text-subtext">Name</label>
+        <label className="mb-1 block text-xs text-subtext">{t('dlg_rename_prompt')}</label>
         <div className="flex gap-2">
           <input
             value={newName}
@@ -89,13 +92,13 @@ function GeneralTab({ profile, onClose }: { profile: Profile; onClose: () => voi
             onClick={() => void handleRename()}
             className="rounded bg-accent px-3 py-1.5 text-sm font-medium text-bg hover:opacity-90"
           >
-            Rename
+            {t('ctx_rename')}
           </button>
         </div>
       </div>
 
       <div>
-        <label className="mb-1 block text-xs text-subtext">Status</label>
+        <label className="mb-1 block text-xs text-subtext">{t('label_status')}</label>
         <div className="grid grid-cols-2 gap-1.5">
           {STATUS_OPTIONS.map((o) => (
             <button
@@ -111,14 +114,18 @@ function GeneralTab({ profile, onClose }: { profile: Profile; onClose: () => voi
         </div>
         {profile.status !== 'in_progress' && profile.statusAt && (
           <div className="mt-1.5 text-xs text-subtext">
-            {profile.statusAt}
-            {profile.statusSeconds != null ? `, at ${formatSeconds(profile.statusSeconds)}` : ''}
+            {profile.statusSeconds != null
+              ? t('label_status_snapshot', {
+                  date: profile.statusAt,
+                  time: formatSeconds(profile.statusSeconds)
+                })
+              : profile.statusAt}
           </div>
         )}
       </div>
 
       <div>
-        <label className="mb-1 block text-xs text-subtext">Rating</label>
+        <label className="mb-1 block text-xs text-subtext">{t('label_rating')}</label>
         <div className="flex gap-1 text-2xl">
           {([1, 2, 3, 4, 5] as const).map((n) => (
             <button
@@ -136,6 +143,7 @@ function GeneralTab({ profile, onClose }: { profile: Profile; onClose: () => voi
 }
 
 function TimeTab({ profile }: { profile: Profile }): React.JSX.Element {
+  const { t } = useTranslation()
   const [direction, setDirection] = useState<'add' | 'remove'>('add')
   const [hours, setHours] = useState('0')
   const [minutes, setMinutes] = useState('0')
@@ -146,7 +154,7 @@ function TimeTab({ profile }: { profile: Profile }): React.JSX.Element {
     const m = parseInt(minutes, 10) || 0
     const deltaSeconds = h * 3600 + m * 60
     if (deltaSeconds <= 0) {
-      toast.error('Enter an amount of time first')
+      toast.error(t('err_add_time_empty'))
       return
     }
     const signed = direction === 'remove' ? -deltaSeconds : deltaSeconds
@@ -155,7 +163,6 @@ function TimeTab({ profile }: { profile: Profile }): React.JSX.Element {
     setHours('0')
     setMinutes('0')
     setNote('')
-    toast.info('Time updated')
   }
 
   return (
@@ -165,18 +172,18 @@ function TimeTab({ profile }: { profile: Profile }): React.JSX.Element {
           onClick={() => setDirection('add')}
           className={`flex-1 rounded px-3 py-1.5 text-sm ${direction === 'add' ? 'bg-accent text-bg' : 'bg-card text-text'}`}
         >
-          Add
+          {t('label_add')}
         </button>
         <button
           onClick={() => setDirection('remove')}
           className={`flex-1 rounded px-3 py-1.5 text-sm ${direction === 'remove' ? 'bg-accent text-bg' : 'bg-card text-text'}`}
         >
-          Remove
+          {t('label_remove')}
         </button>
       </div>
       <div className="flex gap-3">
         <div className="flex-1">
-          <label className="mb-1 block text-xs text-subtext">Hours</label>
+          <label className="mb-1 block text-xs text-subtext">{t('label_hours')}</label>
           <input
             value={hours}
             onChange={(e) => setHours(e.target.value)}
@@ -184,7 +191,7 @@ function TimeTab({ profile }: { profile: Profile }): React.JSX.Element {
           />
         </div>
         <div className="flex-1">
-          <label className="mb-1 block text-xs text-subtext">Minutes</label>
+          <label className="mb-1 block text-xs text-subtext">{t('label_minutes')}</label>
           <input
             value={minutes}
             onChange={(e) => setMinutes(e.target.value)}
@@ -193,11 +200,11 @@ function TimeTab({ profile }: { profile: Profile }): React.JSX.Element {
         </div>
       </div>
       <div>
-        <label className="mb-1 block text-xs text-subtext">Note (optional)</label>
+        <label className="mb-1 block text-xs text-subtext">{t('label_note_optional')}</label>
         <input
           value={note}
           onChange={(e) => setNote(e.target.value)}
-          placeholder="e.g. played on Steam Deck"
+          placeholder={t('hint_note_example')}
           className="w-full rounded bg-card px-2.5 py-1.5 text-sm text-text outline-none"
         />
       </div>
@@ -205,13 +212,15 @@ function TimeTab({ profile }: { profile: Profile }): React.JSX.Element {
         onClick={() => void apply()}
         className="self-start rounded bg-accent px-4 py-1.5 text-sm font-medium text-bg hover:opacity-90"
       >
-        Apply
+        {t('btn_save')}
       </button>
     </div>
   )
 }
 
 function AppearanceTab({ profile }: { profile: Profile }): React.JSX.Element {
+  const { t } = useTranslation()
+
   async function chooseIcon(): Promise<void> {
     const updated = await window.api.profiles.setIcon(profile.name)
     if (updated) useProfilesStore.getState().upsert(updated)
@@ -232,7 +241,7 @@ function AppearanceTab({ profile }: { profile: Profile }): React.JSX.Element {
   return (
     <div className="flex flex-col gap-5">
       <div>
-        <label className="mb-1 block text-xs text-subtext">Icon</label>
+        <label className="mb-1 block text-xs text-subtext">{t('label_icon')}</label>
         <div className="flex items-center gap-3">
           {profile.iconFile ? (
             <img
@@ -246,16 +255,17 @@ function AppearanceTab({ profile }: { profile: Profile }): React.JSX.Element {
             onClick={() => void chooseIcon()}
             className="rounded bg-card px-3 py-1.5 text-sm text-text hover:bg-card/70"
           >
-            Change Icon
+            {t('ctx_change_icon')}
           </button>
         </div>
       </div>
 
       <div>
-        <label className="mb-1 block text-xs text-subtext">Background</label>
+        <label className="mb-1 block text-xs text-subtext">{t('label_background')}</label>
         <div className="flex flex-wrap items-center gap-2">
           <input
             type="color"
+            title={t('dlg_choose_bg_color_title')}
             value={profile.bgColor ?? '#26263a'}
             onChange={(e) => void chooseBackgroundColor(e.target.value)}
             className="h-8 w-10 cursor-pointer rounded bg-card"
@@ -264,13 +274,13 @@ function AppearanceTab({ profile }: { profile: Profile }): React.JSX.Element {
             onClick={() => void chooseBackgroundImage()}
             className="rounded bg-card px-3 py-1.5 text-sm text-text hover:bg-card/70"
           >
-            Choose Image
+            {t('btn_choose_image')}
           </button>
           <button
             onClick={() => void resetBackground()}
             className="rounded bg-card px-3 py-1.5 text-sm text-text hover:bg-card/70"
           >
-            Reset to Default
+            {t('btn_reset_default')}
           </button>
         </div>
       </div>
@@ -279,6 +289,7 @@ function AppearanceTab({ profile }: { profile: Profile }): React.JSX.Element {
 }
 
 function GenresTab({ profile }: { profile: Profile }): React.JSX.Element {
+  const { t } = useTranslation()
   const [selected, setSelected] = useState<Set<string>>(new Set(profile.genres))
 
   function toggle(genre: string): void {
@@ -293,7 +304,6 @@ function GenresTab({ profile }: { profile: Profile }): React.JSX.Element {
   async function apply(): Promise<void> {
     const genres = selected.size ? [...selected] : ['Uncategorized']
     useProfilesStore.getState().upsert(await window.api.profiles.setGenres(profile.name, genres))
-    toast.info('Genres updated')
   }
 
   return (
@@ -302,7 +312,7 @@ function GenresTab({ profile }: { profile: Profile }): React.JSX.Element {
         {GENRE_OPTIONS.map((g) => (
           <label key={g} className="flex items-center gap-2 rounded px-2 py-1 text-sm text-text hover:bg-card">
             <input type="checkbox" checked={selected.has(g)} onChange={() => toggle(g)} />
-            {g}
+            {t(g, { ns: 'genres' })}
           </label>
         ))}
       </div>
@@ -310,7 +320,7 @@ function GenresTab({ profile }: { profile: Profile }): React.JSX.Element {
         onClick={() => void apply()}
         className="self-start rounded bg-accent px-4 py-1.5 text-sm font-medium text-bg hover:opacity-90"
       >
-        Assign
+        {t('btn_assign')}
       </button>
     </div>
   )

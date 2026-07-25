@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Modal } from '../common/Modal'
 import { useSettingsStore, updateSettings } from '../../state/settingsStore'
 import {
@@ -14,31 +15,42 @@ import {
 import type { ThemeColors, ThemeName } from '@shared/types'
 
 type Tab = 'general' | 'appearance' | 'ui' | 'language'
-const TABS: { id: Tab; label: string }[] = [
-  { id: 'general', label: 'General' },
-  { id: 'appearance', label: 'Appearance' },
-  { id: 'ui', label: 'UI' },
-  { id: 'language', label: 'Language' }
-]
+
+const ROLE_KEYS: Record<keyof ThemeColors, string> = {
+  bg: 'role_background',
+  panel: 'role_panel',
+  card: 'role_cards',
+  text: 'role_text',
+  subtext: 'role_subtext',
+  accent: 'role_accent'
+}
 
 export function SettingsDialog({ onClose }: { onClose: () => void }): React.JSX.Element | null {
+  const { t } = useTranslation()
   const settings = useSettingsStore((s) => s.settings)
   const [tab, setTab] = useState<Tab>('general')
 
   if (!settings) return null
 
+  const TABS: { id: Tab; label: string }[] = [
+    { id: 'general', label: t('tab_general') },
+    { id: 'appearance', label: t('tab_appearance') },
+    { id: 'ui', label: t('tab_ui') },
+    { id: 'language', label: t('tab_language') }
+  ]
+
   return (
-    <Modal title="Settings" onClose={onClose} width="max-w-lg">
+    <Modal title={t('settings_title')} onClose={onClose} width="max-w-lg">
       <div className="mb-4 flex gap-1 border-b border-card">
-        {TABS.map((t) => (
+        {TABS.map((tb) => (
           <button
-            key={t.id}
-            onClick={() => setTab(t.id)}
+            key={tb.id}
+            onClick={() => setTab(tb.id)}
             className={`px-3 py-2 text-sm font-medium transition-colors ${
-              tab === t.id ? 'border-b-2 border-accent text-accent' : 'text-subtext hover:text-text'
+              tab === tb.id ? 'border-b-2 border-accent text-accent' : 'text-subtext hover:text-text'
             }`}
           >
-            {t.label}
+            {tb.label}
           </button>
         ))}
       </div>
@@ -46,12 +58,12 @@ export function SettingsDialog({ onClose }: { onClose: () => void }): React.JSX.
       {tab === 'general' && (
         <div className="flex flex-col gap-3">
           <ToggleRow
-            label="Launch at Windows startup"
+            label={t('chk_launch_at_startup')}
             checked={settings.runAtStartup}
             onChange={(v) => void updateSettings({ runAtStartup: v })}
           />
           <ToggleRow
-            label="System tray"
+            label={t('chk_enable_tray')}
             checked={settings.trayEnabled}
             onChange={(v) => void updateSettings({ trayEnabled: v })}
           />
@@ -64,7 +76,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }): React.JSX.
         <div className="flex flex-col gap-5">
           <div>
             <label className="mb-1 block text-xs text-subtext">
-              Font size — {settings.fontScale.toFixed(1)}x
+              {t('label_font_size')} — {settings.fontScale.toFixed(1)}x
             </label>
             <input
               type="range"
@@ -77,7 +89,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }): React.JSX.
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs text-subtext">Font family</label>
+            <label className="mb-1 block text-xs text-subtext">{t('label_font')}</label>
             <select
               value={settings.fontFamily}
               onChange={(e) => void updateSettings({ fontFamily: e.target.value })}
@@ -91,7 +103,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }): React.JSX.
             </select>
           </div>
           <div>
-            <label className="mb-1 block text-xs text-subtext">Profile icon size</label>
+            <label className="mb-1 block text-xs text-subtext">{t('label_icon_size')}</label>
             <select
               value={settings.iconSize}
               onChange={(e) => void updateSettings({ iconSize: parseInt(e.target.value, 10) })}
@@ -99,7 +111,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }): React.JSX.
             >
               {Object.entries(ICON_SIZE_OPTIONS).map(([label, value]) => (
                 <option key={label} value={value}>
-                  {label}
+                  {t(sizeKeyFor(label))}
                 </option>
               ))}
             </select>
@@ -126,6 +138,19 @@ export function SettingsDialog({ onClose }: { onClose: () => void }): React.JSX.
   )
 }
 
+function sizeKeyFor(label: string): string {
+  switch (label) {
+    case 'Small':
+      return 'size_small'
+    case 'Medium':
+      return 'size_medium'
+    case 'Large':
+      return 'size_large'
+    default:
+      return 'size_xl'
+  }
+}
+
 function ToggleRow({
   label,
   checked,
@@ -149,6 +174,7 @@ function ToggleRow({
 }
 
 function AppearanceTab({ settings }: { settings: { theme: ThemeName; customColors: ThemeColors } }): React.JSX.Element {
+  const { t } = useTranslation()
   const isCustom = settings.theme === 'Custom'
 
   async function setColor(role: keyof ThemeColors, value: string): Promise<void> {
@@ -191,7 +217,7 @@ function AppearanceTab({ settings }: { settings: { theme: ThemeName; customColor
                 onChange={(e) => void setColor(role, e.target.value)}
                 className="h-8 w-12 cursor-pointer rounded bg-card"
               />
-              <span className="text-xs capitalize text-subtext">{role}</span>
+              <span className="text-xs text-subtext">{t(ROLE_KEYS[role])}</span>
             </div>
           ))}
         </div>

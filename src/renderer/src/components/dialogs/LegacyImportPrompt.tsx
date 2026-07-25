@@ -3,7 +3,7 @@ import { Modal } from '../common/Modal'
 import { formatSeconds } from '@shared/format'
 import { toast } from '../common/Toast'
 import { useProfilesStore } from '../../state/profilesStore'
-import { useSettingsStore, applyThemeToDocument } from '../../state/settingsStore'
+import { loadSettings } from '../../state/settingsStore'
 
 interface Detected {
   path: string
@@ -34,9 +34,7 @@ export function LegacyImportPrompt(): React.JSX.Element | null {
     try {
       const result = await window.api.legacyImport.run(path)
       useProfilesStore.getState().setAll(await window.api.profiles.list())
-      const settings = await window.api.settings.get()
-      useSettingsStore.getState().setSettings(settings)
-      applyThemeToDocument(settings)
+      await loadSettings()
       toast.info(`Imported ${result.importedCount} game${result.importedCount === 1 ? '' : 's'}`)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : String(err))

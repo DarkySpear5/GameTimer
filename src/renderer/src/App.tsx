@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { TitleBar } from './components/titlebar/TitleBar'
 import { GameList } from './components/gamelist/GameList'
 import { SelectedGameView } from './components/timerview/SelectedGameView'
@@ -14,9 +15,10 @@ import { loadSettings } from './state/settingsStore'
 import { startTimerTickSubscription } from './state/timerStore'
 import { useUiStore } from './state/uiStore'
 
-const TAB_LABELS = { timer: 'Game Timer', data: 'Data', about: 'About' } as const
+const TAB_KEYS = { timer: 'tab_game_timer', data: 'tab_data', about: 'tab_about' } as const
 
 function App(): React.JSX.Element {
+  const { t } = useTranslation()
   const activeTab = useUiStore((s) => s.activeTab)
   const setActiveTab = useUiStore((s) => s.setActiveTab)
   const dialog = useUiStore((s) => s.dialog)
@@ -40,7 +42,7 @@ function App(): React.JSX.Element {
       <TitleBar />
       <div className="flex items-center justify-between border-b border-card/60 px-3 pt-2">
         <div className="flex gap-1">
-          {(Object.keys(TAB_LABELS) as (keyof typeof TAB_LABELS)[]).map((tab) => (
+          {(Object.keys(TAB_KEYS) as (keyof typeof TAB_KEYS)[]).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -48,13 +50,13 @@ function App(): React.JSX.Element {
                 activeTab === tab ? 'bg-card text-accent' : 'text-subtext hover:text-text'
               }`}
             >
-              {TAB_LABELS[tab]}
+              {t(TAB_KEYS[tab])}
             </button>
           ))}
         </div>
         <button
           onClick={() => openDialog('settings')}
-          aria-label="Settings"
+          aria-label={t('settings_title')}
           className="mb-1 rounded p-1.5 text-subtext hover:bg-card hover:text-text"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">

@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useProfilesStore } from '../../state/profilesStore'
 import { useSettingsStore, updateSettings } from '../../state/settingsStore'
 import { useTimerStore } from '../../state/timerStore'
@@ -10,15 +11,8 @@ import { ContextMenu, type ContextMenuItem } from '../common/ContextMenu'
 import { toast } from '../common/Toast'
 import type { SortMode, Status } from '@shared/types'
 
-const STATUS_OPTIONS: { value: 'All' | Status; label: string }[] = [
-  { value: 'All', label: 'All statuses' },
-  { value: 'in_progress', label: 'In Progress' },
-  { value: 'completed', label: 'Completed' },
-  { value: 'dropped', label: 'Dropped' },
-  { value: 'on_hold', label: 'On Hold' }
-]
-
 export function GameList(): React.JSX.Element {
+  const { t } = useTranslation()
   const profiles = useProfilesStore((s) => s.profiles)
   const settings = useSettingsStore((s) => s.settings)
   const running = useTimerStore((s) => s.running)
@@ -29,6 +23,14 @@ export function GameList(): React.JSX.Element {
   const openDialog = useUiStore((s) => s.openDialog)
   const [adding, setAdding] = useState(false)
   const [newName, setNewName] = useState('')
+
+  const STATUS_OPTIONS: { value: 'All' | Status; label: string }[] = [
+    { value: 'All', label: t('filter_all') },
+    { value: 'in_progress', label: t('status_in_progress') },
+    { value: 'completed', label: t('status_completed') },
+    { value: 'dropped', label: t('status_dropped') },
+    { value: 'on_hold', label: t('status_on_hold') }
+  ]
 
   const sorted = useMemo(
     () =>
@@ -58,12 +60,12 @@ export function GameList(): React.JSX.Element {
   }
 
   async function handleResetTime(name: string): Promise<void> {
-    if (!window.confirm(`Reset "${name}"'s tracked time to zero? This cannot be undone.`)) return
+    if (!window.confirm(t('confirm_reset_time_msg', { name }))) return
     useProfilesStore.getState().upsert(await window.api.profiles.resetTime(name))
   }
 
   async function handleDelete(name: string): Promise<void> {
-    if (!window.confirm(`Delete "${name}" and its tracked time? This cannot be undone.`)) return
+    if (!window.confirm(t('confirm_delete_msg', { name }))) return
     await window.api.profiles.delete(name)
     useProfilesStore.getState().remove(name)
     if (selected === name) await selectProfile(null)
@@ -71,7 +73,7 @@ export function GameList(): React.JSX.Element {
 
   async function handleExport(name: string): Promise<void> {
     const result = await window.api.importExport.exportProfile(name)
-    if (result) toast.info(`Exported to ${result.path}`)
+    if (result) toast.info(t('info_exported_msg', { path: result.path }))
   }
 
   async function handleImport(): Promise<void> {
@@ -79,24 +81,25 @@ export function GameList(): React.JSX.Element {
     if (profile) {
       useProfilesStore.getState().upsert(profile)
       await selectProfile(profile.name)
+      toast.info(t('info_imported_msg', { name: profile.name }))
     }
   }
 
   function menuItemsFor(name: string): ContextMenuItem[] {
     return [
-      { label: 'Modify', onClick: () => openDialog('modify', name) },
-      { label: 'Duplicate', onClick: () => void handleDuplicate(name) },
-      { label: 'Reset Time', onClick: () => void handleResetTime(name) },
-      { label: 'Notes', onClick: () => openDialog('notes', name) },
-      { label: 'Export…', onClick: () => void handleExport(name), separatorBefore: true },
-      { label: 'Import…', onClick: () => void handleImport() },
-      { label: 'Delete', onClick: () => void handleDelete(name), danger: true, separatorBefore: true }
+      { label: t('ctx_modify'), onClick: () => openDialog('modify', name) },
+      { label: t('ctx_duplicate'), onClick: () => void handleDuplicate(name) },
+      { label: t('ctx_reset_time'), onClick: () => void handleResetTime(name) },
+      { label: t('ctx_notes'), onClick: () => openDialog('notes', name) },
+      { label: t('ctx_export'), onClick: () => void handleExport(name), separatorBefore: true },
+      { label: t('ctx_import'), onClick: () => void handleImport() },
+      { label: t('ctx_delete'), onClick: () => void handleDelete(name), danger: true, separatorBefore: true }
     ]
   }
 
   return (
     <div className="flex h-full w-60 shrink-0 flex-col bg-panel">
-      <div className="px-4 pt-4 pb-1 text-xs font-medium tracking-wide text-subtext">GAMES</div>
+      <div className="px-4 pt-4 pb-1 text-xs font-medium tracking-wide text-subtext">{t('label_games')}</div>
 
       <div className="flex gap-1.5 px-2.5 pb-1.5">
         <select
@@ -104,10 +107,10 @@ export function GameList(): React.JSX.Element {
           value={settings?.sortMode ?? 'name'}
           onChange={(e) => void updateSettings({ sortMode: e.target.value as SortMode })}
         >
-          <option value="name">Name (A-Z)</option>
-          <option value="last_played">Last Played</option>
-          <option value="rating">Rating</option>
-          <option value="genre">Genre</option>
+          <option value="name">{t('sort_name_az')}</option>
+          <option value="last_played">{t('sort_last_played')}</option>
+          <option value="rating">{t('sort_rating_desc')}</option>
+          <option value="genre">{t('sort_genre_az')}</option>
         </select>
         <select
           className="flex-1 rounded bg-card px-2 py-1 text-xs text-text outline-none"
@@ -127,10 +130,10 @@ export function GameList(): React.JSX.Element {
           value={settings?.genreFilter ?? 'All'}
           onChange={(e) => void updateSettings({ genreFilter: e.target.value })}
         >
-          <option value="All">All genres</option>
+          <option value="All">{t('filter_all')}</option>
           {GENRE_OPTIONS.map((g) => (
             <option key={g} value={g}>
-              {g}
+              {t(g, { ns: 'genres' })}
             </option>
           ))}
         </select>
@@ -146,7 +149,7 @@ export function GameList(): React.JSX.Element {
         }}
       >
         {sorted.length === 0 && (
-          <div className="px-3 py-6 text-center text-xs text-subtext">No games yet — click + Add Game</div>
+          <div className="px-3 py-6 text-center text-xs text-subtext">{t('empty_no_games')}</div>
         )}
         {sorted.map((p) => {
           const isRunning = p.name in running
@@ -181,8 +184,8 @@ export function GameList(): React.JSX.Element {
             contextMenu.target
               ? menuItemsFor(contextMenu.target)
               : [
-                  { label: '+ Add Game', onClick: () => setAdding(true) },
-                  { label: 'Import…', onClick: () => void handleImport() }
+                  { label: t('menu_add_game'), onClick: () => setAdding(true) },
+                  { label: t('ctx_import'), onClick: () => void handleImport() }
                 ]
           }
         />
@@ -202,7 +205,7 @@ export function GameList(): React.JSX.Element {
                 setNewName('')
               }
             }}
-            placeholder="Game name…"
+            placeholder={t('dlg_add_game_prompt')}
             className="w-full rounded bg-card px-2.5 py-2 text-sm text-text outline-none ring-1 ring-accent"
           />
         ) : (
@@ -210,7 +213,7 @@ export function GameList(): React.JSX.Element {
             onClick={() => setAdding(true)}
             className="w-full rounded bg-accent py-2 text-sm font-medium text-bg transition-opacity hover:opacity-90"
           >
-            + Add Game
+            {t('btn_add_game')}
           </button>
         )}
       </div>
