@@ -2,6 +2,18 @@
 
 All notable changes to Game Timer are documented here.
 
+## v1.9.1 — 2026-07-25
+
+### Fixed
+- **Reverted the Data tab back to a single table**, undoing v1.8's
+  frozen-column/dual-Treeview experiment. Even after v1.9's alignment fix,
+  dragging the horizontal scrollbar didn't move the frozen Game column's
+  text in sync with the rest of the row, so the pane split still looked and
+  felt broken. The Game column is back to being a normal column in the same
+  table as Time Played, Status, Started, Completed On, Time Completed,
+  Rating, and Genres — one Treeview, one vertical scrollbar, no independent
+  horizontal scroll to fall out of sync.
+
 ## v1.9 — 2026-07-25
 
 ### Fixed

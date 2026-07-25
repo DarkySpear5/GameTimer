@@ -472,12 +472,6 @@ class GameTimerApp:
         style.map("Vertical.TScrollbar",
                   background=[("active", self.accent), ("pressed", self.accent)],
                   arrowcolor=[("active", "#1e1e2e"), ("pressed", "#1e1e2e")])
-        style.configure("Horizontal.TScrollbar", background=CARD, troughcolor=PANEL,
-                        bordercolor=PANEL, lightcolor=CARD, darkcolor=CARD,
-                        arrowcolor=TEXT, relief="flat", arrowsize=14, width=14)
-        style.map("Horizontal.TScrollbar",
-                  background=[("active", self.accent), ("pressed", self.accent)],
-                  arrowcolor=[("active", "#1e1e2e"), ("pressed", "#1e1e2e")])
         # A distinct style (not the shared "Treeview") for the Data tab table,
         # since its genres column wraps onto up to 3 lines and needs taller
         # rows than the Games list — reusing "Treeview" would stretch that
@@ -648,25 +642,11 @@ class GameTimerApp:
 
         table_frame = tk.Frame(parent, bg=BG)
         table_frame.pack(fill="both", expand=True, padx=24, pady=(0, 20))
-        table_frame.grid_rowconfigure(0, weight=1)
-        table_frame.grid_columnconfigure(1, weight=1)
 
-        # Real frozen-left-column behavior needs two Treeviews kept in sync —
-        # vanilla ttk.Treeview scrolls its whole row horizontally, #0 column
-        # included, so a single tree can't pin "Game" while the rest scrolls.
-        # Left: just the Game column, never scrolls horizontally. Must use
-        # show="tree headings" (not "tree") — otherwise this tree has no
-        # header row at all, which both hides the "Game" label and throws
-        # off row alignment against the right tree by one header-row height.
-        self.data_tree_left = ttk.Treeview(table_frame, show="tree headings", selectmode="browse",
-                                            style="Data.Treeview")
-        self.data_tree_left.heading("#0", text=tr("col_game"))
-        self.data_tree_left.column("#0", width=190, stretch=False)
-
-        # Right: every other column, horizontally scrollable.
         columns = ("time", "status", "started", "completed_on", "completed_time", "rating", "genres")
-        self.data_tree = ttk.Treeview(table_frame, columns=columns, show="headings",
+        self.data_tree = ttk.Treeview(table_frame, columns=columns, show="tree headings",
                                        selectmode="browse", style="Data.Treeview")
+        self.data_tree.heading("#0", text=tr("col_game"))
         self.data_tree.heading("time", text=tr("col_time_played"))
         self.data_tree.heading("status", text=tr("col_status"))
         self.data_tree.heading("started", text=tr("col_started"))
@@ -674,70 +654,22 @@ class GameTimerApp:
         self.data_tree.heading("completed_time", text=tr("col_completed_time"))
         self.data_tree.heading("rating", text=tr("col_rating"))
         self.data_tree.heading("genres", text=tr("col_genres"))
-        self.data_tree.column("time", width=100, anchor="center", stretch=False)
-        self.data_tree.column("status", width=90, anchor="center", stretch=False)
-        self.data_tree.column("started", width=90, anchor="center", stretch=False)
-        self.data_tree.column("completed_on", width=95, anchor="center", stretch=False)
-        self.data_tree.column("completed_time", width=100, anchor="center", stretch=False)
-        self.data_tree.column("rating", width=90, anchor="center", stretch=False)
-        self.data_tree.column("genres", width=200, anchor="w", stretch=False)
+        self.data_tree.column("#0", width=190)
+        self.data_tree.column("time", width=100, anchor="center")
+        self.data_tree.column("status", width=90, anchor="center")
+        self.data_tree.column("started", width=90, anchor="center")
+        self.data_tree.column("completed_on", width=95, anchor="center")
+        self.data_tree.column("completed_time", width=100, anchor="center")
+        self.data_tree.column("rating", width=90, anchor="center")
+        self.data_tree.column("genres", width=200, anchor="w")
 
-        vsb = ttk.Scrollbar(table_frame, orient="vertical")
-        hsb = ttk.Scrollbar(table_frame, orient="horizontal", command=self.data_tree.xview)
+        vsb = ttk.Scrollbar(table_frame, orient="vertical", command=self.data_tree.yview)
+        self.data_tree.configure(yscrollcommand=vsb.set)
+        self.data_tree.pack(side="left", fill="both", expand=True)
+        vsb.pack(side="right", fill="y")
 
-        def sync_yview(*args):
-            self.data_tree_left.yview(*args)
-            self.data_tree.yview(*args)
-
-        vsb.configure(command=sync_yview)
-
-        def show_or_hide(scrollbar, first, last, **grid_kwargs):
-            # Scrollbars only take up space when there's actually something
-            # to scroll to — an always-visible trough for a table that fits
-            # is just clutter.
-            if float(first) <= 0.0 and float(last) >= 1.0:
-                scrollbar.grid_remove()
-            else:
-                scrollbar.grid(**grid_kwargs)
-
-        def on_left_yscroll(first, last):
-            vsb.set(first, last)
-            show_or_hide(vsb, first, last, row=0, column=2, sticky="ns")
-            self.data_tree.yview_moveto(first)
-
-        def on_right_yscroll(first, last):
-            vsb.set(first, last)
-            show_or_hide(vsb, first, last, row=0, column=2, sticky="ns")
-            self.data_tree_left.yview_moveto(first)
-
-        def on_xscroll(first, last):
-            hsb.set(first, last)
-            show_or_hide(hsb, first, last, row=1, column=1, sticky="ew")
-
-        self.data_tree_left.configure(yscrollcommand=on_left_yscroll)
-        self.data_tree.configure(yscrollcommand=on_right_yscroll, xscrollcommand=on_xscroll)
-
-        # Selecting a row in either tree highlights the matching row (same
-        # iid — both trees are always inserted with the game's name) in the
-        # other, so they read as one table rather than two separate ones.
-        def mirror_selection(source, target):
-            sel = source.selection()
-            if sel and target.selection() != sel:
-                target.selection_set(sel)
-
-        self.data_tree_left.bind("<<TreeviewSelect>>",
-                                  lambda e: mirror_selection(self.data_tree_left, self.data_tree))
-        self.data_tree.bind("<<TreeviewSelect>>",
-                             lambda e: mirror_selection(self.data_tree, self.data_tree_left))
-
-        self.data_tree_left.grid(row=0, column=0, sticky="ns")
-        self.data_tree.grid(row=0, column=1, sticky="nsew")
-        # vsb/hsb grid themselves on demand via show_or_hide once there's
-        # data to size against.
-
-        for tree in (self.data_tree_left, self.data_tree):
-            tree.tag_configure("rowA", background=PANEL, foreground=TEXT)
-            tree.tag_configure("rowB", background=CARD, foreground=TEXT)
+        self.data_tree.tag_configure("rowA", background=PANEL, foreground=TEXT)
+        self.data_tree.tag_configure("rowB", background=CARD, foreground=TEXT)
 
     def _build_about_tab(self, parent):
         canvas = tk.Canvas(parent, bg=BG, highlightthickness=0)
@@ -752,7 +684,7 @@ class GameTimerApp:
 
         tk.Label(inner, text="Game Timer", bg=BG, fg=TEXT,
                  font=scaled_font(20, "bold")).pack(anchor="w", padx=24, pady=(24, 2))
-        tk.Label(inner, text=f"v1.9 — {tr('about_tagline')}",
+        tk.Label(inner, text=f"v1.9.1 — {tr('about_tagline')}",
                  bg=BG, fg=SUBTEXT, font=FONT_MAIN).pack(anchor="w", padx=24, pady=(0, 20))
 
         tk.Label(inner, text=tr("about_built_with"), bg=BG, fg=TEXT,
@@ -820,7 +752,6 @@ class GameTimerApp:
         self.stat_games_tracked_label.config(text=str(len(self.data["profiles"])))
         self.stat_completed_label.config(text=str(completed_count))
 
-        self.data_tree_left.delete(*self.data_tree_left.get_children())
         self.data_tree.delete(*self.data_tree.get_children())
         self.data_thumb_refs = {}
         status_label_keys = {
@@ -844,21 +775,17 @@ class GameTimerApp:
                 if os.path.exists(path):
                     img = self._load_thumbnail(path, size=(24, 24))
 
-            # Same iid (the game's name) in both trees is what lets vertical
-            # scroll position and row selection stay mapped 1:1 between them.
-            left_kwargs = dict(text=" " + name, tags=(row_tag,))
-            if img:
-                self.data_thumb_refs[name] = img
-                left_kwargs["image"] = img
-            self.data_tree_left.insert("", "end", iid=name, **left_kwargs)
-
-            self.data_tree.insert(
-                "", "end", iid=name,
+            kwargs = dict(
+                text=" " + name,
                 values=(format_seconds(info.get("seconds", 0)), status, started, completed_on, completed_time,
                         self._rating_stars(info.get("rating", 0)) or "—",
                         self._wrap_genres(info.get("genres", ["Uncategorized"]))),
                 tags=(row_tag,),
             )
+            if img:
+                self.data_thumb_refs[name] = img
+                kwargs["image"] = img
+            self.data_tree.insert("", "end", iid=name, **kwargs)
 
     def _bind_mousewheel(self, window, scrollable):
         """Makes the mouse wheel scroll `scrollable` (a Canvas or Listbox) while
