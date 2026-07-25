@@ -1,0 +1,32 @@
+@import 'tailwindcss';
+@import './theme.css';
+
+@theme {
+  --color-bg: var(--gt-bg);
+  --color-panel: var(--gt-panel);
+  --color-card: var(--gt-card);
+  --color-text: var(--gt-text);
+  --color-subtext: var(--gt-subtext);
+  --color-accent: var(--gt-accent);
+  --color-green: var(--gt-green);
+  --color-red: var(--gt-red);
+  --color-gold: var(--gt-gold);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background-color: var(--gt-bg);
+  color: var(--gt-text);
+  font-family:
+    'Segoe UI',
+    -apple-system,
+    sans-serif;
+  overflow: hidden;
+  user-select: none;
+}

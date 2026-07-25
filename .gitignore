@@ -1,5 +1,6 @@
+# --- v1 (Python/Tkinter, main branch) ---
 # PyInstaller build artifacts
-build/
+build/GameTimer/
 dist/
 Output/
 *.spec
@@ -16,3 +17,10 @@ backups/
 icons/
 backgrounds/
 profiles/
+
+# --- v2 (Electron/TypeScript, v2 branch) ---
+node_modules/
+out/
+release/
+*.tsbuildinfo
+.vite/

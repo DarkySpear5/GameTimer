@@ -1,0 +1,21 @@
+/*
+ * Runtime-switchable theme values. These are plain custom properties (not
+ * Tailwind config) because themes change at runtime (5 presets + a live
+ * custom color picker) — Tailwind's @theme block below just maps utility
+ * classes onto these variables so `bg-bg`/`text-accent`/etc. stay reactive
+ * without a rebuild. main/settings pushes the active theme's colors here by
+ * setting these on :root whenever the theme changes.
+ */
+:root {
+  --gt-bg: #1e1e2e;
+  --gt-panel: #181825;
+  --gt-card: #26263a;
+  --gt-text: #cdd6f4;
+  --gt-subtext: #9399b2;
+  --gt-accent: #89b4fa;
+
+  /* Functional colors — never themeable (play/pause/complete state). */
+  --gt-green: #a6e3a1;
+  --gt-red: #f38ba8;
+  --gt-gold: #f9e2af;
+}
