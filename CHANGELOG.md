@@ -2,6 +2,39 @@
 
 All notable changes to Game Timer are documented here.
 
+## v1.7 — 2026-07-25
+
+### Added
+- **Font size slider** in a new Settings → UI tab — the current size is the
+  smallest available, and it scales the whole app's text up from there.
+  Profile Icon Size (now a dropdown instead of radio buttons) and the Font
+  family picker moved here too.
+- **Started date** column in the Data tab: the date a game was first ever
+  pressed Play on (date only, no time-of-day).
+- **Horizontal scrolling** for the Data tab table, with the Game name column
+  staying fixed on the left as the rest scrolls.
+
+### Changed
+- **Data tab genres column** now wraps onto up to 3 lines (with "..." if it's
+  still too long) instead of one unreadable run-on line.
+- **Tray settings merged into the General tab** — it doesn't need its own tab.
+- **Accent color** is no longer a separate, confusing control that silently
+  overrode Customize Colors' own accent role. It's now purely part of
+  Customize Colors, which in turn only works once "Custom" is deliberately
+  selected (previously it was editable on top of a preset theme too, which
+  silently switched you to Custom on save without choosing that). Existing
+  custom accents are migrated automatically — nobody's look changes on
+  upgrade.
+- **Completed On / Time Completed** in the Data tab now only populate for
+  games actually marked Completed — Dropped/On Hold no longer show a
+  "completion" date that didn't happen (their own snapshot is still visible
+  in Modify's General tab).
+- **Reverted** the Complete on/off switch from v1.5/v1.6 back to a plain
+  "✓ Complete" button next to Play — still toggles the same status logic
+  underneath, just without the phone-settings-style visual.
+
+All of the above is translated across the existing 10 languages.
+
 ## v1.6 — 2026-07-24
 
 ### Added

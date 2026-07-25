@@ -31,6 +31,7 @@ import uuid
 import shutil
 import threading
 import webbrowser
+import textwrap
 
 from translations import (
     GENRE_OPTIONS, LANGUAGE_NAMES, LANGUAGE_ORDER, apply_language_global, tr, tr_genre,
@@ -128,8 +129,19 @@ FONT_MAIN = ("Segoe UI", 11)
 FONT_SMALL = ("Segoe UI", 9)
 FONT_TITLE_BASE = 15
 FONT_TIMER_BASE = 42
+FONT_SCALE = 1.0
+FONT_SCALE_MIN = 1.0
+FONT_SCALE_MAX = 1.5
 
 ICON_SIZE_OPTIONS = {"Small": 24, "Medium": 36, "Large": 52, "Extra Large": 72}
+
+
+def scaled_font(size, weight=""):
+    """Applies the user's UI font-size setting to a literal point size —
+    used everywhere a widget hardcodes a size instead of using FONT_MAIN/
+    FONT_SMALL (which already scale automatically via apply_font_globals)."""
+    px = max(1, round(size * FONT_SCALE))
+    return (FONT_FAMILY_UI, px, weight) if weight else (FONT_FAMILY_UI, px)
 
 
 def apply_theme_globals(theme_dict):
@@ -146,11 +158,12 @@ def apply_theme_globals(theme_dict):
     ACCENT_DEFAULT = theme_dict.get("accent", ACCENT_DEFAULT)
 
 
-def apply_font_globals(family):
-    global FONT_FAMILY_UI, FONT_MAIN, FONT_SMALL
+def apply_font_globals(family, scale=1.0):
+    global FONT_FAMILY_UI, FONT_MAIN, FONT_SMALL, FONT_SCALE
     FONT_FAMILY_UI = family
-    FONT_MAIN = (family, 11)
-    FONT_SMALL = (family, 9)
+    FONT_SCALE = max(FONT_SCALE_MIN, min(FONT_SCALE_MAX, scale))
+    FONT_MAIN = (family, max(1, round(11 * FONT_SCALE)))
+    FONT_SMALL = (family, max(1, round(9 * FONT_SCALE)))
 
 
 # ---------- Data helpers ----------
@@ -167,20 +180,39 @@ def load_data():
     data.setdefault("settings", {})
     data["settings"].setdefault("tray_enabled", True)
     data["settings"].setdefault("run_at_startup", False)
-    data["settings"].setdefault("accent", ACCENT_DEFAULT)
     data["settings"].setdefault("icon_size", 36)
     data["settings"].setdefault("theme", "Midnight Blue")
     data["settings"].setdefault("custom_colors", dict(DEFAULT_CUSTOM_COLORS))
     data["settings"].setdefault("font_family", "Segoe UI")
+    data["settings"].setdefault("font_scale", 1.0)
     data["settings"].setdefault("sort_mode", "name")
     data["settings"].setdefault("genre_filter", "All")
     data["settings"].setdefault("status_filter", "All")
     data["settings"].setdefault("language", "en")
+    if "accent" in data["settings"]:
+        # One-time migration (v1.7): a standalone "Accent Color" picker used
+        # to silently override whatever accent the theme (or Customize
+        # Colors) defined, which was confusing since both existed and only
+        # one actually took effect. It's been removed — accent is now purely
+        # a Customize Colors role. If someone had picked a custom accent
+        # while on a preset theme, preserve exactly what they were seeing by
+        # converting that setup into an equivalent Custom theme, so nobody's
+        # look silently changes on upgrade.
+        old_accent = data["settings"].pop("accent")
+        theme_name = data["settings"].get("theme", "Midnight Blue")
+        if theme_name != "Custom":
+            base_palette = THEMES.get(theme_name, THEMES["Midnight Blue"])
+            if old_accent and old_accent != base_palette.get("accent"):
+                custom = dict(base_palette)
+                custom["accent"] = old_accent
+                data["settings"]["custom_colors"] = custom
+                data["settings"]["theme"] = "Custom"
     for p in data["profiles"].values():
         p.setdefault("icon_file", None)
         p.setdefault("bg_color", None)
         p.setdefault("bg_image", None)
         p.setdefault("last_played", None)
+        p.setdefault("started_date", None)
         p.setdefault("notes", "")
         p.setdefault("rating", 0)
         if "status" not in p:
@@ -338,11 +370,13 @@ class GameTimerApp:
             apply_theme_globals(self.data["settings"].get("custom_colors", DEFAULT_CUSTOM_COLORS))
         else:
             apply_theme_globals(THEMES.get(theme_name, THEMES["Midnight Blue"]))
-        apply_font_globals(self.data["settings"].get("font_family", "Segoe UI"))
+        apply_font_globals(self.data["settings"].get("font_family", "Segoe UI"),
+                           self.data["settings"].get("font_scale", 1.0))
         apply_language_global(self.data["settings"].get("language", "en"))
 
-        self.accent = self.data["settings"].get("accent", ACCENT_DEFAULT)
+        self.accent = ACCENT_DEFAULT
         self.icon_size = self.data["settings"].get("icon_size", 36)
+        self.font_scale = self.data["settings"].get("font_scale", 1.0)
         self.sort_mode = self.data["settings"].get("sort_mode", "name")
         self.genre_filter = self.data["settings"].get("genre_filter", "All")
         self.status_filter = self.data["settings"].get("status_filter", "All")
@@ -408,10 +442,10 @@ class GameTimerApp:
         topbar = tk.Frame(self.root, bg=PANEL, height=44)
         topbar.pack(side="top", fill="x")
         tk.Label(topbar, text="Game Timer", bg=PANEL, fg=TEXT,
-                 font=(FONT_FAMILY_UI, 15, "bold")).pack(side="left", padx=14, pady=6)
+                 font=scaled_font(15, "bold")).pack(side="left", padx=14, pady=6)
         gear_btn = tk.Button(topbar, text="\u2699", command=self._open_settings, bg=PANEL, fg=TEXT,
                              activebackground=PANEL, activeforeground=TEXT, bd=0,
-                             highlightthickness=0, font=(FONT_FAMILY_UI, 14), cursor="hand2")
+                             highlightthickness=0, font=scaled_font(14), cursor="hand2")
         gear_btn.pack(side="right", padx=12)
         self._add_hover(gear_btn, PANEL)
 
@@ -438,6 +472,27 @@ class GameTimerApp:
         style.map("Vertical.TScrollbar",
                   background=[("active", self.accent), ("pressed", self.accent)],
                   arrowcolor=[("active", "#1e1e2e"), ("pressed", "#1e1e2e")])
+        style.configure("Horizontal.TScrollbar", background=CARD, troughcolor=PANEL,
+                        bordercolor=PANEL, lightcolor=CARD, darkcolor=CARD,
+                        arrowcolor=TEXT, relief="flat", arrowsize=14, width=14)
+        style.map("Horizontal.TScrollbar",
+                  background=[("active", self.accent), ("pressed", self.accent)],
+                  arrowcolor=[("active", "#1e1e2e"), ("pressed", "#1e1e2e")])
+        # A distinct style (not the shared "Treeview") for the Data tab table,
+        # since its genres column wraps onto up to 3 lines and needs taller
+        # rows than the Games list — reusing "Treeview" would stretch that
+        # list's rows too.
+        data_row_h = max(60, FONT_MAIN[1] * 6)
+        style.configure("Data.Treeview", background=PANEL, fieldbackground=PANEL, foreground=TEXT,
+                        rowheight=data_row_h, font=FONT_MAIN, borderwidth=0,
+                        relief="flat", bordercolor=PANEL, lightcolor=PANEL, darkcolor=PANEL)
+        style.map("Data.Treeview", background=[("selected", self.accent)],
+                  foreground=[("selected", "#1e1e2e")])
+        style.layout("Data.Treeview", [("Treeview.treearea", {"sticky": "nswe"})])
+        style.configure("Data.Treeview.Heading", background=CARD, foreground=TEXT,
+                        font=FONT_MAIN, borderwidth=0, relief="flat",
+                        bordercolor=CARD, lightcolor=CARD, darkcolor=CARD)
+        style.map("Data.Treeview.Heading", background=[("active", CARD)])
         self._style_notebook(style)
 
         self.main_notebook = ttk.Notebook(self.root)
@@ -514,7 +569,7 @@ class GameTimerApp:
             0, 0, text="", fill=SUBTEXT, font=FONT_SMALL, anchor="center"
         )
         self.rating_id = self.canvas.create_text(
-            0, 0, text="", fill=GOLD, font=(FONT_FAMILY_UI, 16), anchor="center"
+            0, 0, text="", fill=GOLD, font=scaled_font(16), anchor="center"
         )
         self.timer_id = self.canvas.create_text(
             0, 0, text="00:00:00", fill=TEXT,
@@ -524,38 +579,18 @@ class GameTimerApp:
         self.play_button = tk.Button(
             self.canvas, text=tr("btn_play"), command=self._toggle_play, bg=GREEN, fg="#1e1e2e",
             activebackground=GREEN, activeforeground="#1e1e2e", bd=0, relief="flat",
-            highlightthickness=0, font=(FONT_FAMILY_UI, 13, "bold"), width=12, padx=6, pady=8, cursor="hand2"
+            highlightthickness=0, font=scaled_font(13, "bold"), width=12, padx=6, pady=8, cursor="hand2"
         )
         self._add_hover(self.play_button, GREEN)
         self.play_window_id = self.canvas.create_window(0, 0, window=self.play_button)
 
-        # ----- Complete toggle: a phone-settings-style on/off switch -----
-        # Label sits to the left of the switch at the same height (the usual
-        # "Setting Name .......... [toggle]" row layout) rather than stacked
-        # above it, so it can't end up visually lost near the switch.
-        if PIL_AVAILABLE:
-            self.complete_toggle_label_id = self.canvas.create_text(
-                0, 0, text=tr("label_complete_toggle"), fill=TEXT,
-                font=(FONT_FAMILY_UI, 12, "bold"), anchor="e"
-            )
-            self._toggle_photo = None
-            self.complete_toggle_id = self.canvas.create_image(0, 0, anchor="center")
-            for tag in ("<Button-1>",):
-                self.canvas.tag_bind(self.complete_toggle_id, tag, lambda e: self._toggle_complete())
-            self.canvas.tag_bind(self.complete_toggle_id, "<Enter>", lambda e: self.canvas.config(cursor="hand2"))
-            self.canvas.tag_bind(self.complete_toggle_id, "<Leave>", lambda e: self.canvas.config(cursor="arrow"))
-            self.complete_button = None
-            self.reset_window_id = None
-        else:
-            self.complete_toggle_label_id = None
-            self.complete_toggle_id = None
-            self.complete_button = tk.Button(
-                self.canvas, text=tr("btn_complete"), command=self._toggle_complete, bg=GOLD, fg="#1e1e2e",
-                activebackground=GOLD, activeforeground="#1e1e2e", bd=0, relief="flat",
-                highlightthickness=0, font=FONT_MAIN, width=11, padx=6, pady=8, cursor="hand2"
-            )
-            self._add_hover(self.complete_button, GOLD)
-            self.reset_window_id = self.canvas.create_window(0, 0, window=self.complete_button)
+        self.complete_button = tk.Button(
+            self.canvas, text=tr("btn_complete"), command=self._toggle_complete, bg=GOLD, fg="#1e1e2e",
+            activebackground=GOLD, activeforeground="#1e1e2e", bd=0, relief="flat",
+            highlightthickness=0, font=FONT_MAIN, width=11, padx=6, pady=8, cursor="hand2"
+        )
+        self._add_hover(self.complete_button, GOLD)
+        self.reset_window_id = self.canvas.create_window(0, 0, window=self.complete_button)
 
         self.hint_id = self.canvas.create_text(
             0, 0, text=tr("hint_canvas"),
@@ -602,7 +637,7 @@ class GameTimerApp:
 
     def _build_data_tab(self, parent):
         tk.Label(parent, text=tr("stats_title"), bg=BG, fg=TEXT,
-                 font=(FONT_FAMILY_UI, 18, "bold")).pack(anchor="w", padx=24, pady=(22, 12))
+                 font=scaled_font(18, "bold")).pack(anchor="w", padx=24, pady=(22, 12))
 
         stats_row = tk.Frame(parent, bg=BG)
         stats_row.pack(fill="x", padx=24, pady=(0, 18))
@@ -613,29 +648,40 @@ class GameTimerApp:
 
         table_frame = tk.Frame(parent, bg=BG)
         table_frame.pack(fill="both", expand=True, padx=24, pady=(0, 20))
+        table_frame.grid_rowconfigure(0, weight=1)
+        table_frame.grid_columnconfigure(0, weight=1)
 
-        columns = ("time", "status", "completed_on", "completed_time", "rating", "genres")
+        columns = ("time", "status", "started", "completed_on", "completed_time", "rating", "genres")
         self.data_tree = ttk.Treeview(table_frame, columns=columns, show="tree headings",
-                                       selectmode="browse")
+                                       selectmode="browse", style="Data.Treeview")
         self.data_tree.heading("#0", text=tr("col_game"))
         self.data_tree.heading("time", text=tr("col_time_played"))
         self.data_tree.heading("status", text=tr("col_status"))
-        self.data_tree.heading("completed_on", text=tr("col_status_date"))
-        self.data_tree.heading("completed_time", text=tr("col_status_time"))
+        self.data_tree.heading("started", text=tr("col_started"))
+        self.data_tree.heading("completed_on", text=tr("col_completed_on"))
+        self.data_tree.heading("completed_time", text=tr("col_completed_time"))
         self.data_tree.heading("rating", text=tr("col_rating"))
         self.data_tree.heading("genres", text=tr("col_genres"))
-        self.data_tree.column("#0", width=190)
-        self.data_tree.column("time", width=100, anchor="center")
-        self.data_tree.column("status", width=90, anchor="center")
-        self.data_tree.column("completed_on", width=95, anchor="center")
-        self.data_tree.column("completed_time", width=100, anchor="center")
-        self.data_tree.column("rating", width=90, anchor="center")
-        self.data_tree.column("genres", width=140, anchor="center")
+        # stretch=False on every column so the table can genuinely overflow
+        # its frame width and be scrolled horizontally, instead of columns
+        # auto-shrinking/stretching to always fit (which leaves nothing to
+        # scroll to). The #0 "Game" column stays fixed on the left as the
+        # rest scrolls — that's native ttk.Treeview behavior.
+        self.data_tree.column("#0", width=190, stretch=False)
+        self.data_tree.column("time", width=100, anchor="center", stretch=False)
+        self.data_tree.column("status", width=90, anchor="center", stretch=False)
+        self.data_tree.column("started", width=90, anchor="center", stretch=False)
+        self.data_tree.column("completed_on", width=95, anchor="center", stretch=False)
+        self.data_tree.column("completed_time", width=100, anchor="center", stretch=False)
+        self.data_tree.column("rating", width=90, anchor="center", stretch=False)
+        self.data_tree.column("genres", width=200, anchor="w", stretch=False)
 
         vsb = ttk.Scrollbar(table_frame, orient="vertical", command=self.data_tree.yview)
-        self.data_tree.configure(yscrollcommand=vsb.set)
-        self.data_tree.pack(side="left", fill="both", expand=True)
-        vsb.pack(side="right", fill="y")
+        hsb = ttk.Scrollbar(table_frame, orient="horizontal", command=self.data_tree.xview)
+        self.data_tree.configure(yscrollcommand=vsb.set, xscrollcommand=hsb.set)
+        self.data_tree.grid(row=0, column=0, sticky="nsew")
+        vsb.grid(row=0, column=1, sticky="ns")
+        hsb.grid(row=1, column=0, sticky="ew")
 
         self.data_tree.tag_configure("rowA", background=PANEL, foreground=TEXT)
         self.data_tree.tag_configure("rowB", background=CARD, foreground=TEXT)
@@ -652,12 +698,12 @@ class GameTimerApp:
         self._bind_mousewheel(self.root, canvas)
 
         tk.Label(inner, text="Game Timer", bg=BG, fg=TEXT,
-                 font=(FONT_FAMILY_UI, 20, "bold")).pack(anchor="w", padx=24, pady=(24, 2))
-        tk.Label(inner, text=f"v1.6 — {tr('about_tagline')}",
+                 font=scaled_font(20, "bold")).pack(anchor="w", padx=24, pady=(24, 2))
+        tk.Label(inner, text=f"v1.7 — {tr('about_tagline')}",
                  bg=BG, fg=SUBTEXT, font=FONT_MAIN).pack(anchor="w", padx=24, pady=(0, 20))
 
         tk.Label(inner, text=tr("about_built_with"), bg=BG, fg=TEXT,
-                 font=(FONT_FAMILY_UI, 13, "bold")).pack(anchor="w", padx=24, pady=(0, 8))
+                 font=scaled_font(13, "bold")).pack(anchor="w", padx=24, pady=(0, 8))
 
         third_party = [
             ("Python", tr("about_lib_python_desc"), tr("about_lic_psf")),
@@ -671,7 +717,7 @@ class GameTimerApp:
             card = tk.Frame(inner, bg=CARD)
             card.pack(fill="x", padx=24, pady=4)
             tk.Label(card, text=lib_name, bg=CARD, fg=self.accent,
-                     font=(FONT_FAMILY_UI, 11, "bold")).pack(anchor="w", padx=14, pady=(10, 0))
+                     font=scaled_font(11, "bold")).pack(anchor="w", padx=14, pady=(10, 0))
             tk.Label(card, text=desc, bg=CARD, fg=TEXT, font=FONT_SMALL,
                      wraplength=480, justify="left").pack(anchor="w", padx=14, pady=(2, 0))
             tk.Label(card, text=license_note, bg=CARD, fg=SUBTEXT, font=FONT_SMALL,
@@ -682,20 +728,20 @@ class GameTimerApp:
             anchor="w", padx=24, pady=(8, 20))
 
         tk.Label(inner, text=tr("about_contact_header"), bg=BG, fg=TEXT,
-                 font=(FONT_FAMILY_UI, 13, "bold")).pack(anchor="w", padx=24, pady=(0, 8))
+                 font=scaled_font(13, "bold")).pack(anchor="w", padx=24, pady=(0, 8))
         contact_card = tk.Frame(inner, bg=CARD)
         contact_card.pack(fill="x", padx=24, pady=(0, 12))
         tk.Label(contact_card, text=tr("about_contact_discord_label"), bg=CARD, fg=self.accent,
-                 font=(FONT_FAMILY_UI, 11, "bold")).pack(anchor="w", padx=14, pady=(10, 0))
+                 font=scaled_font(11, "bold")).pack(anchor="w", padx=14, pady=(10, 0))
         tk.Label(contact_card, text="rawwwwwrr", bg=CARD, fg=TEXT, font=FONT_MAIN).pack(
             anchor="w", padx=14, pady=(2, 12))
 
         github_card = tk.Frame(inner, bg=CARD)
         github_card.pack(fill="x", padx=24, pady=(0, 30))
         tk.Label(github_card, text=tr("about_contact_github_label"), bg=CARD, fg=self.accent,
-                 font=(FONT_FAMILY_UI, 11, "bold")).pack(anchor="w", padx=14, pady=(10, 0))
+                 font=scaled_font(11, "bold")).pack(anchor="w", padx=14, pady=(10, 0))
         github_link = tk.Label(github_card, text=tr("about_github_link_text"), bg=CARD, fg=self.accent,
-                                font=(FONT_FAMILY_UI, 11, "underline"), cursor="hand2")
+                                font=scaled_font(11, "underline"), cursor="hand2")
         github_link.pack(anchor="w", padx=14, pady=(2, 12))
         github_link.bind("<Button-1>", lambda e: webbrowser.open(GITHUB_URL))
 
@@ -703,7 +749,7 @@ class GameTimerApp:
         card = tk.Frame(parent, bg=CARD)
         card.pack(side="left", expand=True, fill="both", padx=6)
         tk.Label(card, text=label, bg=CARD, fg=SUBTEXT, font=FONT_SMALL).pack(pady=(14, 4))
-        val_label = tk.Label(card, text=value, bg=CARD, fg=self.accent, font=(FONT_FAMILY_UI, 22, "bold"))
+        val_label = tk.Label(card, text=value, bg=CARD, fg=self.accent, font=scaled_font(22, "bold"))
         val_label.pack(pady=(0, 14))
         return val_label
 
@@ -730,9 +776,11 @@ class GameTimerApp:
         for i, (name, info) in enumerate(self._get_sorted_profiles_all()):
             status_key = status_label_keys.get(info.get("status"), "status_in_progress")
             status = tr(status_key)
-            completed_on = info.get("status_at") or "\u2014"
-            status_seconds = info.get("status_seconds")
+            is_completed = info.get("status") == "completed"
+            completed_on = (info.get("status_at") or "\u2014") if is_completed else "\u2014"
+            status_seconds = info.get("status_seconds") if is_completed else None
             completed_time = format_seconds(status_seconds) if status_seconds is not None else "\u2014"
+            started = info.get("started_date") or "\u2014"
             row_tag = "rowA" if i % 2 == 0 else "rowB"
 
             icon_file = info.get("icon_file")
@@ -744,9 +792,9 @@ class GameTimerApp:
 
             kwargs = dict(
                 text=" " + name,
-                values=(format_seconds(info.get("seconds", 0)), status, completed_on, completed_time,
+                values=(format_seconds(info.get("seconds", 0)), status, started, completed_on, completed_time,
                         self._rating_stars(info.get("rating", 0)) or "—",
-                        ", ".join(tr_genre(g) for g in info.get("genres", ["Uncategorized"]))),
+                        self._wrap_genres(info.get("genres", ["Uncategorized"]))),
                 tags=(row_tag,),
             )
             if img:
@@ -782,42 +830,31 @@ class GameTimerApp:
         return "★" * rating + "☆" * (5 - rating)
 
     @staticmethod
-    def _hex_to_rgb(hex_color):
-        hex_color = hex_color.lstrip("#")
-        return tuple(int(hex_color[i:i + 2], 16) for i in (0, 2, 4))
-
-    def _make_toggle_image(self, on):
-        """Renders a rounded phone-settings-style on/off switch — track color
-        is the theme accent when on, a muted version of the panel color when
-        off, with a white knob that slides to whichever side is active."""
-        w, h = 68, 32
-        pad = 3
-        knob_d = h - pad * 2
-        img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-        draw = ImageDraw.Draw(img)
-        if on:
-            track_rgb = self._hex_to_rgb(self.accent)
-        else:
-            track_rgb = self._hex_to_rgb(self._shift_color(PANEL, 40))
-        draw.rounded_rectangle([0, 0, w - 1, h - 1], radius=h // 2, fill=(*track_rgb, 255))
-        knob_x = w - pad - knob_d if on else pad
-        draw.ellipse([knob_x, pad, knob_x + knob_d, pad + knob_d], fill=(255, 255, 255, 255))
-        return ImageTk.PhotoImage(img)
+    def _wrap_genres(genres, width=22, max_lines=3):
+        """Wraps a game's genre list onto up to max_lines lines instead of
+        one long unreadable row, truncating with "..." if it still doesn't
+        fit — long genre lists were taking over the whole Data tab row."""
+        text = ", ".join(tr_genre(g) for g in genres)
+        lines = textwrap.wrap(text, width=width) or [""]
+        if len(lines) > max_lines:
+            lines = lines[:max_lines]
+            last = lines[-1].rstrip()
+            budget = max(0, width - 3)
+            if len(last) > budget:
+                last = last[:budget].rstrip()
+            lines[-1] = last + "..."
+        return "\n".join(lines)
 
     def _update_complete_toggle_visual(self):
-        """Redraws the Complete toggle (or the fallback button, if Pillow
-        isn't available) to match the selected profile's completed state."""
+        """Recolors the Complete button to reflect the selected profile's
+        completed state — accent when completed, gold otherwise."""
         completed = bool(self.selected and self.data["profiles"][self.selected].get("status") == "completed")
-        if PIL_AVAILABLE and self.complete_toggle_id is not None:
-            self._toggle_photo = self._make_toggle_image(completed)
-            self.canvas.itemconfig(self.complete_toggle_id, image=self._toggle_photo)
-        elif self.complete_button is not None:
-            if completed:
-                self.complete_button.config(bg=self.accent, activebackground=self.accent)
-                self._add_hover(self.complete_button, self.accent)
-            else:
-                self.complete_button.config(bg=GOLD, activebackground=GOLD)
-                self._add_hover(self.complete_button, GOLD)
+        if completed:
+            self.complete_button.config(bg=self.accent, activebackground=self.accent)
+            self._add_hover(self.complete_button, self.accent)
+        else:
+            self.complete_button.config(bg=GOLD, activebackground=GOLD)
+            self._add_hover(self.complete_button, GOLD)
 
     @staticmethod
     def _shift_color(hex_color, amount):
@@ -874,8 +911,8 @@ class GameTimerApp:
             return
         cx = w // 2
         scale = max(0.75, min(2.3, h / 480))
-        title_font = (FONT_FAMILY_UI, max(11, int(FONT_TITLE_BASE * scale)), "bold")
-        timer_font = ("Consolas", max(22, int(FONT_TIMER_BASE * scale)), "bold")
+        title_font = (FONT_FAMILY_UI, max(11, int(FONT_TITLE_BASE * scale * FONT_SCALE)), "bold")
+        timer_font = ("Consolas", max(22, int(FONT_TIMER_BASE * scale * FONT_SCALE)), "bold")
 
         self.canvas.coords(self.title_id, cx, int(h * 0.13))
         self.canvas.itemconfig(self.title_id, font=title_font)
@@ -887,12 +924,7 @@ class GameTimerApp:
         btn_y = int(h * 0.68)
         gap = max(70, int(70 * scale * 0.6))
         self.canvas.coords(self.play_window_id, cx - gap, btn_y)
-        if PIL_AVAILABLE and self.complete_toggle_id is not None:
-            toggle_cx = cx + gap
-            self.canvas.coords(self.complete_toggle_label_id, toggle_cx - 40, btn_y)
-            self.canvas.coords(self.complete_toggle_id, toggle_cx + 12, btn_y)
-        elif self.reset_window_id is not None:
-            self.canvas.coords(self.reset_window_id, cx + gap, btn_y)
+        self.canvas.coords(self.reset_window_id, cx + gap, btn_y)
         self.canvas.coords(self.hint_id, cx, h - 20)
 
         self._render_background()
@@ -1167,7 +1199,7 @@ class GameTimerApp:
 
     def _build_modify_general_tab(self, parent, profile_name, win):
         tk.Label(parent, text=tr("dlg_rename_title"), bg=BG, fg=TEXT,
-                 font=(FONT_FAMILY_UI, 12, "bold")).pack(anchor="w", padx=16, pady=(18, 4))
+                 font=scaled_font(12, "bold")).pack(anchor="w", padx=16, pady=(18, 4))
         tk.Label(parent, text=profile_name, bg=BG, fg=SUBTEXT, font=FONT_SMALL,
                  wraplength=360, justify="left").pack(anchor="w", padx=16, pady=(0, 6))
 
@@ -1184,7 +1216,7 @@ class GameTimerApp:
             anchor="w", padx=16, pady=(0, 20), fill="x")
 
         tk.Label(parent, text=tr("label_status"), bg=BG, fg=TEXT,
-                 font=(FONT_FAMILY_UI, 12, "bold")).pack(anchor="w", padx=16, pady=(0, 6))
+                 font=scaled_font(12, "bold")).pack(anchor="w", padx=16, pady=(0, 6))
 
         status_row = tk.Frame(parent, bg=BG)
         status_row.pack(anchor="w", padx=16, fill="x")
@@ -1315,7 +1347,7 @@ class GameTimerApp:
 
     def _build_modify_appearance_tab(self, parent, profile_name, win):
         tk.Label(parent, text=tr("label_icon"), bg=BG, fg=TEXT,
-                 font=(FONT_FAMILY_UI, 12, "bold")).pack(anchor="w", padx=16, pady=(18, 6))
+                 font=scaled_font(12, "bold")).pack(anchor="w", padx=16, pady=(18, 6))
         icon_row = tk.Frame(parent, bg=BG)
         icon_row.pack(anchor="w", padx=16, pady=(0, 4), fill="x")
         icon_preview = tk.Label(icon_row, bg=BG)
@@ -1344,7 +1376,7 @@ class GameTimerApp:
         self._make_button(icon_row, tr("ctx_change_icon"), change_icon, bg=CARD, fg=TEXT).pack(side="left")
 
         tk.Label(parent, text=tr("label_background"), bg=BG, fg=TEXT,
-                 font=(FONT_FAMILY_UI, 12, "bold")).pack(anchor="w", padx=16, pady=(20, 6))
+                 font=scaled_font(12, "bold")).pack(anchor="w", padx=16, pady=(20, 6))
 
         def choose_color():
             c = colorchooser.askcolor(parent=win, title=tr("dlg_choose_bg_color_title"))
@@ -1448,7 +1480,7 @@ class GameTimerApp:
         win.transient(self.root)
         win.grab_set()
 
-        tk.Label(win, text=tr("label_notes"), bg=BG, fg=TEXT, font=(FONT_FAMILY_UI, 12, "bold")).pack(
+        tk.Label(win, text=tr("label_notes"), bg=BG, fg=TEXT, font=scaled_font(12, "bold")).pack(
             anchor="w", padx=16, pady=(16, 6))
 
         text_frame = tk.Frame(win, bg=BG)
@@ -1515,8 +1547,8 @@ class GameTimerApp:
             return
         self.data["profiles"][name] = {"seconds": 0, "icon_file": None, "bg_color": None, "bg_image": None,
                                         "status": "in_progress", "status_at": None, "status_seconds": None,
-                                        "genres": ["Uncategorized"], "last_played": None, "notes": "",
-                                        "rating": 0}
+                                        "genres": ["Uncategorized"], "last_played": None, "started_date": None,
+                                        "notes": "", "rating": 0}
         self._safe_save()
         write_log_file(self.data)
         self._refresh_profile_list()
@@ -1604,7 +1636,7 @@ class GameTimerApp:
         win.transient(self.root)
         win.grab_set()
 
-        tk.Label(win, text=tr("label_rating"), bg=BG, fg=TEXT, font=(FONT_FAMILY_UI, 12, "bold")).pack(
+        tk.Label(win, text=tr("label_rating"), bg=BG, fg=TEXT, font=scaled_font(12, "bold")).pack(
             pady=(20, 10))
 
         rating_value = tk.IntVar(value=self.data["profiles"][profile_name].get("rating", 0))
@@ -1623,7 +1655,7 @@ class GameTimerApp:
 
         for i in range(5):
             lbl = tk.Label(stars_row, text="☆", bg=BG, fg=SUBTEXT,
-                            font=(FONT_FAMILY_UI, 24), cursor="hand2")
+                            font=scaled_font(24), cursor="hand2")
             lbl.pack(side="left", padx=2)
             lbl.bind("<Button-1>", lambda e, i=i: set_rating(i))
             star_labels.append(lbl)
@@ -1724,6 +1756,7 @@ class GameTimerApp:
             "status_seconds": original.get("status_seconds"),
             "genres": list(original.get("genres", ["Uncategorized"])),
             "last_played": original.get("last_played"),
+            "started_date": original.get("started_date"),
             "notes": original.get("notes", ""),
             "rating": original.get("rating", 0),
         }
@@ -1779,6 +1812,7 @@ class GameTimerApp:
             "status_seconds": profile.get("status_seconds"),
             "genres": profile.get("genres", ["Uncategorized"]),
             "last_played": profile.get("last_played"),
+            "started_date": profile.get("started_date"),
             "notes": profile.get("notes", ""),
             "rating": profile.get("rating", 0),
         }
@@ -1873,6 +1907,7 @@ class GameTimerApp:
             "status_seconds": imported.get("status_seconds"),
             "genres": imported.get("genres") or ["Uncategorized"],
             "last_played": imported.get("last_played"),
+            "started_date": imported.get("started_date"),
             "notes": imported.get("notes", ""),
             "rating": imported.get("rating", 0),
         }
@@ -1909,6 +1944,8 @@ class GameTimerApp:
             profile["status_seconds"] = None
         self.active_timers[name] = time.time()
         profile["last_played"] = time.time()
+        if not profile.get("started_date"):
+            profile["started_date"] = time.strftime("%Y-%m-%d")
         self._safe_save()
         if name == self.selected:
             self._set_play_button_state()
@@ -2012,17 +2049,17 @@ class GameTimerApp:
         notebook.pack(fill="both", expand=True, padx=10, pady=10)
 
         tab_general = tk.Frame(notebook, bg=BG)
-        tab_tray = tk.Frame(notebook, bg=BG)
         tab_appearance_outer = tk.Frame(notebook, bg=BG)
+        tab_ui_outer = tk.Frame(notebook, bg=BG)
         tab_language = tk.Frame(notebook, bg=BG)
         notebook.add(tab_general, text=tr("tab_general"))
-        notebook.add(tab_tray, text=tr("tab_tray"))
         notebook.add(tab_appearance_outer, text=tr("tab_appearance"))
+        notebook.add(tab_ui_outer, text=tr("tab_ui"))
         notebook.add(tab_language, text=tr("tab_language"))
 
         # --- General tab ---
         startup_var = tk.BooleanVar(value=self.data["settings"].get("run_at_startup", False))
-        tk.Label(tab_general, text=tr("label_startup"), bg=BG, fg=TEXT, font=(FONT_FAMILY_UI, 12, "bold")).pack(
+        tk.Label(tab_general, text=tr("label_startup"), bg=BG, fg=TEXT, font=scaled_font(12, "bold")).pack(
             anchor="w", padx=16, pady=(18, 6))
         tk.Checkbutton(
             tab_general, text=tr("chk_launch_at_startup"),
@@ -2033,26 +2070,25 @@ class GameTimerApp:
             tk.Label(tab_general, text=tr("note_startup_exe_only"),
                      bg=BG, fg=SUBTEXT, font=FONT_SMALL).pack(anchor="w", padx=16, pady=(2, 0))
 
-        # --- Tray tab ---
         tray_var = tk.BooleanVar(value=self.data["settings"].get("tray_enabled", True))
-        tk.Label(tab_tray, text=tr("label_system_tray"), bg=BG, fg=TEXT, font=(FONT_FAMILY_UI, 12, "bold")).pack(
-            anchor="w", padx=16, pady=(18, 6))
+        tk.Label(tab_general, text=tr("label_system_tray"), bg=BG, fg=TEXT, font=scaled_font(12, "bold")).pack(
+            anchor="w", padx=16, pady=(20, 6))
         tray_chk = tk.Checkbutton(
-            tab_tray, text=tr("chk_enable_tray"),
+            tab_general, text=tr("chk_enable_tray"),
             variable=tray_var, bg=BG, fg=TEXT, selectcolor=CARD, activebackground=BG,
             activeforeground=TEXT, font=FONT_MAIN, anchor="w", highlightthickness=0, bd=0
         )
         tray_chk.pack(fill="x", padx=16)
-        tk.Label(tab_tray,
+        tk.Label(tab_general,
                  text=tr("note_tray_behavior"),
                  bg=BG, fg=SUBTEXT, font=FONT_SMALL, justify="left").pack(anchor="w", padx=16, pady=(10, 0))
         if not TRAY_AVAILABLE:
-            tk.Label(tab_tray, text=tr("note_tray_requires"),
+            tk.Label(tab_general, text=tr("note_tray_requires"),
                      bg=BG, fg=SUBTEXT, font=FONT_SMALL).pack(anchor="w", padx=16, pady=(8, 0))
             tray_chk.config(state="disabled")
 
         # --- Language tab ---
-        tk.Label(tab_language, text=tr("label_language"), bg=BG, fg=TEXT, font=(FONT_FAMILY_UI, 12, "bold")).pack(
+        tk.Label(tab_language, text=tr("label_language"), bg=BG, fg=TEXT, font=scaled_font(12, "bold")).pack(
             anchor="w", padx=16, pady=(18, 6))
         tk.Label(tab_language, text=tr("note_choose_language"), bg=BG, fg=SUBTEXT, font=FONT_SMALL,
                  wraplength=380, justify="left").pack(anchor="w", padx=16, pady=(0, 10))
@@ -2078,7 +2114,7 @@ class GameTimerApp:
         self._bind_mousewheel(win, appearance_canvas)
 
         # Theme presets
-        tk.Label(tab_appearance, text=tr("label_theme"), bg=BG, fg=TEXT, font=(FONT_FAMILY_UI, 12, "bold")).pack(
+        tk.Label(tab_appearance, text=tr("label_theme"), bg=BG, fg=TEXT, font=scaled_font(12, "bold")).pack(
             anchor="w", padx=16, pady=(18, 6))
         theme_var = tk.StringVar(value=self.data["settings"].get("theme", "Midnight Blue"))
         for theme_name in THEME_ORDER:
@@ -2104,63 +2140,98 @@ class GameTimerApp:
             activeforeground=TEXT, font=FONT_MAIN, anchor="w", highlightthickness=0, bd=0
         ).pack(side="left")
 
-        def open_customizer():
-            base = custom_colors_ref if theme_var.get() == "Custom" else THEMES.get(theme_var.get(), THEMES["Midnight Blue"])
-            self._open_color_customizer(win, base, custom_colors_ref, theme_var)
-
-        self._make_button(tab_appearance, tr("btn_customize_colors"), open_customizer, bg=CARD, fg=TEXT).pack(
-            anchor="w", padx=16, pady=(8, 4))
+        # Customize Colors only makes sense — and is only enabled — once
+        # "Custom" is deliberately selected. It used to be clickable on top
+        # of a preset too, which silently switched you to Custom the moment
+        # you saved, without you having chosen that.
+        customize_btn = self._make_button(tab_appearance, tr("btn_customize_colors"),
+                                           lambda: self._open_color_customizer(win, custom_colors_ref, custom_colors_ref, theme_var),
+                                           bg=CARD, fg=TEXT)
+        customize_btn.pack(anchor="w", padx=16, pady=(8, 4))
         tk.Label(tab_appearance, text=tr("note_applies_on_save"),
-                 bg=BG, fg=SUBTEXT, font=FONT_SMALL).pack(anchor="w", padx=16, pady=(0, 4))
+                 bg=BG, fg=SUBTEXT, font=FONT_SMALL).pack(anchor="w", padx=16, pady=(0, 16))
 
-        # Accent override (fine-tune on top of whichever theme is active)
-        tk.Label(tab_appearance, text=tr("label_accent_color"), bg=BG, fg=TEXT, font=(FONT_FAMILY_UI, 12, "bold")).pack(
-            anchor="w", padx=16, pady=(16, 6))
-        color_row = tk.Frame(tab_appearance, bg=BG)
-        color_row.pack(fill="x", padx=16)
-        swatch = tk.Label(color_row, text="     ", bg=self.data["settings"].get("accent", ACCENT_DEFAULT))
-        swatch.pack(side="left", padx=(0, 8))
+        def set_customize_enabled(enabled):
+            if enabled:
+                customize_btn.config(state="normal", bg=CARD, fg=TEXT, cursor="hand2")
+                self._add_hover(customize_btn, CARD)
+            else:
+                customize_btn.config(state="disabled", bg=PANEL, fg=SUBTEXT, cursor="arrow")
+                for seq in ("<Enter>", "<Leave>", "<ButtonPress-1>", "<ButtonRelease-1>"):
+                    customize_btn.unbind(seq)
 
-        def pick_color():
-            c = colorchooser.askcolor(color=self.data["settings"].get("accent", ACCENT_DEFAULT),
-                                       parent=win, title=tr("label_accent_color"))
-            if c and c[1]:
-                self.data["settings"]["accent"] = c[1]
-                swatch.config(bg=c[1])
+        theme_var.trace_add("write", lambda *a: set_customize_enabled(theme_var.get() == "Custom"))
+        set_customize_enabled(theme_var.get() == "Custom")
 
-        self._make_button(color_row, tr("btn_change"), pick_color, bg=CARD, fg=TEXT, width=8).pack(side="left")
-        tk.Label(tab_appearance, text=tr("note_applies_on_save"),
+        # --- UI tab (scrollable, same pattern as Appearance) ---
+        ui_canvas = tk.Canvas(tab_ui_outer, bg=BG, highlightthickness=0)
+        ui_scrollbar = ttk.Scrollbar(tab_ui_outer, orient="vertical", command=ui_canvas.yview)
+        tab_ui = tk.Frame(ui_canvas, bg=BG)
+        tab_ui.bind("<Configure>", lambda e: ui_canvas.configure(scrollregion=ui_canvas.bbox("all")))
+        ui_canvas.create_window((0, 0), window=tab_ui, anchor="nw", width=420)
+        ui_canvas.configure(yscrollcommand=ui_scrollbar.set)
+        ui_canvas.pack(side="left", fill="both", expand=True)
+        ui_scrollbar.pack(side="right", fill="y")
+        self._bind_mousewheel(win, ui_canvas)
+
+        # Font size — the current size is the smallest available; the slider
+        # only scales up from there.
+        tk.Label(tab_ui, text=tr("label_font_size"), bg=BG, fg=TEXT, font=scaled_font(12, "bold")).pack(
+            anchor="w", padx=16, pady=(18, 6))
+        font_scale_var = tk.DoubleVar(value=self.data["settings"].get("font_scale", 1.0))
+        font_scale_slider = tk.Scale(
+            tab_ui, from_=FONT_SCALE_MIN, to=FONT_SCALE_MAX, resolution=0.1, orient="horizontal",
+            variable=font_scale_var, bg=BG, fg=TEXT, troughcolor=CARD, highlightthickness=0,
+            bd=0, font=FONT_SMALL, showvalue=False, sliderrelief="flat", activebackground=self.accent
+        )
+        font_scale_slider.pack(fill="x", padx=16)
+        size_labels_row = tk.Frame(tab_ui, bg=BG)
+        size_labels_row.pack(fill="x", padx=16)
+        tk.Label(size_labels_row, text=tr("label_font_size_smallest"), bg=BG, fg=SUBTEXT, font=FONT_SMALL).pack(side="left")
+        tk.Label(size_labels_row, text=tr("label_font_size_largest"), bg=BG, fg=SUBTEXT, font=FONT_SMALL).pack(side="right")
+        tk.Label(tab_ui, text=tr("note_applies_on_save"),
                  bg=BG, fg=SUBTEXT, font=FONT_SMALL).pack(anchor="w", padx=16, pady=(4, 0))
 
-        # Icon size
-        tk.Label(tab_appearance, text=tr("label_icon_size"), bg=BG, fg=TEXT, font=(FONT_FAMILY_UI, 12, "bold")).pack(
-            anchor="w", padx=16, pady=(20, 6))
-        size_key_to_label = {"Small": tr("size_small"), "Medium": tr("size_medium"),
-                              "Large": tr("size_large"), "Extra Large": tr("size_xl")}
-        current_label = next((k for k, v in ICON_SIZE_OPTIONS.items() if v == self.icon_size), "Medium")
-        icon_size_var = tk.StringVar(value=current_label)
-        size_row = tk.Frame(tab_appearance, bg=BG)
-        size_row.pack(fill="x", padx=16)
-        for size_key in ICON_SIZE_OPTIONS:
-            tk.Radiobutton(
-                size_row, text=size_key_to_label[size_key], variable=icon_size_var, value=size_key,
-                bg=BG, fg=TEXT, selectcolor=CARD, activebackground=BG,
-                activeforeground=TEXT, font=FONT_SMALL, highlightthickness=0, bd=0
-            ).pack(anchor="w")
-        tk.Label(tab_appearance, text=tr("note_applies_immediately"),
-                 bg=BG, fg=SUBTEXT, font=FONT_SMALL).pack(anchor="w", padx=16, pady=(4, 0))
-
-        # Font
-        tk.Label(tab_appearance, text=tr("label_font"), bg=BG, fg=TEXT, font=(FONT_FAMILY_UI, 12, "bold")).pack(
+        # Font family
+        tk.Label(tab_ui, text=tr("label_font"), bg=BG, fg=TEXT, font=scaled_font(12, "bold")).pack(
             anchor="w", padx=16, pady=(20, 6))
         font_var = tk.StringVar(value=self.data["settings"].get("font_family", "Segoe UI"))
-        font_menu = tk.OptionMenu(tab_appearance, font_var, *FONT_CHOICES)
+        font_menu = tk.OptionMenu(tab_ui, font_var, *FONT_CHOICES)
         font_menu.config(bg=CARD, fg=TEXT, activebackground=CARD, activeforeground=TEXT,
                          bd=0, highlightthickness=0, font=FONT_MAIN, width=16)
         font_menu["menu"].config(bg=CARD, fg=TEXT)
         font_menu.pack(anchor="w", padx=16)
-        tk.Label(tab_appearance, text=tr("note_font_timer"),
+        tk.Label(tab_ui, text=tr("note_font_timer"),
                  bg=BG, fg=SUBTEXT, font=FONT_SMALL, justify="left").pack(anchor="w", padx=16, pady=(4, 16))
+
+        # Profile icon size
+        tk.Label(tab_ui, text=tr("label_icon_size"), bg=BG, fg=TEXT, font=scaled_font(12, "bold")).pack(
+            anchor="w", padx=16, pady=(0, 6))
+        size_key_to_label = {"Small": tr("size_small"), "Medium": tr("size_medium"),
+                              "Large": tr("size_large"), "Extra Large": tr("size_xl")}
+        current_key = next((k for k, v in ICON_SIZE_OPTIONS.items() if v == self.icon_size), "Medium")
+        icon_size_var = tk.StringVar(value=current_key)
+        # A plain tk.OptionMenu shows the stored value itself as its label, so
+        # it can't display translated text while storing the canonical
+        # "Small"/"Medium"/... key — build the dropdown manually instead.
+        icon_size_menu = tk.Menubutton(
+            tab_ui, text=size_key_to_label[current_key], bg=CARD, fg=TEXT,
+            activebackground=CARD, activeforeground=TEXT, bd=0, highlightthickness=0,
+            font=FONT_MAIN, width=16, anchor="w", relief="flat", cursor="hand2"
+        )
+        icon_size_dropdown = tk.Menu(icon_size_menu, tearoff=0, bg=CARD, fg=TEXT,
+                                      activebackground=self.accent, activeforeground="#1e1e2e")
+
+        def set_icon_size(key):
+            icon_size_var.set(key)
+            icon_size_menu.config(text=size_key_to_label[key])
+
+        for key in ICON_SIZE_OPTIONS:
+            icon_size_dropdown.add_command(label=size_key_to_label[key], command=lambda k=key: set_icon_size(k))
+        icon_size_menu.config(menu=icon_size_dropdown)
+        icon_size_menu.pack(anchor="w", padx=16)
+        tk.Label(tab_ui, text=tr("note_applies_immediately"),
+                 bg=BG, fg=SUBTEXT, font=FONT_SMALL).pack(anchor="w", padx=16, pady=(4, 16))
 
         def save_and_close():
             self.data["settings"]["tray_enabled"] = tray_var.get()
@@ -2170,6 +2241,7 @@ class GameTimerApp:
             self.data["settings"]["theme"] = theme_var.get()
             self.data["settings"]["custom_colors"] = custom_colors_ref
             self.data["settings"]["font_family"] = font_var.get()
+            self.data["settings"]["font_scale"] = round(font_scale_var.get(), 2)
             self.data["settings"]["language"] = language_var.get()
             self._safe_save()
 
@@ -2197,10 +2269,12 @@ class GameTimerApp:
             apply_theme_globals(self.data["settings"].get("custom_colors", DEFAULT_CUSTOM_COLORS))
         else:
             apply_theme_globals(THEMES.get(theme_name, THEMES["Midnight Blue"]))
-        apply_font_globals(self.data["settings"].get("font_family", "Segoe UI"))
+        apply_font_globals(self.data["settings"].get("font_family", "Segoe UI"),
+                           self.data["settings"].get("font_scale", 1.0))
         apply_language_global(self.data["settings"].get("language", "en"))
-        self.accent = self.data["settings"].get("accent", ACCENT_DEFAULT)
+        self.accent = ACCENT_DEFAULT
         self.icon_size = self.data["settings"].get("icon_size", 36)
+        self.font_scale = self.data["settings"].get("font_scale", 1.0)
         self._apply_tray_setting()
         self._rebuild_ui()
 
