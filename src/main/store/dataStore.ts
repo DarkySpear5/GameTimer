@@ -12,6 +12,13 @@ import { freshAppData, parseAppData } from './schema'
  */
 class DataStore {
   private data: AppData | null = null
+  // Every save() call chains onto this so writes are strictly sequential —
+  // without it, two overlapping saves (e.g. a font-scale slider or color
+  // picker firing onChange many times per second while dragging) both
+  // write/rename the same .tmp path concurrently, and the loser's rename
+  // throws ENOENT because the winner already moved the file out from under
+  // it. This was surfacing as a real "couldn't save your data" error dialog.
+  private saveChain: Promise<void> = Promise.resolve()
 
   async load(): Promise<AppData> {
     try {
@@ -28,8 +35,16 @@ class DataStore {
     return this.data
   }
 
-  /** Atomic write (temp file + rename) — survives a crash mid-write without corrupting the real file. */
+  /** Atomic write (temp file + rename), serialized so concurrent callers never race on the same .tmp file. */
   async save(): Promise<void> {
+    const next = this.saveChain.then(() => this.writeToDisk())
+    // Swallow here so one failed save doesn't poison the chain for every
+    // save after it — each caller still awaits/catches its own `next`.
+    this.saveChain = next.catch(() => undefined)
+    return next
+  }
+
+  private async writeToDisk(): Promise<void> {
     if (!this.data) return
     await fs.mkdir(paths.root(), { recursive: true })
     const tmp = paths.dataFileTmp()

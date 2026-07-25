@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useProfilesStore } from '../../state/profilesStore'
 import { useSettingsStore, updateSettings } from '../../state/settingsStore'
@@ -10,6 +10,9 @@ import { GENRE_OPTIONS } from '@shared/constants'
 import { ContextMenu, type ContextMenuItem } from '../common/ContextMenu'
 import { toast } from '../common/Toast'
 import type { SortMode, Status } from '@shared/types'
+
+const SIDEBAR_MIN_WIDTH = 240 // the size the panel used to be fixed at
+const SIDEBAR_MAX_WIDTH = 420
 
 export function GameList(): React.JSX.Element {
   const { t } = useTranslation()
@@ -23,6 +26,25 @@ export function GameList(): React.JSX.Element {
   const openDialog = useUiStore((s) => s.openDialog)
   const [adding, setAdding] = useState(false)
   const [newName, setNewName] = useState('')
+  const [width, setWidth] = useState(SIDEBAR_MIN_WIDTH)
+  const resizing = useRef(false)
+
+  const startResize = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    resizing.current = true
+    const onMove = (moveEvent: MouseEvent): void => {
+      if (!resizing.current) return
+      const next = Math.min(SIDEBAR_MAX_WIDTH, Math.max(SIDEBAR_MIN_WIDTH, moveEvent.clientX))
+      setWidth(next)
+    }
+    const onUp = (): void => {
+      resizing.current = false
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+  }, [])
 
   const STATUS_OPTIONS: { value: 'All' | Status; label: string }[] = [
     { value: 'All', label: t('filter_all') },
@@ -98,12 +120,12 @@ export function GameList(): React.JSX.Element {
   }
 
   return (
-    <div className="flex h-full w-60 shrink-0 flex-col bg-panel">
+    <div className="relative flex h-full shrink-0 flex-col bg-panel" style={{ width }}>
       <div className="px-4 pt-4 pb-1 text-xs font-medium tracking-wide text-subtext">{t('label_games')}</div>
 
-      <div className="flex gap-1.5 px-2.5 pb-1.5">
+      <div className="flex flex-col gap-1.5 px-2.5 pb-2">
         <select
-          className="flex-1 rounded bg-card px-2 py-1 text-xs text-text outline-none"
+          className="w-full rounded bg-card px-2 py-1 text-xs text-text outline-none"
           value={settings?.sortMode ?? 'name'}
           onChange={(e) => void updateSettings({ sortMode: e.target.value as SortMode })}
         >
@@ -113,7 +135,7 @@ export function GameList(): React.JSX.Element {
           <option value="genre">{t('sort_genre_az')}</option>
         </select>
         <select
-          className="flex-1 rounded bg-card px-2 py-1 text-xs text-text outline-none"
+          className="w-full rounded bg-card px-2 py-1 text-xs text-text outline-none"
           value={settings?.statusFilter ?? 'All'}
           onChange={(e) => void updateSettings({ statusFilter: e.target.value as 'All' | Status })}
         >
@@ -123,8 +145,6 @@ export function GameList(): React.JSX.Element {
             </option>
           ))}
         </select>
-      </div>
-      <div className="px-2.5 pb-2">
         <select
           className="w-full rounded bg-card px-2 py-1 text-xs text-text outline-none"
           value={settings?.genreFilter ?? 'All'}
@@ -138,6 +158,11 @@ export function GameList(): React.JSX.Element {
           ))}
         </select>
       </div>
+
+      <div
+        onMouseDown={startResize}
+        className="absolute top-0 right-0 h-full w-1 cursor-col-resize hover:bg-accent/50"
+      />
 
       <div
         className="flex-1 overflow-y-auto px-1.5"
@@ -154,6 +179,7 @@ export function GameList(): React.JSX.Element {
         {sorted.map((p) => {
           const isRunning = p.name in running
           const seconds = running[p.name] ?? p.seconds
+          const iconSize = settings?.iconSize ?? 36
           return (
             <button
               key={p.name}
@@ -167,6 +193,18 @@ export function GameList(): React.JSX.Element {
                 selected === p.name ? 'bg-card' : 'hover:bg-card/60'
               }`}
             >
+              {p.iconFile ? (
+                <img
+                  src={`gt-asset://icons/${encodeURIComponent(p.iconFile)}`}
+                  style={{ width: iconSize, height: iconSize }}
+                  className="shrink-0 rounded object-cover"
+                />
+              ) : (
+                <span
+                  className="shrink-0 rounded bg-card"
+                  style={{ width: iconSize, height: iconSize }}
+                />
+              )}
               <span className={`h-2 w-2 shrink-0 rounded-full ${isRunning ? 'bg-green' : 'bg-transparent'}`} />
               <span className={`flex-1 truncate ${isRunning ? 'text-green' : 'text-text'}`}>{p.name}</span>
               <span className="shrink-0 text-[11px] text-subtext">{formatSeconds(seconds)}</span>

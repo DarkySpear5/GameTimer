@@ -46,7 +46,19 @@ export function DataTab(): React.JSX.Element {
               const isCompleted = p.status === 'completed'
               return (
                 <tr key={p.name} className={i % 2 === 0 ? 'bg-panel' : 'bg-card/40'}>
-                  <td className="px-3 py-2 text-text">{p.name}</td>
+                  <td className="px-3 py-2 text-text">
+                    <div className="flex items-center gap-2">
+                      {p.iconFile ? (
+                        <img
+                          src={`gt-asset://icons/${encodeURIComponent(p.iconFile)}`}
+                          className="h-6 w-6 shrink-0 rounded object-cover"
+                        />
+                      ) : (
+                        <span className="h-6 w-6 shrink-0 rounded bg-card" />
+                      )}
+                      {p.name}
+                    </div>
+                  </td>
                   <td className="px-3 py-2 text-text">{formatSeconds(p.seconds)}</td>
                   <td className="px-3 py-2 text-text">{STATUS_LABELS[p.status]}</td>
                   <td className="px-3 py-2 text-subtext">{p.startedDate ?? '—'}</td>

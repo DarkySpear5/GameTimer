@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Modal } from '../common/Modal'
-import { useSettingsStore, updateSettings } from '../../state/settingsStore'
+import { useSettingsStore, updateSettings, updateSettingsOptimistic } from '../../state/settingsStore'
 import {
   THEMES,
   THEME_ORDER,
@@ -84,7 +84,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }): React.JSX.
               max={FONT_SCALE_MAX}
               step={0.1}
               value={settings.fontScale}
-              onChange={(e) => void updateSettings({ fontScale: parseFloat(e.target.value) })}
+              onChange={(e) => updateSettingsOptimistic({ fontScale: parseFloat(e.target.value) })}
               className="w-full"
             />
           </div>
@@ -177,8 +177,8 @@ function AppearanceTab({ settings }: { settings: { theme: ThemeName; customColor
   const { t } = useTranslation()
   const isCustom = settings.theme === 'Custom'
 
-  async function setColor(role: keyof ThemeColors, value: string): Promise<void> {
-    await updateSettings({
+  function setColor(role: keyof ThemeColors, value: string): void {
+    updateSettingsOptimistic({
       theme: 'Custom',
       customColors: { ...settings.customColors, [role]: value }
     })
@@ -214,7 +214,7 @@ function AppearanceTab({ settings }: { settings: { theme: ThemeName; customColor
               <input
                 type="color"
                 value={settings.customColors[role]}
-                onChange={(e) => void setColor(role, e.target.value)}
+                onChange={(e) => setColor(role, e.target.value)}
                 className="h-8 w-12 cursor-pointer rounded bg-card"
               />
               <span className="text-xs text-subtext">{t(ROLE_KEYS[role])}</span>

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Modal } from '../common/Modal'
 import { useProfilesStore } from '../../state/profilesStore'
@@ -220,6 +220,8 @@ function TimeTab({ profile }: { profile: Profile }): React.JSX.Element {
 
 function AppearanceTab({ profile }: { profile: Profile }): React.JSX.Element {
   const { t } = useTranslation()
+  const [localBgColor, setLocalBgColor] = useState(profile.bgColor ?? '#26263a')
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   async function chooseIcon(): Promise<void> {
     const updated = await window.api.profiles.setIcon(profile.name)
@@ -229,13 +231,22 @@ function AppearanceTab({ profile }: { profile: Profile }): React.JSX.Element {
     const updated = await window.api.profiles.setBackground(profile.name, 'image', '')
     if (updated) useProfilesStore.getState().upsert(updated)
   }
-  async function chooseBackgroundColor(color: string): Promise<void> {
-    // 'color' always returns a Profile (only 'image' can be null, if the file dialog is canceled).
-    const updated = await window.api.profiles.setBackground(profile.name, 'color', color)
-    if (updated) useProfilesStore.getState().upsert(updated)
+  function chooseBackgroundColor(color: string): void {
+    // The OS color picker's drag surface fires onChange many times per
+    // second — update the swatch instantly, but only commit (and hit disk)
+    // once movement pauses, same reasoning as Settings' font-scale slider.
+    setLocalBgColor(color)
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => {
+      void window.api.profiles.setBackground(profile.name, 'color', color).then((updated) => {
+        if (updated) useProfilesStore.getState().upsert(updated)
+      })
+    }, 250)
   }
   async function resetBackground(): Promise<void> {
-    useProfilesStore.getState().upsert(await window.api.profiles.clearBackground(profile.name))
+    const updated = await window.api.profiles.clearBackground(profile.name)
+    setLocalBgColor(updated.bgColor ?? '#26263a')
+    useProfilesStore.getState().upsert(updated)
   }
 
   return (
@@ -266,8 +277,8 @@ function AppearanceTab({ profile }: { profile: Profile }): React.JSX.Element {
           <input
             type="color"
             title={t('dlg_choose_bg_color_title')}
-            value={profile.bgColor ?? '#26263a'}
-            onChange={(e) => void chooseBackgroundColor(e.target.value)}
+            value={localBgColor}
+            onChange={(e) => chooseBackgroundColor(e.target.value)}
             className="h-8 w-10 cursor-pointer rounded bg-card"
           />
           <button
