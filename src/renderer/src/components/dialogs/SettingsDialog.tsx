@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Modal } from '../common/Modal'
+import { EyedropperButton } from '../common/EyedropperButton'
 import { useSettingsStore, updateSettings, updateSettingsOptimistic } from '../../state/settingsStore'
 import {
   THEMES,
@@ -211,12 +212,15 @@ function AppearanceTab({ settings }: { settings: { theme: ThemeName; customColor
         <div className="grid grid-cols-3 gap-3">
           {(Object.keys(settings.customColors) as (keyof ThemeColors)[]).map((role) => (
             <div key={role} className="flex flex-col items-center gap-1">
-              <input
-                type="color"
-                value={settings.customColors[role]}
-                onChange={(e) => setColor(role, e.target.value)}
-                className="h-8 w-12 cursor-pointer rounded bg-card"
-              />
+              <div className="flex items-center gap-1">
+                <input
+                  type="color"
+                  value={settings.customColors[role]}
+                  onChange={(e) => setColor(role, e.target.value)}
+                  className="h-8 w-12 cursor-pointer rounded bg-card"
+                />
+                <EyedropperButton onPick={(hex) => setColor(role, hex)} />
+              </div>
               <span className="text-xs text-subtext">{t(ROLE_KEYS[role])}</span>
             </div>
           ))}

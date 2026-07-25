@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Modal } from '../common/Modal'
+import { EyedropperButton } from '../common/EyedropperButton'
 import { useProfilesStore } from '../../state/profilesStore'
 import { toast } from '../common/Toast'
 import { GENRE_OPTIONS } from '@shared/constants'
@@ -281,6 +282,7 @@ function AppearanceTab({ profile }: { profile: Profile }): React.JSX.Element {
             onChange={(e) => chooseBackgroundColor(e.target.value)}
             className="h-8 w-10 cursor-pointer rounded bg-card"
           />
+          <EyedropperButton onPick={chooseBackgroundColor} />
           <button
             onClick={() => void chooseBackgroundImage()}
             className="rounded bg-card px-3 py-1.5 text-sm text-text hover:bg-card/70"
