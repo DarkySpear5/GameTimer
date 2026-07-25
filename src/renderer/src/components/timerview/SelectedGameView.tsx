@@ -60,7 +60,7 @@ export function SelectedGameView(): React.JSX.Element {
     >
       <div
         className={`relative z-10 flex flex-col items-center gap-3 ${hasCustomBackground ? 'rounded-2xl px-12 py-9' : ''}`}
-        style={hasCustomBackground ? { backgroundColor: 'rgba(15, 15, 24, 0.28)' } : undefined}
+        style={hasCustomBackground ? { backgroundColor: 'rgba(15, 15, 24, 0.6)' } : undefined}
       >
         <div className="text-2xl font-semibold text-text">{profile.name}</div>
         <div className={isRunning ? 'text-sm text-green' : 'text-sm text-subtext'}>

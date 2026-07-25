@@ -25,13 +25,16 @@ body {
    * Every theme gets this same gradient treatment "for free" — it's a
    * formula over each theme's own bg/panel/accent variables, not a
    * hand-authored gradient per preset, so switching themes (or editing the
-   * custom color picker) just recomputes it automatically.
+   * custom color picker) just recomputes it automatically. The bottom stop
+   * deliberately mixes in black (not just var(--gt-panel) alone) so there's
+   * always real contrast even for themes/custom palettes where bg and panel
+   * happen to be nearly the same shade.
    */
   background: linear-gradient(
     160deg,
-    color-mix(in srgb, var(--gt-accent) 16%, var(--gt-bg)) 0%,
-    var(--gt-bg) 45%,
-    var(--gt-panel) 100%
+    color-mix(in srgb, var(--gt-accent) 32%, var(--gt-bg)) 0%,
+    var(--gt-bg) 38%,
+    color-mix(in srgb, black 30%, var(--gt-panel)) 100%
   );
   background-attachment: fixed;
   color: var(--gt-text);
