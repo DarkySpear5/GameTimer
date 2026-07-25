@@ -1,5 +1,5 @@
 appId: com.darkyspear5.gametimer2
-productName: Game Timer (Beta)
+productName: Game Timer
 directories:
   output: release
   buildResources: build
