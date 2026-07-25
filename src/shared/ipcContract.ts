@@ -1,4 +1,13 @@
-import type { AppData, GtProfileFile, LegacyDetectResult, Profile, Settings, Status } from './types'
+import type {
+  AppData,
+  GtProfileFile,
+  LegacyDetectResult,
+  Profile,
+  Settings,
+  Status,
+  UpdateInfo,
+  UpdateProgress
+} from './types'
 
 /**
  * Channel name constants — single source of truth so main/ipc/*.ts and the
@@ -55,6 +64,14 @@ export const IPC = {
   app: {
     getVersion: 'app:getVersion',
     getInitialData: 'app:getInitialData'
+  },
+  updater: {
+    checkNow: 'updater:checkNow',
+    downloadUpdate: 'updater:downloadUpdate',
+    quitAndInstall: 'updater:quitAndInstall',
+    updateAvailable: 'updater:updateAvailable',
+    downloadProgress: 'updater:downloadProgress',
+    updateDownloaded: 'updater:updateDownloaded'
   }
 } as const
 
@@ -120,6 +137,14 @@ export interface GameTimerApi {
   app: {
     getVersion(): Promise<string>
     getInitialData(): Promise<AppData>
+  }
+  updater: {
+    checkNow(): Promise<{ checked: boolean }>
+    downloadUpdate(): Promise<void>
+    quitAndInstall(): void
+    onUpdateAvailable(cb: (info: UpdateInfo) => void): () => void
+    onDownloadProgress(cb: (progress: UpdateProgress) => void): () => void
+    onUpdateDownloaded(cb: () => void): () => void
   }
 }
 

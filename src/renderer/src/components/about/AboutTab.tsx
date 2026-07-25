@@ -26,9 +26,18 @@ export function AboutTab(): React.JSX.Element {
         <li>electron-vite / electron-builder</li>
       </ul>
       <div className="mt-5 mb-2 font-semibold">{t('about_contact_header')}</div>
-      <a href={GITHUB_URL} target="_blank" rel="noreferrer" className="text-accent hover:underline">
-        {t('about_github_link_text')}
-      </a>
+      <div className="flex flex-col gap-1.5">
+        <div>
+          <span className="text-subtext">{t('about_contact_discord_label')}: </span>
+          rawwwwwrr
+        </div>
+        <div>
+          <span className="text-subtext">{t('about_contact_github_label')}: </span>
+          <a href={GITHUB_URL} target="_blank" rel="noreferrer" className="text-accent hover:underline">
+            Link
+          </a>
+        </div>
+      </div>
     </div>
   )
 }

@@ -6,6 +6,7 @@ import { registerAssetSchemeAsPrivileged, registerAssetProtocolHandler } from '.
 import { dataStore } from './store/dataStore'
 import { timerEngine } from './timer/timerEngine'
 import { registerMainWindow, quitApp } from './appLifecycle'
+import { registerUpdaterWindow, checkForUpdatesOnLaunch } from './updater/autoUpdater'
 
 let mainWindow: BrowserWindow | null = null
 
@@ -23,7 +24,12 @@ if (!acquireSingleInstanceLock(() => mainWindow)) {
     mainWindow = createMainWindow()
     registerAllIpcHandlers(mainWindow)
     registerMainWindow(mainWindow)
+    registerUpdaterWindow(mainWindow)
     timerEngine.startLoop()
+
+    if (dataStore.get().settings.checkForUpdates) {
+      void checkForUpdatesOnLaunch()
+    }
   })
 
   // Windows-only app (registry-based autostart, NSIS installer) — no macOS

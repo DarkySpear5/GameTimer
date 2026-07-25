@@ -9,6 +9,7 @@ import { ModifyDialog } from './components/dialogs/ModifyDialog'
 import { NotesDialog } from './components/dialogs/NotesDialog'
 import { SettingsDialog } from './components/dialogs/SettingsDialog'
 import { LegacyImportPrompt } from './components/dialogs/LegacyImportPrompt'
+import { UpdatePrompt } from './components/dialogs/UpdatePrompt'
 import { ToastHost } from './components/common/Toast'
 import { useProfilesStore } from './state/profilesStore'
 import { loadSettings } from './state/settingsStore'
@@ -79,6 +80,7 @@ function App(): React.JSX.Element {
       {dialog === 'settings' && <SettingsDialog onClose={closeDialog} />}
 
       <LegacyImportPrompt />
+      <UpdatePrompt />
       <ToastHost />
     </div>
   )

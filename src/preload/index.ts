@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { IPC } from '@shared/ipcContract'
 import type { GameTimerApi, TimerTickPayload } from '@shared/ipcContract'
+import type { UpdateInfo, UpdateProgress } from '@shared/types'
 
 // Thin pass-through only — no logic belongs here. Every method just forwards
 // to main over IPC; main is the sole owner of state and OS access.
@@ -67,6 +68,26 @@ const api: GameTimerApi = {
   app: {
     getVersion: () => ipcRenderer.invoke(IPC.app.getVersion),
     getInitialData: () => ipcRenderer.invoke(IPC.app.getInitialData)
+  },
+  updater: {
+    checkNow: () => ipcRenderer.invoke(IPC.updater.checkNow),
+    downloadUpdate: () => ipcRenderer.invoke(IPC.updater.downloadUpdate),
+    quitAndInstall: () => void ipcRenderer.invoke(IPC.updater.quitAndInstall),
+    onUpdateAvailable: (cb) => {
+      const listener = (_event: Electron.IpcRendererEvent, info: UpdateInfo): void => cb(info)
+      ipcRenderer.on(IPC.updater.updateAvailable, listener)
+      return () => ipcRenderer.removeListener(IPC.updater.updateAvailable, listener)
+    },
+    onDownloadProgress: (cb) => {
+      const listener = (_event: Electron.IpcRendererEvent, progress: UpdateProgress): void => cb(progress)
+      ipcRenderer.on(IPC.updater.downloadProgress, listener)
+      return () => ipcRenderer.removeListener(IPC.updater.downloadProgress, listener)
+    },
+    onUpdateDownloaded: (cb) => {
+      const listener = (): void => cb()
+      ipcRenderer.on(IPC.updater.updateDownloaded, listener)
+      return () => ipcRenderer.removeListener(IPC.updater.updateDownloaded, listener)
+    }
   }
 }
 

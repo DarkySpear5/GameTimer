@@ -68,6 +68,11 @@ export function SettingsDialog({ onClose }: { onClose: () => void }): React.JSX.
             checked={settings.trayEnabled}
             onChange={(v) => void updateSettings({ trayEnabled: v })}
           />
+          <ToggleRow
+            label="Keep Game Timer updated"
+            checked={settings.checkForUpdates}
+            onChange={(v) => void updateSettings({ checkForUpdates: v })}
+          />
         </div>
       )}
 

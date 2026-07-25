@@ -94,6 +94,7 @@ function normalizeLegacySettings(raw: Record<string, unknown> | undefined): Sett
   return {
     trayEnabled: (raw?.tray_enabled as boolean) ?? true,
     runAtStartup: (raw?.run_at_startup as boolean) ?? false,
+    checkForUpdates: true, // v1 has no equivalent concept — default on for a fresh v2 setting
     iconSize: (raw?.icon_size as number) ?? 36,
     theme,
     customColors: (raw?.custom_colors as Settings['customColors']) ?? DEFAULT_CUSTOM_COLORS,

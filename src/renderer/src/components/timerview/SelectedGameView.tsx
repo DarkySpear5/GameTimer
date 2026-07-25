@@ -58,8 +58,10 @@ export function SelectedGameView(): React.JSX.Element {
       className="relative flex flex-1 flex-col items-center justify-center gap-3 overflow-hidden"
       style={backgroundStyle}
     >
-      {hasCustomBackground && <div className="absolute inset-0 bg-black/35" />}
-      <div className="relative z-10 flex flex-col items-center gap-3">
+      <div
+        className={`relative z-10 flex flex-col items-center gap-3 ${hasCustomBackground ? 'rounded-2xl px-12 py-9' : ''}`}
+        style={hasCustomBackground ? { backgroundColor: 'rgba(15, 15, 24, 0.28)' } : undefined}
+      >
         <div className="text-2xl font-semibold text-text">{profile.name}</div>
         <div className={isRunning ? 'text-sm text-green' : 'text-sm text-subtext'}>
           {isRunning ? t('status_tracking') : STATUS_LABEL[profile.status]}

@@ -52,6 +52,7 @@ const ThemeNameSchema = z
 const SettingsSchema = z.object({
   trayEnabled: z.boolean().catch(true),
   runAtStartup: z.boolean().catch(false),
+  checkForUpdates: z.boolean().catch(true),
   iconSize: z.number().catch(36),
   theme: ThemeNameSchema,
   customColors: ThemeColorsSchema,

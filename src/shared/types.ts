@@ -32,6 +32,7 @@ export interface Profile {
 export interface Settings {
   trayEnabled: boolean
   runAtStartup: boolean
+  checkForUpdates: boolean
   iconSize: number
   theme: ThemeName
   customColors: ThemeColors
@@ -41,6 +42,15 @@ export interface Settings {
   genreFilter: string
   statusFilter: 'All' | Status
   language: string
+}
+
+export interface UpdateInfo {
+  version: string
+  releaseNotes?: string | null
+}
+
+export interface UpdateProgress {
+  percent: number
 }
 
 export interface AppData {
