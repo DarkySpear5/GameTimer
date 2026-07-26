@@ -34,7 +34,7 @@
   "btn_sort": "排序 ▾",
   "btn_use_these_colors": "使用这些颜色",
   "canvas_no_profile_selected": "未选择任何游戏",
-  "chk_enable_tray": "启用托盘图标（绿色 = 计时中，红色 = 已暂停）",
+  "chk_enable_tray": "启用托盘图标（计时中会显示播放徽章）",
   "chk_launch_at_startup": "在 Windows 启动时运行 Gamut",
   "col_completed_on": "完成日期",
   "col_completed_time": "完成时用时",

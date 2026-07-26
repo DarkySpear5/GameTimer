@@ -34,7 +34,7 @@
   "btn_sort": "Ordenar ▾",
   "btn_use_these_colors": "Usar estos colores",
   "canvas_no_profile_selected": "Ningún perfil seleccionado",
-  "chk_enable_tray": "Activar icono de bandeja (verde = registrando, rojo = en pausa)",
+  "chk_enable_tray": "Activar icono de bandeja (muestra una insignia de reproducción mientras registra)",
   "chk_launch_at_startup": "Iniciar Gamut al arrancar Windows",
   "col_completed_on": "Completado el",
   "col_completed_time": "Tiempo al completar",

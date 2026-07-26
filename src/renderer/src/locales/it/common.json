@@ -34,7 +34,7 @@
   "btn_sort": "Ordina ▾",
   "btn_use_these_colors": "Usa questi colori",
   "canvas_no_profile_selected": "Nessun profilo selezionato",
-  "chk_enable_tray": "Abilita l'icona nell'area di notifica (verde = in registrazione, rosso = in pausa)",
+  "chk_enable_tray": "Abilita l'icona nell'area di notifica (mostra un badge di riproduzione durante la registrazione)",
   "chk_launch_at_startup": "Avvia Gamut all'avvio di Windows",
   "col_completed_on": "Completato il",
   "col_completed_time": "Tempo al completamento",

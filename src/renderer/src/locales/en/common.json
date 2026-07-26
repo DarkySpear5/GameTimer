@@ -34,7 +34,7 @@
   "btn_sort": "Sort ▾",
   "btn_use_these_colors": "Use These Colors",
   "canvas_no_profile_selected": "No profile selected",
-  "chk_enable_tray": "Enable tray icon (green = tracking, red = paused)",
+  "chk_enable_tray": "Enable tray icon (shows a play badge while tracking)",
   "chk_launch_at_startup": "Launch Gamut when Windows starts",
   "col_completed_on": "Completed On",
   "col_completed_time": "Time Completed",

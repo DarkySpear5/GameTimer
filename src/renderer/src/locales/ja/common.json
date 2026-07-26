@@ -34,7 +34,7 @@
   "btn_sort": "並べ替え ▾",
   "btn_use_these_colors": "この色を使用",
   "canvas_no_profile_selected": "プロフィールが選択されていません",
-  "chk_enable_tray": "トレイアイコンを有効にする（緑＝計測中、赤＝一時停止）",
+  "chk_enable_tray": "トレイアイコンを有効にする（計測中は再生バッジが表示されます）",
   "chk_launch_at_startup": "Windows起動時にGamutを起動する",
   "col_completed_on": "クリア日",
   "col_completed_time": "クリア時のプレイ時間",

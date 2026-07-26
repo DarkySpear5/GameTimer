@@ -34,7 +34,7 @@
   "btn_sort": "정렬 ▾",
   "btn_use_these_colors": "이 색상 사용",
   "canvas_no_profile_selected": "선택된 프로필이 없습니다",
-  "chk_enable_tray": "트레이 아이콘 사용 (녹색 = 측정 중, 빨간색 = 일시정지)",
+  "chk_enable_tray": "트레이 아이콘 사용 (측정 중에는 재생 배지가 표시됩니다)",
   "chk_launch_at_startup": "Windows 시작 시 Gamut 실행",
   "col_completed_on": "완료일",
   "col_completed_time": "완료 시점 시간",

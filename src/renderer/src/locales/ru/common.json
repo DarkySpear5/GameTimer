@@ -34,7 +34,7 @@
   "btn_sort": "Сортировка ▾",
   "btn_use_these_colors": "Использовать эти цвета",
   "canvas_no_profile_selected": "Профиль не выбран",
-  "chk_enable_tray": "Включить значок в трее (зелёный = отслеживание, красный = пауза)",
+  "chk_enable_tray": "Включить значок в трее (во время отслеживания появляется значок воспроизведения)",
   "chk_launch_at_startup": "Запускать Gamut при старте Windows",
   "col_completed_on": "Завершено",
   "col_completed_time": "Время на момент завершения",

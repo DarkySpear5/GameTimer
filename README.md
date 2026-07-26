@@ -18,7 +18,7 @@ Run the installer, click through, done — no admin rights needed. Installs to y
 - Custom box-art icon and background image per game
 - Five color themes (Midnight Blue, Paper White, Slate Grey, Rose, Retro Terminal) plus full custom colors and font choice
 - 10 languages, switchable anytime, no restart needed
-- Optional system tray icon (green = tracking, red = paused), launch-at-startup, daily rolling backups of your tracked time
+- Optional system tray icon (a green play badge appears while anything's tracking, plain otherwise), launch-at-startup, daily rolling backups of your tracked time
 - Everything is stored locally — no account, no internet required except to check for app updates
 
 ## Editions

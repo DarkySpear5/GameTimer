@@ -34,7 +34,7 @@
   "btn_sort": "Trier ▾",
   "btn_use_these_colors": "Utiliser ces couleurs",
   "canvas_no_profile_selected": "Aucun profil sélectionné",
-  "chk_enable_tray": "Activer l'icône de la zone de notification (vert = suivi, rouge = en pause)",
+  "chk_enable_tray": "Activer l'icône de la zone de notification (affiche un badge de lecture pendant le suivi)",
   "chk_launch_at_startup": "Lancer Gamut au démarrage de Windows",
   "col_completed_on": "Terminé le",
   "col_completed_time": "Temps à la fin",

@@ -34,7 +34,7 @@
   "btn_sort": "Sortieren ▾",
   "btn_use_these_colors": "Diese Farben verwenden",
   "canvas_no_profile_selected": "Kein Profil ausgewählt",
-  "chk_enable_tray": "Symbol im Infobereich aktivieren (grün = wird erfasst, rot = pausiert)",
+  "chk_enable_tray": "Symbol im Infobereich aktivieren (zeigt ein Play-Abzeichen während der Erfassung)",
   "chk_launch_at_startup": "Gamut beim Windows-Start starten",
   "col_completed_on": "Abgeschlossen am",
   "col_completed_time": "Zeit bei Abschluss",
