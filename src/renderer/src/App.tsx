@@ -16,7 +16,7 @@ import { loadSettings } from './state/settingsStore'
 import { startTimerTickSubscription } from './state/timerStore'
 import { useUiStore } from './state/uiStore'
 
-const TAB_KEYS = { timer: 'tab_game_timer', data: 'tab_data', about: 'tab_about' } as const
+const TAB_KEYS = { timer: 'tab_timer', data: 'tab_data', about: 'tab_about' } as const
 
 function App(): React.JSX.Element {
   const { t } = useTranslation()

@@ -15,7 +15,7 @@ export function TitleBar(): React.JSX.Element {
       className="flex h-9 shrink-0 items-center justify-between bg-panel select-none"
       style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
     >
-      <div className="px-3 text-xs font-medium text-subtext">Game Timer</div>
+      <div className="px-3 text-xs font-medium text-subtext">Gamut</div>
       <div className="flex h-full" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
         <TitleBarButton label="Minimize" onClick={() => window.api.window.minimize()}>
           <svg width="10" height="10" viewBox="0 0 10 10">

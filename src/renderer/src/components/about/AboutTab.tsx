@@ -13,7 +13,7 @@ export function AboutTab(): React.JSX.Element {
 
   return (
     <div className="flex-1 overflow-y-auto px-6 py-5 text-sm text-text">
-      <div className="mb-1 text-xl font-semibold">Game Timer</div>
+      <div className="mb-1 text-xl font-semibold">Gamut</div>
       <div className="mb-5 text-subtext">
         v{version} — {t('about_tagline')}
       </div>

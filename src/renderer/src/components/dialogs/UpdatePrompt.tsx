@@ -43,7 +43,7 @@ export function UpdatePrompt(): React.JSX.Element | null {
       {phase === 'available' && (
         <>
           <p className="text-sm text-text">
-            Game Timer <b>v{info.version}</b> is available. Download and install it now?
+            Gamut <b>v{info.version}</b> is available. Download and install it now?
           </p>
           <div className="mt-4 flex justify-end gap-2">
             <button
@@ -74,7 +74,7 @@ export function UpdatePrompt(): React.JSX.Element | null {
 
       {phase === 'downloaded' && (
         <>
-          <p className="text-sm text-text">Update downloaded. Restart Game Timer now to install it?</p>
+          <p className="text-sm text-text">Update downloaded. Restart Gamut now to install it?</p>
           <div className="mt-4 flex justify-end gap-2">
             <button
               onClick={() => setDismissed(true)}

@@ -72,6 +72,9 @@ export const IPC = {
     updateAvailable: 'updater:updateAvailable',
     downloadProgress: 'updater:downloadProgress',
     updateDownloaded: 'updater:updateDownloaded'
+  },
+  fonts: {
+    list: 'fonts:list'
   }
 } as const
 
@@ -145,6 +148,10 @@ export interface GameTimerApi {
     onUpdateAvailable(cb: (info: UpdateInfo) => void): () => void
     onDownloadProgress(cb: (progress: UpdateProgress) => void): () => void
     onUpdateDownloaded(cb: () => void): () => void
+  }
+  fonts: {
+    /** Curated fonts merged with every font installed on this PC (incl. third-party), deduped and sorted. */
+    list(): Promise<string[]>
   }
 }
 

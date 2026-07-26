@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Modal } from '../common/Modal'
 import { EyedropperButton } from '../common/EyedropperButton'
@@ -13,7 +13,7 @@ import {
   LANGUAGE_ORDER,
   LANGUAGE_NAMES
 } from '@shared/constants'
-import type { ThemeColors, ThemeName } from '@shared/types'
+import type { Settings, ThemeColors, ThemeName } from '@shared/types'
 
 type Tab = 'general' | 'appearance' | 'ui' | 'language'
 
@@ -69,7 +69,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }): React.JSX.
             onChange={(v) => void updateSettings({ trayEnabled: v })}
           />
           <ToggleRow
-            label="Keep Game Timer updated"
+            label="Keep Gamut updated"
             checked={settings.checkForUpdates}
             onChange={(v) => void updateSettings({ checkForUpdates: v })}
           />
@@ -78,52 +78,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }): React.JSX.
 
       {tab === 'appearance' && <AppearanceTab settings={settings} />}
 
-      {tab === 'ui' && (
-        <div className="flex flex-col gap-5">
-          <div>
-            <label className="mb-1 block text-xs text-subtext">
-              {t('label_font_size')} — {settings.fontScale.toFixed(1)}x
-            </label>
-            <input
-              type="range"
-              min={FONT_SCALE_MIN}
-              max={FONT_SCALE_MAX}
-              step={0.1}
-              value={settings.fontScale}
-              onChange={(e) => updateSettingsOptimistic({ fontScale: parseFloat(e.target.value) })}
-              className="w-full"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs text-subtext">{t('label_font')}</label>
-            <select
-              value={settings.fontFamily}
-              onChange={(e) => void updateSettings({ fontFamily: e.target.value })}
-              className="w-full rounded bg-card px-2.5 py-1.5 text-sm text-text outline-none"
-            >
-              {FONT_CHOICES.map((f) => (
-                <option key={f} value={f}>
-                  {f}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="mb-1 block text-xs text-subtext">{t('label_icon_size')}</label>
-            <select
-              value={settings.iconSize}
-              onChange={(e) => void updateSettings({ iconSize: parseInt(e.target.value, 10) })}
-              className="w-full rounded bg-card px-2.5 py-1.5 text-sm text-text outline-none"
-            >
-              {Object.entries(ICON_SIZE_OPTIONS).map(([label, value]) => (
-                <option key={label} value={value}>
-                  {t(sizeKeyFor(label))}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-      )}
+      {tab === 'ui' && <UiTab settings={settings} />}
 
       {tab === 'language' && (
         <div className="grid grid-cols-2 gap-1.5">
@@ -141,6 +96,90 @@ export function SettingsDialog({ onClose }: { onClose: () => void }): React.JSX.
         </div>
       )}
     </Modal>
+  )
+}
+
+/**
+ * One combined font list, not two separate pickers: FONT_CHOICES (curated)
+ * plus every font actually installed on this PC — fetched once from main
+ * (font-list, via fonts.list IPC) and merged there, so this component just
+ * filters/renders whatever comes back. Falls back to the curated list alone
+ * if the IPC call hasn't resolved yet.
+ */
+function UiTab({
+  settings
+}: {
+  settings: Pick<Settings, 'fontFamily' | 'fontScale' | 'iconSize'>
+}): React.JSX.Element {
+  const { t } = useTranslation()
+  const [allFonts, setAllFonts] = useState<string[]>(FONT_CHOICES)
+  const [query, setQuery] = useState('')
+
+  useEffect(() => {
+    void window.api.fonts.list().then(setAllFonts)
+  }, [])
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    if (!q) return allFonts
+    return allFonts.filter((f) => f.toLowerCase().includes(q))
+  }, [allFonts, query])
+
+  return (
+    <div className="flex flex-col gap-5">
+      <div>
+        <label className="mb-1 block text-xs text-subtext">
+          {t('label_font_size')} — {settings.fontScale.toFixed(1)}x
+        </label>
+        <input
+          type="range"
+          min={FONT_SCALE_MIN}
+          max={FONT_SCALE_MAX}
+          step={0.1}
+          value={settings.fontScale}
+          onChange={(e) => updateSettingsOptimistic({ fontScale: parseFloat(e.target.value) })}
+          className="w-full"
+        />
+      </div>
+      <div>
+        <label className="mb-1 block text-xs text-subtext">{t('label_font')}</label>
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder={t('placeholder_search_fonts')}
+          className="mb-1.5 w-full rounded bg-card px-2.5 py-1.5 text-sm text-text outline-none ring-1 ring-transparent focus:ring-accent"
+        />
+        <div className="max-h-40 overflow-y-auto rounded bg-card">
+          {filtered.map((f) => (
+            <button
+              key={f}
+              onClick={() => void updateSettings({ fontFamily: f })}
+              style={{ fontFamily: `"${f}"` }}
+              className={`block w-full px-2.5 py-1.5 text-left text-sm ${
+                settings.fontFamily === f ? 'bg-accent text-bg' : 'text-text hover:bg-panel'
+              }`}
+            >
+              {f}
+            </button>
+          ))}
+          {filtered.length === 0 && <div className="px-2.5 py-2 text-xs text-subtext">—</div>}
+        </div>
+      </div>
+      <div>
+        <label className="mb-1 block text-xs text-subtext">{t('label_icon_size')}</label>
+        <select
+          value={settings.iconSize}
+          onChange={(e) => void updateSettings({ iconSize: parseInt(e.target.value, 10) })}
+          className="w-full rounded bg-card px-2.5 py-1.5 text-sm text-text outline-none"
+        >
+          {Object.entries(ICON_SIZE_OPTIONS).map(([label, value]) => (
+            <option key={label} value={value}>
+              {t(sizeKeyFor(label))}
+            </option>
+          ))}
+        </select>
+      </div>
+    </div>
   )
 }
 

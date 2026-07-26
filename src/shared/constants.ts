@@ -83,7 +83,6 @@ export const ICON_SIZE_OPTIONS: Record<string, number> = {
 }
 
 export const GENRE_OPTIONS = [
-  'Uncategorized',
   'Action',
   'Adventure',
   'RPG',
@@ -104,7 +103,37 @@ export const GENRE_OPTIONS = [
   'Card / Board Game',
   'Party',
   'Roguelike',
-  'Other'
+  'FPS',
+  '3rd Person',
+  'Isometric View',
+  'Farming',
+  'Automation',
+  'Turn-Based',
+  'Sci-Fi',
+  'Adult',
+  'Anime',
+  'Space',
+  'Story-Rich',
+  'Hack and Slash',
+  'Soulslike',
+  'Cozy',
+  'Casual',
+  'Dungeon Crawler',
+  'Retro',
+  'Multiple Endings',
+  'Gore',
+  'Sandbox',
+  'Difficult',
+  'Bullet Hell',
+  'Stealth',
+  'Idle',
+  'Deckbuilding',
+  'Team-Based',
+  'Tower Defense',
+  'Looter Shooter',
+  'Life-Sim',
+  'Magic',
+  'Fantasy'
 ] as const
 
 export type GenreKey = (typeof GENRE_OPTIONS)[number]

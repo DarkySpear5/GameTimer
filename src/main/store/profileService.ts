@@ -18,7 +18,7 @@ function freshProfile(name: string): Profile {
     status: 'in_progress',
     statusAt: null,
     statusSeconds: null,
-    genres: ['Uncategorized'],
+    genres: [],
     lastPlayed: null,
     startedDate: null,
     notes: '',
@@ -171,7 +171,7 @@ export const profileService = {
 
   async setGenres(name: string, genres: string[]): Promise<Profile> {
     const profile = requireProfile(name)
-    profile.genres = genres.length ? genres : ['Uncategorized']
+    profile.genres = genres
     await dataStore.safeSave()
     return profile
   },

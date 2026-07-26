@@ -88,6 +88,9 @@ const api: GameTimerApi = {
       ipcRenderer.on(IPC.updater.updateDownloaded, listener)
       return () => ipcRenderer.removeListener(IPC.updater.updateDownloaded, listener)
     }
+  },
+  fonts: {
+    list: () => ipcRenderer.invoke(IPC.fonts.list)
   }
 }
 

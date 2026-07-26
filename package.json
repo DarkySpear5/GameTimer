@@ -1,7 +1,7 @@
 {
-  "name": "gametimer",
-  "version": "2.0.4",
-  "description": "Game Timer — a game playtime tracker",
+  "name": "gamut",
+  "version": "2.1.0",
+  "description": "Gamut — a game playtime tracker",
   "main": "./out/main/index.js",
   "author": "DarkySpear5",
   "license": "MIT",
@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "electron-updater": "^6.8.9",
+    "font-list": "^1.6.0",
     "i18next": "^26.2.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

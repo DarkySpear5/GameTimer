@@ -315,13 +315,13 @@ function GenresTab({ profile }: { profile: Profile }): React.JSX.Element {
   }
 
   async function apply(): Promise<void> {
-    const genres = selected.size ? [...selected] : ['Uncategorized']
+    const genres = [...selected]
     useProfilesStore.getState().upsert(await window.api.profiles.setGenres(profile.name, genres))
   }
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="grid max-h-64 grid-cols-2 gap-1 overflow-y-auto">
+      <div className="grid max-h-80 grid-cols-2 gap-1 overflow-y-auto">
         {GENRE_OPTIONS.map((g) => (
           <label key={g} className="flex items-center gap-2 rounded px-2 py-1 text-sm text-text hover:bg-card">
             <input type="checkbox" checked={selected.has(g)} onChange={() => toggle(g)} />

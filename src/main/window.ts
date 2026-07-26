@@ -1,6 +1,6 @@
 import { join } from 'path'
 import { BrowserWindow, shell } from 'electron'
-import { is } from './util/env'
+import { is, resolveAsset } from './util/env'
 
 export function createMainWindow(): BrowserWindow {
   const win = new BrowserWindow({
@@ -11,7 +11,7 @@ export function createMainWindow(): BrowserWindow {
     show: false,
     frame: false,
     backgroundColor: '#1e1e2e',
-    icon: join(__dirname, '../../build/icon.ico'),
+    icon: resolveAsset('icon.ico'),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,

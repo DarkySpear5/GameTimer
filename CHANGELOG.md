@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to Game Timer are documented here.
+All notable changes to Gamut (formerly Game Timer) are documented here.
 
 ## v1.9.1 — 2026-07-25
 

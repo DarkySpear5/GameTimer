@@ -37,13 +37,12 @@ const ProfileSchema = z
     status: StatusSchema,
     statusAt: z.string().nullable().catch(null),
     statusSeconds: z.number().nullable().catch(null),
-    genres: z.array(z.string()).catch(['Uncategorized']),
+    genres: z.array(z.string()).catch([]),
     lastPlayed: z.number().nullable().catch(null),
     startedDate: z.string().nullable().catch(null),
     notes: z.string().catch(''),
     rating: RatingSchema
   })
-  .transform((p) => ({ ...p, genres: p.genres.length ? p.genres : ['Uncategorized'] }))
 
 const ThemeNameSchema = z
   .enum(['Midnight Blue', 'Paper White', 'Slate Grey', 'Rose', 'Retro Terminal', 'Custom'])

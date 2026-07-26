@@ -47,7 +47,7 @@ export async function exportProfile(win: BrowserWindow, name: string): Promise<{
   await fs.mkdir(paths.profilesDir(), { recursive: true })
   const result = await dialog.showSaveDialog(win, {
     defaultPath: join(paths.profilesDir(), `${profile.name}.gtprofile`),
-    filters: [{ name: 'Game Timer Profile', extensions: ['gtprofile'] }]
+    filters: [{ name: 'Gamut Profile', extensions: ['gtprofile'] }]
   })
   if (result.canceled || !result.filePath) return null
 
@@ -61,7 +61,7 @@ export async function importProfile(win: BrowserWindow): Promise<Profile | null>
   const result = await dialog.showOpenDialog(win, {
     defaultPath: paths.profilesDir(),
     filters: [
-      { name: 'Game Timer Profile', extensions: ['gtprofile'] },
+      { name: 'Gamut Profile', extensions: ['gtprofile'] },
       { name: 'All files', extensions: ['*'] }
     ],
     properties: ['openFile']
@@ -110,7 +110,7 @@ export async function importProfile(win: BrowserWindow): Promise<Profile | null>
     status: imported.status ?? 'in_progress',
     statusAt: imported.statusAt ?? null,
     statusSeconds: imported.statusSeconds ?? null,
-    genres: imported.genres?.length ? imported.genres : ['Uncategorized'],
+    genres: imported.genres ?? [],
     lastPlayed: imported.lastPlayed ?? null,
     startedDate: imported.startedDate ?? null,
     notes: imported.notes ?? '',

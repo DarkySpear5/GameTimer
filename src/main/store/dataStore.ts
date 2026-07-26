@@ -65,7 +65,7 @@ class DataStore {
     } catch (err) {
       dialog.showErrorBox(
         "Can't save",
-        `Game Timer couldn't save your data.\n\n${err instanceof Error ? err.message : String(err)}`
+        `Gamut couldn't save your data.\n\n${err instanceof Error ? err.message : String(err)}`
       )
     }
   }

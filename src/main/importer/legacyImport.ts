@@ -62,11 +62,7 @@ function normalizeLegacyProfile(name: string, raw: LegacyProfileRaw): Profile {
   }
 
   const genres =
-    Array.isArray(raw.genres) && raw.genres.length
-      ? raw.genres
-      : raw.genre
-        ? [raw.genre]
-        : ['Uncategorized']
+    Array.isArray(raw.genres) && raw.genres.length ? raw.genres : raw.genre ? [raw.genre] : []
 
   const rating = ([0, 1, 2, 3, 4, 5] as number[]).includes(raw.rating ?? 0)
     ? ((raw.rating ?? 0) as 0 | 1 | 2 | 3 | 4 | 5)

@@ -1,46 +1,7 @@
 import { Tray, Menu, nativeImage } from 'electron'
-import { encodeRgbaPng } from './pngEncoder'
+import { resolveAsset } from '../util/env'
 import { dataStore } from '../store/dataStore'
 import { timerEngine } from '../timer/timerEngine'
-
-type RgbaColor = [number, number, number, number]
-
-// Functional colors carried over from v1's GREEN_RGBA/RED_RGBA — never themeable.
-const GREEN_RGBA: RgbaColor = [166, 227, 161, 255]
-const RED_RGBA: RgbaColor = [243, 139, 168, 255]
-const BORDER_RGBA: RgbaColor = [30, 30, 46, 255]
-
-function drawDot(color: RgbaColor): Buffer {
-  const size = 32
-  const rgba = Buffer.alloc(size * size * 4)
-  const cx = size / 2
-  const cy = size / 2
-  const radius = size / 2 - 2
-
-  for (let y = 0; y < size; y++) {
-    for (let x = 0; x < size; x++) {
-      const dx = x - cx + 0.5
-      const dy = y - cy + 0.5
-      const dist = Math.sqrt(dx * dx + dy * dy)
-      const idx = (y * size + x) * 4
-      let [r, g, b, a] = [0, 0, 0, 0]
-      if (dist <= radius - 1.5) {
-        ;[r, g, b, a] = color
-      } else if (dist <= radius + 1.5) {
-        const t = Math.min(1, Math.max(0, (radius + 1.5 - dist) / 3))
-        r = BORDER_RGBA[0]
-        g = BORDER_RGBA[1]
-        b = BORDER_RGBA[2]
-        a = Math.round(BORDER_RGBA[3] * t)
-      }
-      rgba[idx] = r
-      rgba[idx + 1] = g
-      rgba[idx + 2] = b
-      rgba[idx + 3] = a
-    }
-  }
-  return encodeRgbaPng(size, size, rgba)
-}
 
 interface TrayCallbacks {
   onShow: () => void
@@ -49,9 +10,12 @@ interface TrayCallbacks {
 }
 
 /**
- * Mirrors v1's pystray icon exactly: a colored status dot (green if
- * anything is running, red otherwise), a 3-item menu (Show / Play-Pause the
- * selected game / Quit), and a tooltip naming the selected game + its state.
+ * Tray icon is the app icon itself, with a green play-triangle badge
+ * composited into the bottom-right corner while anything is running — no
+ * badge at all when paused/idle. The two variants are pre-rendered PNGs
+ * (see build/tray-idle.png / build/tray-running.png) rather than drawn at
+ * runtime, since compositing a badge onto the real icon pixel-by-pixel isn't
+ * worth doing in JS when ImageMagick already did it once at build time.
  * Callers explicitly call refresh() after anything that changes running or
  * selected state (see ipc/timer.ipc.ts, ipc/profiles.ipc.ts) rather than
  * this service polling — it only needs to redraw on real state changes, not
@@ -60,11 +24,13 @@ interface TrayCallbacks {
 class TrayService {
   private tray: Tray | null = null
   private callbacks: TrayCallbacks | null = null
+  private idleIcon = nativeImage.createFromPath(resolveAsset('tray-idle.png'))
+  private runningIcon = nativeImage.createFromPath(resolveAsset('tray-running.png'))
 
   start(callbacks: TrayCallbacks): void {
     if (this.tray) return
     this.callbacks = callbacks
-    this.tray = new Tray(nativeImage.createFromBuffer(drawDot(RED_RGBA)))
+    this.tray = new Tray(this.idleIcon)
     this.tray.on('click', () => this.callbacks?.onShow())
     this.refresh()
   }
@@ -85,16 +51,16 @@ class TrayService {
     const selected = dataStore.get().lastSelected
     const selectedIsRunning = !!selected && timerEngine.isRunning(selected)
 
-    this.tray.setImage(nativeImage.createFromBuffer(drawDot(runningCount > 0 ? GREEN_RGBA : RED_RGBA)))
+    this.tray.setImage(runningCount > 0 ? this.runningIcon : this.idleIcon)
 
     let statusText: string
     if (runningCount > 1) statusText = `Tracking ${runningCount} games`
     else if (selectedIsRunning) statusText = 'Tracking time…'
     else statusText = 'Paused'
-    this.tray.setToolTip(`Game Timer — ${selected ?? 'No profile selected'} (${statusText})`)
+    this.tray.setToolTip(`Gamut — ${selected ?? 'No profile selected'} (${statusText})`)
 
     const menu = Menu.buildFromTemplate([
-      { label: 'Show Game Timer', click: () => this.callbacks?.onShow() },
+      { label: 'Show Gamut', click: () => this.callbacks?.onShow() },
       {
         label: selectedIsRunning ? 'Pause' : 'Play',
         enabled: !!selected,

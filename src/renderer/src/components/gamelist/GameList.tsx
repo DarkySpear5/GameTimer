@@ -205,7 +205,7 @@ export function GameList(): React.JSX.Element {
                 void selectProfile(p.name)
                 openContextMenu(e.clientX, e.clientY, p.name)
               }}
-              className={`mb-1 flex w-full items-center gap-2 rounded px-2.5 py-2 text-left text-sm transition-colors ${
+              className={`mb-1 flex w-full items-start gap-2 rounded px-2.5 py-2 text-left text-sm transition-colors ${
                 selected === p.name ? 'bg-card' : 'hover:bg-card/60'
               }`}
             >
@@ -221,8 +221,8 @@ export function GameList(): React.JSX.Element {
                   style={{ width: iconSize, height: iconSize }}
                 />
               )}
-              <span className={`h-2 w-2 shrink-0 rounded-full ${isRunning ? 'bg-green' : 'bg-transparent'}`} />
-              <span className={`flex-1 truncate ${isRunning ? 'text-green' : 'text-text'}`}>{p.name}</span>
+              <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${isRunning ? 'bg-green' : 'bg-transparent'}`} />
+              <span className={`min-w-0 flex-1 break-words ${isRunning ? 'text-green' : 'text-text'}`}>{p.name}</span>
               <span className="shrink-0 text-[11px] text-subtext">{formatSeconds(seconds)}</span>
             </button>
           )
