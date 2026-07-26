@@ -28,6 +28,7 @@ export function registerMainWindow(win: BrowserWindow): void {
   })
 
   timerEngine.onTick((payload) => {
+    if (win.isDestroyed() || win.webContents.isDestroyed()) return
     win.webContents.send(IPC.timer.tick, payload)
   })
 
@@ -68,6 +69,11 @@ export function syncTrayEnabled(enabled: boolean): void {
 export async function quitApp(): Promise<void> {
   if (quitting) return
   quitting = true
+  try {
+    timerEngine.stopLoop()
+  } catch {
+    /* noop */
+  }
   try {
     timerEngine.pauseAll()
   } catch {
