@@ -3,14 +3,23 @@ import { useTranslation } from 'react-i18next'
 import { useProfilesStore } from '../../state/profilesStore'
 import { useTimerStore } from '../../state/timerStore'
 import { useUiStore } from '../../state/uiStore'
+import { useSettingsStore } from '../../state/settingsStore'
 import { formatSeconds } from '@shared/format'
 import type { Status } from '@shared/types'
+
+// Retro Terminal's "hacked" green wash — kept in one place since it needs to
+// layer into whatever backgroundImage/backgroundColor a game already has
+// (see backgroundStyle below), not just sit on top of it as a separate CSS
+// rule, or it'd either get overridden by or hide the actual custom
+// background depending on cascade order.
+const RETRO_WASH = 'linear-gradient(rgba(51, 255, 102, 0.16), rgba(51, 255, 102, 0.16))'
 
 export function SelectedGameView(): React.JSX.Element {
   const { t } = useTranslation()
   const selected = useUiStore((s) => s.selected)
   const profile = useProfilesStore((s) => (selected ? s.profiles[selected] : null))
   const running = useTimerStore((s) => s.running)
+  const isRetroTheme = useSettingsStore((s) => s.settings?.theme === 'Retro Terminal')
 
   const STATUS_LABEL: Record<Status, string> = {
     in_progress: t('status_paused'),
@@ -43,13 +52,21 @@ export function SelectedGameView(): React.JSX.Element {
 
   const backgroundStyle: CSSProperties = profile.bgImage
     ? {
-        backgroundImage: `url(gt-asset://backgrounds/${encodeURIComponent(profile.bgImage)})`,
+        backgroundImage: isRetroTheme
+          ? `${RETRO_WASH}, url(gt-asset://backgrounds/${encodeURIComponent(profile.bgImage)})`
+          : `url(gt-asset://backgrounds/${encodeURIComponent(profile.bgImage)})`,
         backgroundSize: 'cover',
-        backgroundPosition: 'center'
+        backgroundPosition: 'center',
+        ...(isRetroTheme ? { backgroundBlendMode: 'color' } : {})
       }
     : profile.bgColor
-      ? { backgroundColor: profile.bgColor }
-      : {}
+      ? {
+          backgroundColor: profile.bgColor,
+          ...(isRetroTheme ? { backgroundImage: RETRO_WASH, backgroundBlendMode: 'color' } : {})
+        }
+      : isRetroTheme
+        ? { backgroundImage: RETRO_WASH, backgroundBlendMode: 'color' }
+        : {}
 
   const hasCustomBackground = !!(profile.bgImage || profile.bgColor)
 

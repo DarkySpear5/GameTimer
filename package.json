@@ -1,6 +1,6 @@
 {
   "name": "gamut",
-  "version": "2.1.2",
+  "version": "2.1.3",
   "description": "Gamut — a game playtime tracker",
   "main": "./out/main/index.js",
   "author": "DarkySpear5",

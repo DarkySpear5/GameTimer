@@ -45,3 +45,50 @@ body {
   overflow: hidden;
   user-select: none;
 }
+
+/*
+ * Rounded, theme-colored scrollbars everywhere (sidebar list, Data tab
+ * table, Settings font list, genre grid, etc.) instead of the OS default
+ * white/grey bar. Chromium-only (::-webkit-scrollbar), which is fine — this
+ * is an Electron app, there's no other renderer to support.
+ */
+::-webkit-scrollbar {
+  width: 11px;
+  height: 11px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background-color: var(--gt-card);
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--gt-accent);
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/*
+ * Retro Terminal's "hacked" background wash: a translucent green layer
+ * blended into every panel/card/body background (background-blend-mode
+ * only ever mixes an element's OWN background layers, never its children —
+ * so this can never bleed onto a game's icon <img>, which is exactly the
+ * point). Applied via a data-theme attribute settingsStore sets on <html>
+ * whenever the active theme changes; every other theme leaves this
+ * untouched.
+ */
+:root[data-theme='Retro Terminal'] body,
+:root[data-theme='Retro Terminal'] .bg-panel,
+:root[data-theme='Retro Terminal'] .bg-card,
+:root[data-theme='Retro Terminal'] .bg-bg,
+:root[data-theme='Retro Terminal'] .theme-bg-surface {
+  background-image: linear-gradient(
+    rgba(51, 255, 102, 0.16),
+    rgba(51, 255, 102, 0.16)
+  );
+  background-blend-mode: color;
+}
