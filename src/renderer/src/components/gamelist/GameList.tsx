@@ -222,7 +222,7 @@ export function GameList(): React.JSX.Element {
                 />
               )}
               <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${isRunning ? 'bg-green' : 'bg-transparent'}`} />
-              <span className={`min-w-0 flex-1 break-words ${isRunning ? 'text-green' : 'text-text'}`}>{p.name}</span>
+              <span className={`min-w-0 flex-1 break-normal ${isRunning ? 'text-green' : 'text-text'}`}>{p.name}</span>
               <span className="shrink-0 text-[11px] text-subtext">{formatSeconds(seconds)}</span>
             </button>
           )
