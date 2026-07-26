@@ -1,3 +1,4 @@
+import { join } from 'path'
 import { app, BrowserWindow } from 'electron'
 import { createMainWindow } from './window'
 import { acquireSingleInstanceLock } from './singleInstance'
@@ -9,6 +10,14 @@ import { registerMainWindow, quitApp } from './appLifecycle'
 import { registerUpdaterWindow, checkForUpdatesOnLaunch } from './updater/autoUpdater'
 
 let mainWindow: BrowserWindow | null = null
+
+// Pins userData to the folder v2 has always used, independent of whatever
+// the product is branded as (Electron otherwise derives this from the
+// package name, which changed "gametimer" -> "gamut" in the Gamut rename —
+// that silently pointed existing installs at a fresh, empty folder instead
+// of their real data on the first launch after updating). Must run before
+// anything else touches paths.ts/dataStore.
+app.setPath('userData', join(app.getPath('appData'), 'gametimer'))
 
 registerAssetSchemeAsPrivileged()
 
