@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-const GITHUB_URL = 'https://github.com/DarkySpear5/GameTimer'
+const GITHUB_URL = 'https://github.com/DarkySpear5/Gamut'
 
 // Each line is a separator plus one or more (label, url) pairs, so a line like
 // "React + TypeScript" can link each half separately while keeping its own

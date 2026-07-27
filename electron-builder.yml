@@ -29,5 +29,5 @@ nsis:
 publish:
   provider: github
   owner: DarkySpear5
-  repo: GameTimer
+  repo: Gamut
   releaseType: release
