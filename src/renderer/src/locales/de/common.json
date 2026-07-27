@@ -17,7 +17,7 @@
   "about_lic_lgpl": "LGPL v3",
   "about_lic_psf": "Python Software Foundation-Lizenz",
   "about_license_disclaimer": "Die Lizenzangaben entsprechen dem, was jedes Projekt üblicherweise veröffentlicht; den vollständigen, aktuellen Text findest du auf den jeweiligen offiziellen Seiten.",
-  "about_tagline": "ein kleiner, offline nutzbarer Spielzeit-Tracker mit manuellem Play/Pause.",
+  "about_tagline": "ein manueller Play/Pause-Spieletimer für Spieler, die eine genaue und leicht überprüfbare Spielzeit wollen.",
   "btn_add_game": "+ Spiel hinzufügen",
   "btn_assign": "Zuweisen",
   "btn_change": "Ändern",

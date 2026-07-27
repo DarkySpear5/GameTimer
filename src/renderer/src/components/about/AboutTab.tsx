@@ -3,6 +3,32 @@ import { useTranslation } from 'react-i18next'
 
 const GITHUB_URL = 'https://github.com/DarkySpear5/GameTimer'
 
+// Each line is a separator plus one or more (label, url) pairs, so a line like
+// "React + TypeScript" can link each half separately while keeping its own
+// original punctuation ("+" here, "/" for the electron-vite line). Deliberately
+// no link styling (color/underline) — the plain <a> below already inherits the
+// list's text-subtext with no underline; only the GitHub link further down
+// opts into looking like a link.
+const BUILT_WITH: { sep: string; items: { label: string; url: string }[] }[] = [
+  { sep: '', items: [{ label: 'Electron', url: 'https://www.electronjs.org/' }] },
+  {
+    sep: ' + ',
+    items: [
+      { label: 'React', url: 'https://react.dev/' },
+      { label: 'TypeScript', url: 'https://www.typescriptlang.org/' }
+    ]
+  },
+  { sep: '', items: [{ label: 'Tailwind CSS', url: 'https://tailwindcss.com/' }] },
+  { sep: '', items: [{ label: 'Zustand', url: 'https://github.com/pmndrs/zustand' }] },
+  {
+    sep: ' / ',
+    items: [
+      { label: 'electron-vite', url: 'https://electron-vite.org/' },
+      { label: 'electron-builder', url: 'https://www.electron.build/' }
+    ]
+  }
+]
+
 export function AboutTab(): React.JSX.Element {
   const { t } = useTranslation()
   const [version, setVersion] = useState('2.0.0')
@@ -19,11 +45,18 @@ export function AboutTab(): React.JSX.Element {
       </div>
       <div className="mb-2 font-semibold">{t('about_built_with')}</div>
       <ul className="list-disc space-y-1 pl-5 text-subtext">
-        <li>Electron</li>
-        <li>React + TypeScript</li>
-        <li>Tailwind CSS</li>
-        <li>Zustand</li>
-        <li>electron-vite / electron-builder</li>
+        {BUILT_WITH.map(({ sep, items }) => (
+          <li key={items.map((item) => item.label).join(sep)}>
+            {items.map((item, i) => (
+              <span key={item.url}>
+                {i > 0 && sep}
+                <a href={item.url} target="_blank" rel="noreferrer" className="hover:text-text">
+                  {item.label}
+                </a>
+              </span>
+            ))}
+          </li>
+        ))}
       </ul>
       <div className="mt-5 mb-2 font-semibold">{t('about_contact_header')}</div>
       <div className="flex flex-col gap-1.5">

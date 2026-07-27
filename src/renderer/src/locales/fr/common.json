@@ -17,7 +17,7 @@
   "about_lic_lgpl": "LGPL v3",
   "about_lic_psf": "Licence de la Python Software Foundation",
   "about_license_disclaimer": "Les détails de licence correspondent à ce que chaque projet publie habituellement ; consultez leurs pages officielles pour le texte complet et à jour.",
-  "about_tagline": "un petit minuteur de jeu hors ligne, manuel, en lecture/pause.",
+  "about_tagline": "un minuteur de jeu manuel (lecture/pause) pour les joueurs qui veulent un temps de jeu précis et facile à consulter.",
   "btn_add_game": "+ Ajouter un jeu",
   "btn_assign": "Attribuer",
   "btn_change": "Changer",

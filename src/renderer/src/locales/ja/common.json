@@ -17,7 +17,7 @@
   "about_lic_lgpl": "LGPL v3",
   "about_lic_psf": "Python Software Foundation ライセンス",
   "about_license_disclaimer": "ライセンスの詳細は各プロジェクトが通常公開している内容です。最新かつ正確な全文は各公式ページをご確認ください。",
-  "about_tagline": "オフラインで動作する、手動再生/一時停止式の小さなゲームタイマーです。",
+  "about_tagline": "正確で確認しやすいプレイ時間を求めるゲーマーのための、手動再生/一時停止式ゲームタイマーです。",
   "btn_add_game": "+ ゲームを追加",
   "btn_assign": "適用",
   "btn_change": "変更",
