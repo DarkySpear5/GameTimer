@@ -29,13 +29,25 @@ body {
    * deliberately mixes in black (not just var(--gt-panel) alone) so there's
    * always real contrast even for themes/custom palettes where bg and panel
    * happen to be nearly the same shade.
+   *
+   * The first layer is the same "hacked"-style accent wash every other
+   * background surface gets (see the rule further down) — kept as an extra
+   * layer here, blended in via background-blend-mode, rather than a
+   * separate rule, since a second `body { background-image }` declaration
+   * later in this file would just overwrite this one instead of layering
+   * with it (same property, same specificity, last one wins).
    */
-  background: linear-gradient(
-    160deg,
-    color-mix(in srgb, var(--gt-accent) 32%, var(--gt-bg)) 0%,
-    var(--gt-bg) 38%,
-    color-mix(in srgb, black 30%, var(--gt-panel)) 100%
-  );
+  background-image: linear-gradient(
+      color-mix(in srgb, var(--gt-accent) 16%, transparent),
+      color-mix(in srgb, var(--gt-accent) 16%, transparent)
+    ),
+    linear-gradient(
+      160deg,
+      color-mix(in srgb, var(--gt-accent) 32%, var(--gt-bg)) 0%,
+      var(--gt-bg) 38%,
+      color-mix(in srgb, black 30%, var(--gt-panel)) 100%
+    );
+  background-blend-mode: color;
   background-attachment: fixed;
   color: var(--gt-text);
   font-family:
@@ -73,22 +85,21 @@ body {
 }
 
 /*
- * Retro Terminal's "hacked" background wash: a translucent green layer
- * blended into every panel/card/body background (background-blend-mode
- * only ever mixes an element's OWN background layers, never its children —
- * so this can never bleed onto a game's icon <img>, which is exactly the
- * point). Applied via a data-theme attribute settingsStore sets on <html>
- * whenever the active theme changes; every other theme leaves this
- * untouched.
+ * "Hacked"-style background wash, every theme — a translucent layer of that
+ * theme's own accent color blended into every panel/card/body background
+ * (background-blend-mode only ever mixes an element's OWN background
+ * layers, never its children — so this can never bleed onto a game's icon
+ * <img>, which is exactly the point). Driven by --gt-accent, which is
+ * already whatever the active theme (including a live Custom color pick)
+ * resolves to, so this needs no per-theme special-casing.
  */
-:root[data-theme='Retro Terminal'] body,
-:root[data-theme='Retro Terminal'] .bg-panel,
-:root[data-theme='Retro Terminal'] .bg-card,
-:root[data-theme='Retro Terminal'] .bg-bg,
-:root[data-theme='Retro Terminal'] .theme-bg-surface {
+.bg-panel,
+.bg-card,
+.bg-bg,
+.theme-bg-surface {
   background-image: linear-gradient(
-    rgba(51, 255, 102, 0.16),
-    rgba(51, 255, 102, 0.16)
+    color-mix(in srgb, var(--gt-accent) 16%, transparent),
+    color-mix(in srgb, var(--gt-accent) 16%, transparent)
   );
   background-blend-mode: color;
 }

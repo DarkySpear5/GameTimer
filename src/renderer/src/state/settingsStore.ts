@@ -61,7 +61,6 @@ export function applyThemeToDocument(settings: Settings): void {
   root.setProperty('--gt-text', colors.text)
   root.setProperty('--gt-subtext', colors.subtext)
   root.setProperty('--gt-accent', colors.accent)
-  document.documentElement.setAttribute('data-theme', settings.theme)
   document.documentElement.style.setProperty('--gt-font-scale', String(settings.fontScale))
   // Actually apply the scale: Tailwind's text-*/spacing utilities are rem-based
   // (relative to the root <html> font-size), so scaling that one value scales
