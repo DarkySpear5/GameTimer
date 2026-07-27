@@ -17,7 +17,7 @@
   "about_lic_lgpl": "LGPL v3",
   "about_lic_psf": "Python Software Foundation 라이선스",
   "about_license_disclaimer": "라이선스 세부 정보는 각 프로젝트가 일반적으로 공개하는 내용입니다. 최신 전문은 공식 페이지를 확인하세요.",
-  "about_tagline": "정확하고 확인하기 쉬운 플레이 시간을 원하는 게이머를 위한 수동 재생/일시정지 게임 타이머입니다.",
+  "about_tagline": "정확한 플레이 시간, 메모, 평점, 장르까지 한눈에 관리하고 싶은 게이머를 위한 수동 재생/일시정지 게임 타이머입니다.",
   "btn_add_game": "+ 게임 추가",
   "btn_assign": "적용",
   "btn_change": "변경",

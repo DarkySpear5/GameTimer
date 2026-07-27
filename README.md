@@ -1,6 +1,6 @@
 # 🎮 Gamut
 
-A lightweight, offline, manual play/pause time tracker for your games — track time spent playing each one, tag genres, mark completions, and watch your stats grow.
+A manual play/pause time tracker for your games — track time spent playing each one, jot notes, rate and tag genres, mark completions, and watch your stats grow.
 
 ## Download
 
