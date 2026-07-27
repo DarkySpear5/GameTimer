@@ -82,6 +82,14 @@ export const ICON_SIZE_OPTIONS: Record<string, number> = {
   'Extra Large': 72
 }
 
+// Caps applied whenever an icon/background image is imported (fresh upload,
+// duplicating a profile, or a v1 legacy import) — see main/util/imageResize.ts.
+// Icons never render above ICON_SIZE_OPTIONS['Extra Large'] (72px); backgrounds
+// fill at most the main content pane. Both are generous relative to real
+// on-screen size so there's no visible quality loss, even on a HiDPI display.
+export const ICON_MAX_DIMENSION = 256
+export const BACKGROUND_MAX_DIMENSION = 2560
+
 export const GENRE_OPTIONS = [
   'Action',
   'Adventure',

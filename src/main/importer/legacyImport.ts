@@ -6,7 +6,8 @@ import { paths } from '../store/paths'
 import { locateLegacyDataFile } from './legacyLocate'
 import { readFirstRunState, writeFirstRunState } from './firstRun'
 import { setRunAtStartup } from '../autostart/autostart'
-import { DEFAULT_CUSTOM_COLORS, THEME_ORDER } from '@shared/constants'
+import { saveCappedImage } from '../util/imageResize'
+import { DEFAULT_CUSTOM_COLORS, THEME_ORDER, ICON_MAX_DIMENSION, BACKGROUND_MAX_DIMENSION } from '@shared/constants'
 import type { LegacyDetectResult, Profile, Settings, Status } from '@shared/types'
 
 const VALID_STATUSES: Status[] = ['in_progress', 'completed', 'dropped', 'on_hold']
@@ -107,7 +108,8 @@ function normalizeLegacySettings(raw: Record<string, unknown> | undefined): Sett
 async function copyAssetIfExists(
   sourcePath: string,
   destDir: string,
-  preferredFileName: string
+  preferredFileName: string,
+  maxDimension: number
 ): Promise<string | null> {
   if (!existsSync(sourcePath)) return null
   await fs.mkdir(destDir, { recursive: true })
@@ -115,7 +117,7 @@ async function copyAssetIfExists(
   if (existsSync(join(destDir, fileName))) {
     fileName = `${randomUUID()}${extname(preferredFileName)}`
   }
-  await fs.copyFile(sourcePath, join(destDir, fileName))
+  await saveCappedImage(sourcePath, join(destDir, fileName), maxDimension)
   return fileName
 }
 
@@ -164,14 +166,16 @@ export async function runLegacyImport(legacyDataFilePath: string): Promise<{ imp
       profile.iconFile = await copyAssetIfExists(
         join(legacyDir, 'icons', profile.iconFile),
         paths.iconsDir(),
-        profile.iconFile
+        profile.iconFile,
+        ICON_MAX_DIMENSION
       )
     }
     if (profile.bgImage) {
       profile.bgImage = await copyAssetIfExists(
         join(legacyDir, 'backgrounds', profile.bgImage),
         paths.backgroundsDir(),
-        profile.bgImage
+        profile.bgImage,
+        BACKGROUND_MAX_DIMENSION
       )
     }
 
