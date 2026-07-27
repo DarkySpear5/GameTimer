@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useProfilesStore } from '../../state/profilesStore'
 import { useSettingsStore, updateSettings } from '../../state/settingsStore'
@@ -9,16 +9,75 @@ import { formatSeconds } from '@shared/format'
 import { GENRE_OPTIONS } from '@shared/constants'
 import { ContextMenu, type ContextMenuItem } from '../common/ContextMenu'
 import { toast } from '../common/Toast'
-import type { SortMode, Status } from '@shared/types'
+import type { Profile, SortMode, Status } from '@shared/types'
 
 const SIDEBAR_MIN_WIDTH = 240 // the size the panel used to be fixed at
 const SIDEBAR_MAX_WIDTH = 420
+
+/**
+ * Each row subscribes to its own running-seconds slice instead of GameList
+ * subscribing to the whole `running` record — main pushes a tick every
+ * 500ms, and without this every row would re-render twice a second
+ * regardless of whether that particular game is even running. Zustand only
+ * re-renders a component when its own selector's return value actually
+ * changes, so this alone means non-running rows never re-render on a tick.
+ * Wrapped in memo() too, as a second layer, so a row also skips re-rendering
+ * when GameList re-renders for an unrelated reason (sorting/filtering,
+ * another profile's rating changing, etc.) — profilesStore's upsert() keeps
+ * other profiles' object references stable, so memo's default shallow
+ * prop comparison actually has something to compare against.
+ */
+const GameRow = memo(function GameRow({
+  profile,
+  isSelected,
+  iconSize,
+  onSelect,
+  onOpenContextMenu
+}: {
+  profile: Profile
+  isSelected: boolean
+  iconSize: number
+  onSelect: (name: string) => void
+  onOpenContextMenu: (e: React.MouseEvent, name: string) => void
+}): React.JSX.Element {
+  const liveSeconds = useTimerStore((s) => s.running[profile.name])
+  const isRunning = liveSeconds !== undefined
+  const seconds = liveSeconds ?? profile.seconds
+
+  return (
+    <button
+      onClick={() => onSelect(profile.name)}
+      onContextMenu={(e) => {
+        e.preventDefault()
+        onSelect(profile.name)
+        onOpenContextMenu(e, profile.name)
+      }}
+      className={`mb-1 flex w-full items-start gap-2 rounded px-2.5 py-2 text-left text-sm transition-colors ${
+        isSelected ? 'bg-card' : 'hover:bg-card/60'
+      }`}
+    >
+      {profile.iconFile ? (
+        <img
+          src={`gt-asset://icons/${encodeURIComponent(profile.iconFile)}`}
+          style={{ width: iconSize, height: iconSize }}
+          className="shrink-0 rounded object-cover"
+        />
+      ) : (
+        <span className="shrink-0 rounded bg-card" style={{ width: iconSize, height: iconSize }} />
+      )}
+      <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${isRunning ? 'bg-green' : 'bg-transparent'}`} />
+      <span className={`min-w-0 flex-1 break-normal ${isRunning ? 'text-green' : 'text-text'}`}>
+        {profile.name}
+      </span>
+      <span className="shrink-0 text-[11px] text-subtext">{formatSeconds(seconds)}</span>
+    </button>
+  )
+})
 
 export function GameList(): React.JSX.Element {
   const { t } = useTranslation()
   const profiles = useProfilesStore((s) => s.profiles)
   const settings = useSettingsStore((s) => s.settings)
-  const running = useTimerStore((s) => s.running)
   const selected = useUiStore((s) => s.selected)
   const contextMenu = useUiStore((s) => s.contextMenu)
   const openContextMenu = useUiStore((s) => s.openContextMenu)
@@ -28,6 +87,16 @@ export function GameList(): React.JSX.Element {
   const [newName, setNewName] = useState('')
   const [width, setWidth] = useState(SIDEBAR_MIN_WIDTH)
   const resizing = useRef(false)
+
+  // Stable references so GameRow's memo() actually skips re-rendering
+  // unrelated rows — an inline arrow function passed as a prop would be a
+  // new reference on every GameList render, which defeats memo regardless
+  // of whether the row's other props actually changed.
+  const handleSelectRow = useCallback((name: string) => void selectProfile(name), [])
+  const handleOpenContextMenu = useCallback(
+    (e: React.MouseEvent, name: string) => openContextMenu(e.clientX, e.clientY, name),
+    [openContextMenu]
+  )
 
   const startResize = useCallback((e: React.MouseEvent) => {
     e.preventDefault()
@@ -192,41 +261,16 @@ export function GameList(): React.JSX.Element {
         {sorted.length === 0 && (
           <div className="px-3 py-6 text-center text-xs text-subtext">{t('empty_no_games')}</div>
         )}
-        {sorted.map((p) => {
-          const isRunning = p.name in running
-          const seconds = running[p.name] ?? p.seconds
-          const iconSize = settings?.iconSize ?? 36
-          return (
-            <button
-              key={p.name}
-              onClick={() => void selectProfile(p.name)}
-              onContextMenu={(e) => {
-                e.preventDefault()
-                void selectProfile(p.name)
-                openContextMenu(e.clientX, e.clientY, p.name)
-              }}
-              className={`mb-1 flex w-full items-start gap-2 rounded px-2.5 py-2 text-left text-sm transition-colors ${
-                selected === p.name ? 'bg-card' : 'hover:bg-card/60'
-              }`}
-            >
-              {p.iconFile ? (
-                <img
-                  src={`gt-asset://icons/${encodeURIComponent(p.iconFile)}`}
-                  style={{ width: iconSize, height: iconSize }}
-                  className="shrink-0 rounded object-cover"
-                />
-              ) : (
-                <span
-                  className="shrink-0 rounded bg-card"
-                  style={{ width: iconSize, height: iconSize }}
-                />
-              )}
-              <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${isRunning ? 'bg-green' : 'bg-transparent'}`} />
-              <span className={`min-w-0 flex-1 break-normal ${isRunning ? 'text-green' : 'text-text'}`}>{p.name}</span>
-              <span className="shrink-0 text-[11px] text-subtext">{formatSeconds(seconds)}</span>
-            </button>
-          )
-        })}
+        {sorted.map((p) => (
+          <GameRow
+            key={p.name}
+            profile={p}
+            isSelected={selected === p.name}
+            iconSize={settings?.iconSize ?? 36}
+            onSelect={handleSelectRow}
+            onOpenContextMenu={handleOpenContextMenu}
+          />
+        ))}
       </div>
 
       {contextMenu && (
