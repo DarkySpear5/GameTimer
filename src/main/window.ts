@@ -20,7 +20,12 @@ export function createMainWindow(): BrowserWindow {
     }
   })
 
-  win.on('ready-to-show', () => win.show())
+  // `once`, not `on` — this only covers the very first paint at startup
+  // (show: false + this listener is the standard flash-free-show pattern).
+  // Later reloads (see loadAppContent, used to restore the app after it's
+  // been unloaded to about:blank while parked in the tray) must NOT
+  // auto-show the window, since a tray reload happens while still hidden.
+  win.once('ready-to-show', () => win.show())
 
   win.on('maximize', () => win.webContents.send('window:maximizeChange', true))
   win.on('unmaximize', () => win.webContents.send('window:maximizeChange', false))
@@ -32,11 +37,15 @@ export function createMainWindow(): BrowserWindow {
     return { action: 'deny' }
   })
 
-  if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
-    void win.loadURL(process.env['ELECTRON_RENDERER_URL'])
-  } else {
-    void win.loadFile(join(__dirname, '../renderer/index.html'))
-  }
+  void loadAppContent(win)
 
   return win
+}
+
+/** Loads the real app UI into a window. Used both at startup and to restore the app after loadUrl('about:blank') unloaded it (see appLifecycle's tray hide/show). */
+export function loadAppContent(win: BrowserWindow): Promise<void> {
+  if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
+    return win.loadURL(process.env['ELECTRON_RENDERER_URL'])
+  }
+  return win.loadFile(join(__dirname, '../renderer/index.html'))
 }

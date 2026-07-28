@@ -3,10 +3,19 @@ import { dataStore } from './store/dataStore'
 import { timerEngine } from './timer/timerEngine'
 import { writeStatusLog } from './statusLog/writeStatusLog'
 import { trayService } from './tray/trayService'
+import { loadAppContent } from './window'
 import { IPC } from '@shared/ipcContract'
 
 let mainWindow: BrowserWindow | null = null
 let quitting = false
+// True while the window is hidden in the tray with its content unloaded
+// (about:blank) to free renderer memory (DOM/JS heap/image caches) — the
+// window/webContents object itself stays alive so IPC handlers and dialog
+// parenting elsewhere never need to deal with a recreated window. The React
+// app always re-syncs fully from dataStore via getInitialData on reload, so
+// nothing is lost by dropping the old page. The timer/checkpoint/autosave
+// loop lives entirely in the main process and keeps running untouched.
+let unloadedForTray = false
 
 const trayCallbacks = {
   onShow: showWindow,
@@ -24,6 +33,8 @@ export function registerMainWindow(win: BrowserWindow): void {
     if (trayEnabled && trayService.isActive) {
       event.preventDefault()
       win.hide()
+      unloadedForTray = true
+      void win.loadURL('about:blank')
     }
   })
 
@@ -39,9 +50,20 @@ export function registerMainWindow(win: BrowserWindow): void {
 
 export function showWindow(): void {
   if (!mainWindow) return
-  if (mainWindow.isMinimized()) mainWindow.restore()
-  mainWindow.show()
-  mainWindow.focus()
+  const win = mainWindow
+  if (unloadedForTray) {
+    unloadedForTray = false
+    void loadAppContent(win).then(() => {
+      if (win.isDestroyed()) return
+      if (win.isMinimized()) win.restore()
+      win.show()
+      win.focus()
+    })
+    return
+  }
+  if (win.isMinimized()) win.restore()
+  win.show()
+  win.focus()
 }
 
 export function toggleSelectedPlay(): void {

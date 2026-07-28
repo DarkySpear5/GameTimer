@@ -6,7 +6,7 @@ import { registerAllIpcHandlers } from './ipc/registerAll'
 import { registerAssetSchemeAsPrivileged, registerAssetProtocolHandler } from './protocol'
 import { dataStore } from './store/dataStore'
 import { timerEngine } from './timer/timerEngine'
-import { registerMainWindow, quitApp } from './appLifecycle'
+import { registerMainWindow, showWindow, quitApp } from './appLifecycle'
 import { registerUpdaterWindow, checkForUpdatesOnLaunch } from './updater/autoUpdater'
 
 let mainWindow: BrowserWindow | null = null
@@ -21,7 +21,7 @@ app.setPath('userData', join(app.getPath('appData'), 'gametimer'))
 
 registerAssetSchemeAsPrivileged()
 
-if (!acquireSingleInstanceLock(() => mainWindow)) {
+if (!acquireSingleInstanceLock(() => showWindow())) {
   app.quit()
 } else {
   void app.whenReady().then(async () => {
