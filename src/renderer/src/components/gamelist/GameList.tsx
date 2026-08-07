@@ -11,8 +11,24 @@ import { ContextMenu, type ContextMenuItem } from '../common/ContextMenu'
 import { toast } from '../common/Toast'
 import type { Profile, SortMode, Status } from '@shared/types'
 
-const SIDEBAR_MIN_WIDTH = 240 // the size the panel used to be fixed at
+// 240 was the width the panel used to be fixed at, and it was too tight:
+// a typical two-word game name couldn't sit beside its clock, so every row
+// wrapped. 280 fits one comfortably at the default icon size and font scale.
+const SIDEBAR_BASE_WIDTH = 280
 const SIDEBAR_MAX_WIDTH = 420
+
+/**
+ * Even 280 is only the right floor at the default 36px icons — icon size and
+ * font scale are both user settings, and at the top of their ranges (72px
+ * icons, 1.5x text) it would leave so little room beside the clock that game
+ * names start breaking mid-word. Growing the floor by whatever the bigger
+ * icon and bigger text actually cost keeps the name column readable at every
+ * setting. Dragging the panel wider still works exactly as before; it just
+ * won't go narrower than its own contents need.
+ */
+function minSidebarWidth(iconSize: number, fontScale: number): number {
+  return Math.round(SIDEBAR_BASE_WIDTH + Math.max(0, iconSize - 36) + 60 * (fontScale - 1))
+}
 
 /**
  * Each row subscribes to its own running-seconds slice instead of GameList
@@ -66,10 +82,28 @@ const GameRow = memo(function GameRow({
         <span className="shrink-0 rounded bg-card" style={{ width: iconSize, height: iconSize }} />
       )}
       <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${isRunning ? 'bg-green' : 'bg-transparent'}`} />
-      <span className={`min-w-0 flex-1 break-normal ${isRunning ? 'text-green' : 'text-text'}`}>
-        {profile.name}
+      {/*
+       * The name and the clock share a wrapping flex line rather than being
+       * two rigid columns. The panel is only so wide and the icon size and
+       * font scale are both user settings, so there's a point where a name
+       * simply cannot sit beside a clock — and it used to lose that fight
+       * badly, spilling out of its box and painting over the clock. Now the
+       * clock drops onto its own line (still right-aligned, via ml-auto)
+       * instead, which keeps the name readable at any width. break-words is
+       * only the last resort under that, for a single word wider than the
+       * whole column; leading-5 on both keeps them on a shared baseline grid
+       * so the clock never floats above the name like a superscript, and
+       * tabular-nums stops the layout twitching every second while a game
+       * is running.
+       */}
+      <span className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-2">
+        <span className={`min-w-0 leading-5 break-words ${isRunning ? 'text-green' : 'text-text'}`}>
+          {profile.name}
+        </span>
+        <span className="ml-auto shrink-0 text-xs leading-5 tabular-nums text-subtext">
+          {formatSeconds(seconds)}
+        </span>
       </span>
-      <span className="shrink-0 text-[11px] text-subtext">{formatSeconds(seconds)}</span>
     </button>
   )
 })
@@ -85,8 +119,14 @@ export function GameList(): React.JSX.Element {
   const openDialog = useUiStore((s) => s.openDialog)
   const [adding, setAdding] = useState(false)
   const [newName, setNewName] = useState('')
-  const [width, setWidth] = useState(SIDEBAR_MIN_WIDTH)
+  const [width, setWidth] = useState(SIDEBAR_BASE_WIDTH)
   const resizing = useRef(false)
+
+  // Clamped here at render rather than pushed back into state, so switching
+  // to Extra Large icons in Settings widens the panel on the spot instead of
+  // needing an effect to chase the setting.
+  const minWidth = minSidebarWidth(settings?.iconSize ?? 36, settings?.fontScale ?? 1)
+  const effectiveWidth = Math.min(SIDEBAR_MAX_WIDTH, Math.max(minWidth, width))
 
   // Stable references so GameRow's memo() actually skips re-rendering
   // unrelated rows — an inline arrow function passed as a prop would be a
@@ -98,22 +138,25 @@ export function GameList(): React.JSX.Element {
     [openContextMenu]
   )
 
-  const startResize = useCallback((e: React.MouseEvent) => {
-    e.preventDefault()
-    resizing.current = true
-    const onMove = (moveEvent: MouseEvent): void => {
-      if (!resizing.current) return
-      const next = Math.min(SIDEBAR_MAX_WIDTH, Math.max(SIDEBAR_MIN_WIDTH, moveEvent.clientX))
-      setWidth(next)
-    }
-    const onUp = (): void => {
-      resizing.current = false
-      window.removeEventListener('mousemove', onMove)
-      window.removeEventListener('mouseup', onUp)
-    }
-    window.addEventListener('mousemove', onMove)
-    window.addEventListener('mouseup', onUp)
-  }, [])
+  const startResize = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault()
+      resizing.current = true
+      const onMove = (moveEvent: MouseEvent): void => {
+        if (!resizing.current) return
+        const next = Math.min(SIDEBAR_MAX_WIDTH, Math.max(minWidth, moveEvent.clientX))
+        setWidth(next)
+      }
+      const onUp = (): void => {
+        resizing.current = false
+        window.removeEventListener('mousemove', onMove)
+        window.removeEventListener('mouseup', onUp)
+      }
+      window.addEventListener('mousemove', onMove)
+      window.addEventListener('mouseup', onUp)
+    },
+    [minWidth]
+  )
 
   const STATUS_OPTIONS: { value: 'All' | Status; label: string }[] = [
     { value: 'All', label: t('filter_all') },
@@ -205,7 +248,7 @@ export function GameList(): React.JSX.Element {
   }
 
   return (
-    <div className="relative flex h-full shrink-0 flex-col bg-panel" style={{ width }}>
+    <div className="relative flex h-full shrink-0 flex-col bg-panel" style={{ width: effectiveWidth }}>
       <div className="px-4 pt-4 pb-1 text-xs font-medium tracking-wide text-subtext">{t('label_games')}</div>
 
       <div className="flex flex-col gap-1.5 px-2.5 pb-2">
