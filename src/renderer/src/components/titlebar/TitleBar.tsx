@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { APP_DISPLAY_NAME, IS_DEV_CHANNEL } from '@shared/channel'
 
 /**
  * Custom Steam-style chrome for the frameless BrowserWindow (src/main/window.ts
@@ -15,7 +16,15 @@ export function TitleBar(): React.JSX.Element {
       className="flex h-9 shrink-0 items-center justify-between bg-panel select-none"
       style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
     >
-      <div className="px-3 text-xs font-medium text-subtext">Gamut</div>
+      {/*
+       * A dev install sits next to the real one and is otherwise identical, so
+       * this label is the only thing distinguishing them once both are open.
+       * Coloured on the dev channel rather than just renamed — at a glance in a
+       * taskbar preview you read the colour, not the word.
+       */}
+      <div className={`px-3 text-xs font-medium ${IS_DEV_CHANNEL ? 'text-accent' : 'text-subtext'}`}>
+        {APP_DISPLAY_NAME}
+      </div>
       <div className="flex h-full" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
         <TitleBarButton label="Minimize" onClick={() => window.api.window.minimize()}>
           <svg width="10" height="10" viewBox="0 0 10 10">

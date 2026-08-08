@@ -1,0 +1,41 @@
+# Side-by-side dev build, used by `npm run package:dev`.
+#
+# Every identity field here differs from electron-builder.yml on purpose. NSIS
+# decides "upgrade in place" vs "install alongside" purely from appId, so a
+# shared appId would make installing a dev build REPLACE the public Gamut. The
+# separate productName then keeps the install directory, Start Menu entry,
+# shortcut and exe name distinct.
+#
+# Save data is kept apart separately, at runtime, by USER_DATA_FOLDER in
+# src/shared/channel.ts — the installer config cannot do that part.
+appId: com.darkyspear5.gametimer2.dev
+productName: Gamut Dev
+directories:
+  output: release-dev
+  buildResources: build
+files:
+  - out/**/*
+  - package.json
+asarUnpack:
+  - resources/**
+extraResources:
+  - from: build/icon.ico
+    to: icon.ico
+  - from: build/tray-idle.png
+    to: tray-idle.png
+  - from: build/tray-running.png
+    to: tray-running.png
+win:
+  target: nsis
+  icon: build/icon.ico
+  artifactName: GamutDev-Setup-${version}.exe
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  installerIcon: build/icon.ico
+  uninstallerIcon: build/icon.ico
+# No publish block at all. Dev builds are installed by hand and must never be
+# uploaded to the release feed the public build reads — electron-updater takes
+# the newest non-prerelease it finds and would push a half-built v3 to everyone.

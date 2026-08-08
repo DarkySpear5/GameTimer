@@ -22,5 +22,6 @@ profiles/
 node_modules/
 out/
 release/
+release-dev/
 *.tsbuildinfo
 .vite/

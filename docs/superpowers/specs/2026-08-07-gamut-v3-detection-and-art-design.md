@@ -313,10 +313,45 @@ receiving 2.x patches. When v3 is stable, `dev` is promoted to a `v3` branch whi
 becomes the repo default — mirroring how `v2` succeeded `main`.
 
 > **Auto-updater trap.** `electron-builder.yml` sets `releaseType: release`. Any
-> v3 build published with that setting will be pushed to **every v2.1.11 user**,
-> because electron-updater takes the newest non-prerelease. Dev builds must be
-> published as a **prerelease** (electron-updater skips those by default) or not
-> published at all — run the packaged `.exe` locally instead.
+> v3 build published with that setting will be pushed to **every v2.x user**,
+> because electron-updater takes the newest non-prerelease. Dev builds must never
+> be published to that feed. `electron-builder.dev.yml` therefore has no publish
+> block at all, and the dev channel disables its own updater in code.
+
+### The dev channel
+
+`npm run package:dev` produces `release-dev/GamutDev-Setup-<version>.exe`, a
+build that installs **alongside** the public Gamut rather than over it. Both can
+be installed and running at the same time.
+
+This is a prerequisite for v3, not a convenience. v3 writes save-file fields the
+public build does not know about, and the store's zod schema strips unknown
+keys — so a dev build sharing the public save folder would have its data silently
+deleted and written back stripped the next time public Gamut opened. Worse, a bad
+migration in half-finished v3 code would take real data with it.
+
+Everything that must differ, and why:
+
+| What | Stable | Dev | Why it matters |
+|---|---|---|---|
+| `appId` | `com.darkyspear5.gametimer2` | `…gametimer2.dev` | NSIS decides upgrade-in-place vs install-alongside purely on this. Same value would **replace** the public install. |
+| `productName` | `Gamut` | `Gamut Dev` | Install dir, Start Menu, shortcut, exe name |
+| Installer | `Gamut-Setup-…exe` | `GamutDev-Setup-…exe` | Told apart in Downloads |
+| Output dir | `release/` | `release-dev/` | Artifacts never mixed up at upload time |
+| **userData** | `%APPDATA%\gametimer` | `%APPDATA%\gametimer-dev` | **The one that protects real save data** |
+| Single-instance lock | keyed to userData | keyed to userData | Falls out of the above — both run at once |
+| `appUserModelId` | `com.darkyspear5.gametimer2` | `…gametimer2.dev` | Separate taskbar grouping and toasts |
+| Auto-updater | on | **hard off** | Both publish under one repo; dev must never pull the public installer |
+| Title bar / tray / About | "Gamut" | "Gamut Dev", accent-coloured | The only at-a-glance difference once both are open |
+
+The channel is baked in at build time as `__GAMUT_CHANNEL__` (a Vite `define` in
+`electron.vite.config.ts`) and read through `src/shared/channel.ts`, which is the
+single source of truth for every channel-varying value.
+
+Verified on 2026-08-07 with both builds installed: the dev build resolved
+`%APPDATA%\gametimer-dev`, launched while four public `Gamut.exe` processes were
+running, and left the real `game_timer_data.json` byte-identical. The stable
+build contains zero dev strings.
 
 ## Staging
 

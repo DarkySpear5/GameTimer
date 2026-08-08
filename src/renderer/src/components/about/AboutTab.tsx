@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { APP_DISPLAY_NAME } from '@shared/channel'
 
 const GITHUB_URL = 'https://github.com/DarkySpear5/Gamut'
 
@@ -39,7 +40,7 @@ export function AboutTab(): React.JSX.Element {
 
   return (
     <div className="flex-1 overflow-y-auto px-6 py-5 text-sm text-text">
-      <div className="mb-1 text-xl font-semibold">Gamut</div>
+      <div className="mb-1 text-xl font-semibold">{APP_DISPLAY_NAME}</div>
       <div className="mb-5 text-subtext">
         v{version} — {t('about_tagline')}
       </div>
