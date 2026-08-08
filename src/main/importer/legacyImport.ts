@@ -97,7 +97,8 @@ function normalizeLegacyProfile(name: string, raw: LegacyProfileRaw): Profile {
     launches: 0,
     openSeconds: 0,
     autoStartTimer: null,
-    genresFromDetection: false
+    genresFromDetection: false,
+    favorite: false
   }
 }
 

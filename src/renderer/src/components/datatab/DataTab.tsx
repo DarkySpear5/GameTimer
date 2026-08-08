@@ -129,7 +129,7 @@ export function DataTab(): React.JSX.Element {
               <SortHeader label={t('col_started')} sortKey="startedDate" sort={sort} onSort={handleSort} />
               <SortHeader label={t('col_completed_on')} sortKey="completedOn" sort={sort} onSort={handleSort} />
               <SortHeader
-                label={t('col_completed_time')}
+                label={t('col_time_to_beat')}
                 sortKey="completedTime"
                 sort={sort}
                 onSort={handleSort}

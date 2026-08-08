@@ -30,6 +30,7 @@ export const IPC = {
     setAutoFetchArt: 'profiles:setAutoFetchArt',
     setGenres: 'profiles:setGenres',
     setRating: 'profiles:setRating',
+    setFavorite: 'profiles:setFavorite',
     setNotes: 'profiles:setNotes',
     addRemoveTime: 'profiles:addRemoveTime',
     resetTime: 'profiles:resetTime',
@@ -123,6 +124,7 @@ export interface GameTimerApi {
     setAutoFetchArt(name: string, value: boolean | null): Promise<Profile>
     setGenres(name: string, genres: string[]): Promise<Profile>
     setRating(name: string, rating: 0 | 1 | 2 | 3 | 4 | 5): Promise<Profile>
+    setFavorite(name: string, favorite: boolean): Promise<Profile>
     setNotes(name: string, notes: string): Promise<Profile>
     addRemoveTime(name: string, deltaSeconds: number, note?: string): Promise<Profile>
     resetTime(name: string): Promise<Profile>

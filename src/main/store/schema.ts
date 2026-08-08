@@ -70,7 +70,8 @@ const ProfileSchema = z
     launches: z.number().catch(0),
     openSeconds: z.number().catch(0),
     autoStartTimer: z.boolean().nullable().catch(null),
-    genresFromDetection: z.boolean().catch(false)
+    genresFromDetection: z.boolean().catch(false),
+    favorite: z.boolean().catch(false)
   })
 
 const ThemeNameSchema = z
@@ -86,7 +87,13 @@ const SettingsSchema = z.object({
   customColors: ThemeColorsSchema,
   fontFamily: z.string().catch('Segoe UI'),
   fontScale: z.number().catch(1.0),
-  sortMode: z.enum(['name', 'last_played', 'rating', 'genre']).catch('name'),
+  // Widened in v3, and .catch('name') is what makes that safe in both
+  // directions: a file written by a newer build and opened by an older one
+  // falls back to Name rather than refusing to load. Same contract as every
+  // other field — a save file never loses more than the field it got wrong.
+  sortMode: z
+    .enum(['name', 'name_desc', 'last_played', 'playtime', 'favorite', 'rating', 'genre'])
+    .catch('name'),
   genreFilter: z.string().catch('All'),
   statusFilter: z
     .union([z.literal('All'), z.enum(['in_progress', 'completed', 'dropped', 'on_hold'])])

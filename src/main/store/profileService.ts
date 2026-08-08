@@ -35,7 +35,8 @@ function freshProfile(name: string): Profile {
     launches: 0,
     openSeconds: 0,
     autoStartTimer: null,
-    genresFromDetection: false
+    genresFromDetection: false,
+    favorite: false
   }
 }
 
@@ -171,7 +172,8 @@ export const profileService = {
       launches: 0,
       openSeconds: 0,
       autoStartTimer: original.autoStartTimer,
-      genresFromDetection: original.genresFromDetection
+      genresFromDetection: original.genresFromDetection,
+      favorite: original.favorite
     }
     data.profiles[newName] = copy
     await dataStore.safeSave()
@@ -361,6 +363,13 @@ export const profileService = {
   async setRating(name: string, rating: 0 | 1 | 2 | 3 | 4 | 5): Promise<Profile> {
     const profile = requireProfile(name)
     profile.rating = rating
+    await dataStore.safeSave()
+    return profile
+  },
+
+  async setFavorite(name: string, favorite: boolean): Promise<Profile> {
+    const profile = requireProfile(name)
+    profile.favorite = favorite
     await dataStore.safeSave()
     return profile
   },

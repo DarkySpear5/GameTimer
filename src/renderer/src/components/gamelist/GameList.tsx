@@ -18,6 +18,16 @@ const SIDEBAR_BASE_WIDTH = 280
 const SIDEBAR_MAX_WIDTH = 420
 
 /**
+ * A single stable reference handed to the playtime comparator when the list
+ * isn't sorted by playtime. Zustand compares a selector's result with Object.is,
+ * so returning this constant means the 500ms tick doesn't re-render the list at
+ * all — whereas returning `s.running` would, since main replaces that record
+ * wholesale on every tick. Same reasoning that put a per-row subscription in
+ * GameRow; the cost is paid only by the one ordering that genuinely needs it.
+ */
+const EMPTY_RUNNING: Record<string, number> = {}
+
+/**
  * Even 280 is only the right floor at the default 36px icons — icon size and
  * font scale are both user settings, and at the top of their ranges (72px
  * icons, 1.5x text) it would leave so little room beside the clock that game
@@ -164,12 +174,21 @@ export function GameList(): React.JSX.Element {
     { value: 'on_hold', label: t('status_on_hold') }
   ]
 
+  const sortMode = settings?.sortMode ?? 'name'
+  const running = useTimerStore((s) => (sortMode === 'playtime' ? s.running : EMPTY_RUNNING))
+
   const sorted = useMemo(
     () =>
       settings
-        ? sortAndFilterProfiles(profiles, settings.sortMode, settings.genreFilter, settings.statusFilter)
+        ? sortAndFilterProfiles(
+            profiles,
+            settings.sortMode,
+            settings.genreFilter,
+            settings.statusFilter,
+            running
+          )
         : [],
-    [profiles, settings]
+    [profiles, settings, running]
   )
 
   async function handleDuplicate(name: string): Promise<void> {

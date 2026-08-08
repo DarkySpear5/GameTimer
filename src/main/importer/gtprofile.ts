@@ -148,7 +148,11 @@ export async function importProfile(win: BrowserWindow): Promise<Profile | null>
     launches: 0,
     openSeconds: 0,
     autoStartTimer: null,
-    genresFromDetection: false
+    genresFromDetection: false,
+    // Not carried in the file format: a star is a statement about your own
+    // library, not a property of the game, so an imported profile starts
+    // unstarred rather than inheriting whoever exported it.
+    favorite: false
   }
 
   data.profiles[name] = profile

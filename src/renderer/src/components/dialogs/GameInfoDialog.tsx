@@ -75,7 +75,7 @@ export function GameInfoDialog({
         {isCompleted && <Row label={t('col_completed_on')} value={profile.statusAt ?? '—'} />}
         {isCompleted && (
           <Row
-            label={t('col_completed_time')}
+            label={t('col_time_to_beat')}
             value={profile.statusSeconds != null ? formatSeconds(profile.statusSeconds) : '—'}
           />
         )}

@@ -2,7 +2,14 @@ import type { SessionAggregate, SessionEntry } from './sessionStats'
 
 export type Status = 'in_progress' | 'completed' | 'dropped' | 'on_hold'
 
-export type SortMode = 'name' | 'last_played' | 'rating' | 'genre'
+export type SortMode =
+  | 'name'
+  | 'name_desc'
+  | 'last_played'
+  | 'playtime'
+  | 'favorite'
+  | 'rating'
+  | 'genre'
 
 export type ThemeName = 'Midnight Blue' | 'Paper White' | 'Slate Grey' | 'Rose' | 'Retro Terminal' | 'Custom'
 
@@ -69,6 +76,12 @@ export interface Profile {
    * with them would be worse than the accident.
    */
   genresFromDetection: boolean
+  /**
+   * Starred by the user. Purely their own marker — nothing detects or infers
+   * it — which is why it survives every automatic update to a game and is the
+   * one ordering that can't be derived from the other fields.
+   */
+  favorite: boolean
 }
 
 export interface Settings {

@@ -18,6 +18,7 @@ const api: GameTimerApi = {
     setAutoFetchArt: (name, value) => ipcRenderer.invoke(IPC.profiles.setAutoFetchArt, name, value),
     setGenres: (name, genres) => ipcRenderer.invoke(IPC.profiles.setGenres, name, genres),
     setRating: (name, rating) => ipcRenderer.invoke(IPC.profiles.setRating, name, rating),
+    setFavorite: (name, favorite) => ipcRenderer.invoke(IPC.profiles.setFavorite, name, favorite),
     setNotes: (name, notes) => ipcRenderer.invoke(IPC.profiles.setNotes, name, notes),
     addRemoveTime: (name, deltaSeconds, note) =>
       ipcRenderer.invoke(IPC.profiles.addRemoveTime, name, deltaSeconds, note),
