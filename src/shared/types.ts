@@ -127,6 +127,16 @@ export interface Settings {
    * that makes the collection feel like a collection.
    */
   libraryView: 'grid' | 'list'
+  /**
+   * How much detail the Stats table and the More Info window show. One switch
+   * governs both, so "show me more" is a single idea rather than a per-screen
+   * preference the user has to find twice.
+   *
+   * Simple is the default: the figures it hides are the ones that need context
+   * to read correctly (open time, idle share, launch counts), and someone
+   * meeting the app for the first time should not have to interpret them.
+   */
+  detailLevel: 'simple' | 'advanced'
 }
 
 /** One running application offered in the Add Game picker. */

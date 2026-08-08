@@ -122,7 +122,8 @@ function normalizeLegacySettings(raw: Record<string, unknown> | undefined): Sett
     watchForGames: false,
     autoStartTimer: false,
     dataTableScale: 1.15,
-    libraryView: 'grid'
+    libraryView: 'grid',
+    detailLevel: 'simple'
   }
 }
 

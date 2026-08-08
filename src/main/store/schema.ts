@@ -104,7 +104,10 @@ const SettingsSchema = z.object({
   dataTableScale: z.number().catch(1.15),
   watchForGames: z.boolean().catch(false),
   autoStartTimer: z.boolean().catch(false),
-  libraryView: z.enum(['grid', 'list']).catch('grid')
+  libraryView: z.enum(['grid', 'list']).catch('grid'),
+  // Simple by default so a first-time user gets the uncluttered version
+  // without having to discover a setting to get it.
+  detailLevel: z.enum(['simple', 'advanced']).catch('simple')
 })
 
 const AppDataSchema = z.object({

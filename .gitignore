@@ -29,3 +29,4 @@ release-dev/
 .verify-library-tmp/
 .verify-shots/
 .verify-installed-tmp/
+.verify-detail-tmp/

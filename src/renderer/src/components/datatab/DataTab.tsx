@@ -7,6 +7,9 @@ import { ContextMenu } from '../common/ContextMenu'
 import { formatSeconds } from '@shared/format'
 import type { Profile, Status } from '@shared/types'
 
+/** Columns the Simple view hides, so it can't stay sorted by one of them. */
+const ADVANCED_ONLY_SORT_KEYS = new Set<DataSortKey>(['startedDate', 'completedOn'])
+
 /**
  * Which way a column sorts on its FIRST click. Ascending is only the useful
  * default for text — what you actually want to see first from a date, a
@@ -59,6 +62,7 @@ export function DataTab(): React.JSX.Element {
   const setDataSort = useUiStore((s) => s.setDataSort)
   const openDialog = useUiStore((s) => s.openDialog)
   const scale = useSettingsStore((s) => s.settings?.dataTableScale ?? 1.15)
+  const advanced = useSettingsStore((s) => s.settings?.detailLevel === 'advanced')
   // Its own menu rather than the sidebar's shared one: the actions that make
   // sense on a table row are a subset, and reusing that state would fight the
   // sidebar's selection.
@@ -74,11 +78,20 @@ export function DataTab(): React.JSX.Element {
     [t]
   )
 
+  // Switching to Simple can leave the table ordered by a column that is no
+  // longer on screen, which reads as no order at all. The stored preference is
+  // deliberately left alone — going back to Advanced restores the sort the user
+  // actually chose — only what is *displayed* falls back.
+  const effectiveSort = useMemo(
+    () => (!advanced && ADVANCED_ONLY_SORT_KEYS.has(sort.key) ? { key: 'name' as const, dir: 'asc' as const } : sort),
+    [advanced, sort]
+  )
+
   const list = useMemo(() => {
-    const flip = sort.dir === 'asc' ? 1 : -1
+    const flip = effectiveSort.dir === 'asc' ? 1 : -1
     return Object.values(profiles).sort((a, b) => {
-      const av = sortValue(a, sort.key, STATUS_LABELS[a.status])
-      const bv = sortValue(b, sort.key, STATUS_LABELS[b.status])
+      const av = sortValue(a, effectiveSort.key, STATUS_LABELS[a.status])
+      const bv = sortValue(b, effectiveSort.key, STATUS_LABELS[b.status])
       if (av === null || bv === null) {
         if (av === bv) return a.name.localeCompare(b.name)
         return av === null ? 1 : -1
@@ -90,7 +103,7 @@ export function DataTab(): React.JSX.Element {
       // order the profiles happened to be stored in.
       return cmp !== 0 ? cmp * flip : a.name.localeCompare(b.name)
     })
-  }, [profiles, sort, STATUS_LABELS])
+  }, [profiles, effectiveSort, STATUS_LABELS])
 
   function handleSort(key: DataSortKey): void {
     setDataSort(
@@ -123,20 +136,37 @@ export function DataTab(): React.JSX.Element {
         <table className="w-full text-left text-sm">
           <thead>
             <tr className="border-b border-card text-xs text-subtext">
-              <SortHeader label={t('col_game')} sortKey="name" sort={sort} onSort={handleSort} />
-              <SortHeader label={t('col_time_played')} sortKey="seconds" sort={sort} onSort={handleSort} />
-              <SortHeader label={t('col_status')} sortKey="status" sort={sort} onSort={handleSort} />
-              <SortHeader label={t('col_started')} sortKey="startedDate" sort={sort} onSort={handleSort} />
-              <SortHeader label={t('col_completed_on')} sortKey="completedOn" sort={sort} onSort={handleSort} />
+              <SortHeader label={t('col_game')} sortKey="name" sort={effectiveSort} onSort={handleSort} />
+              <SortHeader label={t('col_time_played')} sortKey="seconds" sort={effectiveSort} onSort={handleSort} />
+              <SortHeader label={t('col_status')} sortKey="status" sort={effectiveSort} onSort={handleSort} />
+              {/*
+               * Started and Completed On are the two date columns, and they are
+               * exactly what made this table read as a wall of dates. Advanced
+               * only. Time to Beat stays in Simple because it is the answer to
+               * "how long did this take me", which is the question the table is
+               * for — and its old name, "Time Completed", is why it needed one
+               * of those dates beside it to be understood at all.
+               */}
+              {advanced && (
+                <SortHeader label={t('col_started')} sortKey="startedDate" sort={effectiveSort} onSort={handleSort} />
+              )}
+              {advanced && (
+                <SortHeader
+                  label={t('col_completed_on')}
+                  sortKey="completedOn"
+                  sort={effectiveSort}
+                  onSort={handleSort}
+                />
+              )}
               <SortHeader
                 label={t('col_time_to_beat')}
                 sortKey="completedTime"
-                sort={sort}
+                sort={effectiveSort}
                 onSort={handleSort}
               />
-              <SortHeader label={t('col_rating')} sortKey="rating" sort={sort} onSort={handleSort} />
+              <SortHeader label={t('col_rating')} sortKey="rating" sort={effectiveSort} onSort={handleSort} />
               {/* Genres stays plain — a game carries several at once, so there's no one value to order rows by. */}
-              <th className="px-3 py-2 font-medium">{t('col_genres')}</th>
+              {advanced && <th className="px-3 py-2 font-medium">{t('col_genres')}</th>}
             </tr>
           </thead>
           <tbody>
@@ -175,19 +205,25 @@ export function DataTab(): React.JSX.Element {
                    */}
                   <td className="px-3 py-2 whitespace-nowrap text-text">{formatSeconds(p.seconds)}</td>
                   <td className="px-3 py-2 whitespace-nowrap text-text">{STATUS_LABELS[p.status]}</td>
-                  <td className="px-3 py-2 whitespace-nowrap text-subtext">{p.startedDate ?? '—'}</td>
-                  <td className="px-3 py-2 whitespace-nowrap text-subtext">
-                    {isCompleted ? (p.statusAt ?? '—') : '—'}
-                  </td>
+                  {advanced && (
+                    <td className="px-3 py-2 whitespace-nowrap text-subtext">{p.startedDate ?? '—'}</td>
+                  )}
+                  {advanced && (
+                    <td className="px-3 py-2 whitespace-nowrap text-subtext">
+                      {isCompleted ? (p.statusAt ?? '—') : '—'}
+                    </td>
+                  )}
                   <td className="px-3 py-2 whitespace-nowrap text-subtext">
                     {isCompleted && p.statusSeconds != null ? formatSeconds(p.statusSeconds) : '—'}
                   </td>
                   <td className="px-3 py-2 whitespace-nowrap text-gold">
                     {p.rating > 0 ? '★'.repeat(p.rating) : '—'}
                   </td>
-                  <td className="px-3 py-2 text-subtext">
-                    {p.genres.map((g) => t(g, { ns: 'genres' })).join(', ')}
-                  </td>
+                  {advanced && (
+                    <td className="px-3 py-2 text-subtext">
+                      {p.genres.map((g) => t(g, { ns: 'genres' })).join(', ')}
+                    </td>
+                  )}
                 </tr>
               )
             })}
