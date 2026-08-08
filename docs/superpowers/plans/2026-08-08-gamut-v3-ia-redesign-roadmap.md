@@ -8,6 +8,11 @@
 >
 > Written 2026-08-08 at the end of a long session, at the user's request, so the
 > conversation could be cleared and resumed from this file.
+>
+> **Revised the same day** with the user's answers and additions: the Library
+> navigation model (§9.2), sorting + favourites (§9.3), auto-detecting installed
+> games (§9.4), and two closing passes they asked for — security (§12) and
+> memory (§13). No open questions remain.
 
 ---
 
@@ -23,6 +28,10 @@
 - **§7** is how to test. The isolation trick is mandatory.
 - **§8** is traps that have already bitten.
 - **§9 is THE WORK.** Start here after reading the rest.
+- **§12 (security) and §13 (memory)** are the final two passes, requested by the
+  user and deliberately sequenced *after* §9 so they audit the finished code.
+  Both open with a list of what has already been audited or optimised — read
+  those before doing anything, they exist to stop the work being repeated.
 
 ---
 
@@ -95,7 +104,15 @@ shown the result rather than consulted step by step:
 > present what you made after?"
 
 So: build §9, verify it, show them. Do not stop to ask about details already
-settled here. Do ask about the items explicitly marked **OPEN** in §9.
+settled here.
+
+**There are no open questions left.** The one this document originally carried —
+how Library and Timer navigate to each other — was answered by the user on
+2026-08-08 and is written up in §9.2, along with the reason the answer differs
+from what this document first recommended. In the same message they added the
+sorting/favourites work (§9.3), the auto-detect feature (§9.4), and asked for a
+security pass (§12) and a memory pass (§13) once the rest is done. Everything
+they have asked for is now specified below.
 
 ---
 
@@ -369,6 +386,16 @@ plus 77 Vitest unit tests.
    published to that feed; `electron-builder.dev.yml` has no publish block.
 8. **Old releases (v2.1.9 and below) record `target_commitish: v2`**, a branch
    that no longer exists. Cosmetic only — electron-updater resolves by tag.
+9. **`firstrun.json` existing *at all* is what suppresses the v1 import prompt.**
+   `detectLegacyLibrary()` (`src/main/importer/legacyImport.ts:165`) does
+   `if (firstRun) return { found: false }` — it never inspects the contents. So
+   the §9.4 auto-detect prompt **must not** write that file before the legacy
+   import has had its turn, or a user upgrading from v1 silently never gets
+   offered their old library and it looks like their data is gone. Add a field
+   to `FirstRunState` (`src/main/importer/firstRun.ts`) — e.g.
+   `installedScanState` — and make the legacy check test *its own* field rather
+   than the file's existence. There is a v1 install on this machine to test
+   against; verify both prompts still appear on a fresh profile, in order.
 
 ---
 
@@ -379,6 +406,12 @@ eye", less cluttered for a first-time user. Everything below serves that.
 
 The user has approved this direction and asked to be shown the result rather
 than consulted per step. Build it, verify it, present it.
+
+**Build order.** §9.0 → §9.1 → §9.2 → §9.3 → §9.4 → §9.5 → §9.6 → §9.7, then
+§12 (security) and §13 (memory) once the UI is settled. The order is not
+arbitrary: the rename is free and makes every later screen read better, and the
+security/memory passes come last so they audit the final code rather than code
+that is about to be rewritten.
 
 ### 9.0 Prerequisite rename — do this first, it is cheap and everything else reads better
 
@@ -402,7 +435,8 @@ Library  |  Timer  |  Stats  |  About            [cogwheel far right]
 - **Library** — *default tab.* The game collection, Steam-like. **Grid** or
   **List** view toggle. Grid shows fetched cover art; List shows icon + name +
   playtime + status. This is where a game is added, edited, rated, tagged,
-  linked to an exe, art-picked, deleted. All management lives here.
+  linked to an exe, art-picked, deleted. All management lives here. Clicking a
+  game opens its **detail view inside Library** — see §9.2.
 - **Timer** — the focused now-playing view. The selected game's big clock,
   Play/Pause, Complete, Launch Game. Keeps a compact game list for switching.
   **Right-click here offers only timing actions** (Play/Pause, Complete,
@@ -416,12 +450,135 @@ supports concurrent timers, so a view dedicated to what is *running now* is
 genuinely distinct from browsing a collection. Library answers "what do I have",
 Timer answers "what am I playing".
 
-**OPEN QUESTION for the user:** should clicking a game in Library switch to
-Timer with it selected, or open a game *detail page* inside Library (Steam-like)
-with the timer embedded? The first is less code and fewer concepts; the second
-is closer to Steam. Recommend the **first** for simplicity, and ask.
+### 9.2 Library detail view — RESOLVED by the user, do not "simplify" it back
 
-### 9.2 Simple / Advanced detail toggle
+> This document originally left the navigation model open and **recommended the
+> cheaper option** (clicking a game jumps straight to the Timer tab). **The user
+> chose the other one.** Their words, 2026-08-08:
+>
+> *"Once you launch game it makes you go to timer tab. The library is either grid
+> or list view but once you click a game it doesn't launch right away, it focus
+> that game inside the 'library' tab. it gives you access to 'Launch game'
+> button, and other stuffs you can do here."*
+>
+> A fresh session reading only the recommendation above would undo this. Don't.
+> The rule is the same one that governs §6.2 and §6.3: the recorded decision
+> wins over the original reasoning that preceded it.
+
+**The model:**
+
+1. Click a game in the Library grid/list → **stay in Library**, open that game's
+   detail view. Nothing is launched, no timer starts, no tab changes. A click is
+   navigation, not an action — this is what makes the grid safe to browse.
+2. The detail view is the game's home: cover art / hero, playtime, status,
+   rating, genres, notes, session stats, and every management action —
+   **Launch Game**, Modify, art, link `.exe`, favourite, delete.
+3. **Launching** a game (and only launching) **switches to the Timer tab** with
+   that game selected. That is the one transition between the two tabs, and it
+   is meaningful: you have stopped browsing and started playing.
+4. Back returns to the grid/list at the same scroll position and view mode.
+
+**Why this is right despite costing more code:** it separates *browsing* from
+*acting*. With the cheap option, every click is a mode switch, so the grid can
+never be casually explored — exactly the "confusing to a new eye" problem §2.5
+exists to prevent. It also gives the management actions a natural home, which is
+what makes the Timer tab's right-click menu safe to reduce to timing-only.
+
+**Watch:** the timer must keep running and keep displaying while the user
+browses Library. Concurrent timers already work; the detail view of a *running*
+game shows its live clock, and so does the Timer tab. Neither owns the timer —
+`timerEngine` does. Do not couple timer state to which view is mounted.
+
+### 9.3 Library sorting and favourites
+
+Requested directly: *"Maybe a sorting option too is good there, Like 'last
+played' 'hours played' 'A-Z' 'Z-A' 'Favorite'. Add a star too to add to
+favorite."*
+
+**Favourite is a new profile field.** `favorite: z.boolean().catch(false)` in
+`ProfileSchema` (`src/main/store/schema.ts`), mirrored in `shared/types.ts`,
+with a `profile:setFavorite` IPC and a star control in the Library detail view
+(§9.2) and on the grid tile hover. `.catch(false)` per §2.4 — every existing
+save file must still load.
+
+**Sorting extends the existing mechanism, it does not replace it.**
+`sortAndFilterProfiles` in `src/renderer/src/state/selectors.ts` is the single
+sort implementation and is already shared; `SortMode` lives in
+`src/shared/types.ts` and the zod enum at `schema.ts:89`. Current values:
+`name | last_played | rating | genre`.
+
+Target list:
+
+| Label shown | `SortMode` value | Comparator |
+|---|---|---|
+| Name (A–Z) | `name` | existing, unchanged |
+| Name (Z–A) | `name_desc` | **new** — reverse `localeCompare` |
+| Last played | `last_played` | existing |
+| Hours played | `playtime` | **new** — `b.seconds - a.seconds` |
+| Favourites first | `favorite` | **new** — favourites, then name |
+| Rating | `rating` | existing |
+| Genre | `genre` | existing |
+
+Three traps here:
+
+1. **Widen the zod enum, keep `.catch('name')`.** A save written by a *newer*
+   build and opened by an older one falls back to `name` rather than failing —
+   that is the contract in §2.4 working as intended.
+2. **Sort by *displayed* seconds, not stored seconds**, or a game that is
+   running right now sorts by a stale number. `displaySeconds(profile, running)`
+   in the same file already resolves this and must be used by the `playtime`
+   comparator.
+3. **Every comparator needs `|| byName(a, b)`** as the tiebreaker, as the
+   existing ones do. Without it, ties order arbitrarily and the grid appears to
+   reshuffle itself on unrelated updates.
+
+All seven labels need strings in **all 10 locales**.
+
+### 9.4 Auto-detect installed games — new feature
+
+Requested directly: *"I'd also like an option to detect games installed on pc and
+add it to library automatically. once again this would be a 1st time run ask
+option and you decide which you want but can always modify in parameter."*
+
+**Most of this is already built.** `scanSteamLibrary()` in
+`src/main/detect/steamLibrary.ts` already returns **every installed Steam game**
+across every library folder — name, appid and `installdir`, parsed from each
+`appmanifest_*.acf`, cached for a minute. It exists to support the Add Game
+picker. Nothing new is needed to *find* Steam games; the work is the import flow
+around it. Do not write a second scanner.
+
+**The flow:**
+
+1. **First run** (and only first run) asks once: *"Gamut found N games installed
+   on this PC. Add them to your library?"* with the found list shown and
+   individually checkable, defaulting to all checked. Plus a **"don't ask
+   again"**-style outcome recorded either way.
+2. Answering imports the checked games as profiles at **zero playtime**, with
+   `steamAppId` set (so art enrichment and `steam://rungameid` launching work
+   immediately — §5.5), and art fetched per the existing `autoFetchArt` setting.
+3. **Settings → Games** gets a permanent **"Scan for installed games"** button
+   that re-runs the same picker on demand. This is the *"can always modify in
+   parameter"* half of the request, and it is what makes the first-run prompt
+   safe to decline.
+4. Re-scans **never duplicate**: match on `steamAppId` first, then on
+   normalised name. Already-present games appear greyed out and pre-unchecked,
+   labelled "already in your library".
+
+**Zero playtime is not a bug, state it in the UI.** Gamut cannot know how long
+you played something before it was installed here, and §2.1 forbids inventing a
+number — importing Steam's playtime would put the number Gamut exists to
+correct into the field Gamut promises is honest. The prompt should say the games
+start at zero.
+
+**Non-Steam launchers are a separate, unverified question.** Epic, GOG Galaxy
+and Xbox each keep their own install registry, and **none of it has been
+measured on this machine.** §5.3 is the cautionary tale: the obvious source
+(`.exe` ProductName) was wrong a third of the time and only measurement showed
+it. So: **ship Steam-only first**, then measure the others before promising
+them. Do not write speculative parsers for launcher formats you have not opened
+on this PC.
+
+### 9.5 Simple / Advanced detail toggle
 
 One setting governing both the Stats table and the More Info window. **Simple is
 the default** so a first-time user gets the clean version without discovering
@@ -444,7 +601,7 @@ table size. New setting `detailLevel: 'simple' | 'advanced'` with zod
 (`Tracked 89% · idle 11%`). They always sum to 100, so two separate rows add a
 line without adding information.
 
-### 9.3 Sidebar / filter clarity
+### 9.6 Sidebar / filter clarity
 
 The current sidebar stacks three unlabelled dropdowns reading "Name (A-Z)",
 "All", "All". The user knows what they do; a newcomer sees three mystery boxes,
@@ -452,16 +609,25 @@ two saying the same word. Either label them, or collapse the two filters behind
 a single "Filter" control that expands only when used. Recommend labelling —
 cheaper and less magic.
 
-### 9.4 Remaining smaller items
-- Nothing else is outstanding from the user's earlier requests. All previously
-  requested features are built (§4).
+**Interaction with §9.3:** sorting now belongs to Library, where the collection
+actually lives. Decide deliberately whether the Timer tab's compact list keeps
+its own sort control or simply follows Library's — it should follow, since one
+`sortMode` setting driving two views is one concept instead of two, and the
+Timer list is for switching between a handful of games, not browsing.
 
-### 9.5 Definition of done
+### 9.7 Remaining smaller items
+- Nothing else is outstanding from the user's earlier requests. Everything else
+  previously asked for is built (§4).
+
+### 9.8 Definition of done
 - `npm test && npm run typecheck && npm run build` all clean.
 - New strings in **all 10 locales**.
 - Verified through the real app with the §7 isolation method, including
-  screenshots of Library grid, Library list, Timer, and Stats in both Simple and
-  Advanced.
+  screenshots of Library grid, Library list, **a Library game detail view**,
+  Timer, and Stats in both Simple and Advanced.
+- **Auto-detect verified against the real Steam library on this PC** — the scan
+  finds the installed games, importing creates them at zero playtime with art,
+  and a second scan offers no duplicates.
 - `npm run package:dev` built and launched so the user can try it.
 - Committed to `dev` with the project's usual thorough commit messages.
 
@@ -478,6 +644,11 @@ Everything else in §4 is verified end to end.
 
 ## 11. Release process for v3
 
+**Do §12 and §13 before this.** Both are explicitly part of what the user asked
+for in this round ("patch exploitable stuffs after and optimize memory usage
+after everything's done"), and both audit code that §9 is about to rewrite — so
+they come after the UI work and before the release.
+
 1. User tests and is satisfied.
 2. Merge `dev` → `main`.
 3. Bump to `3.0.0`, `npm run package`.
@@ -492,3 +663,120 @@ Everything else in §4 is verified end to end.
 **Release notes must state that session stats, launch counts and open time start
 from zero on upgrade** — there is no history in existing save files. Say it
 rather than let people wonder.
+
+---
+
+## 12. Security pass — scoped, after §9
+
+Requested by the user: *"Can you also patch exploitable stuffs after."* This is
+a **second** pass; the first shipped as v2.1.13 (§4.6). Do not redo that work.
+
+### 12.1 Already audited — sound, do not re-derive
+
+Checked 2026-08-08 against the code on `dev`. Each of these was examined and is
+correct **for a specific reason**; the reason is recorded so a later reader can
+tell "audited and fine" from "never looked at".
+
+| Surface | Why it is sound |
+|---|---|
+| Art download → disk (`art/enrich.ts` `store()`) | Filename is `${randomUUID()}.jpg` — **fixed extension, no attacker-controlled path component**. This is precisely the bug class v2.1.13 fixed in `.gtprofile`, and this path never had it. |
+| Art download → content | `downloadUsable()` rejects a buffer that `nativeImage.createFromBuffer` cannot decode, *before* anything is written. Non-image content cannot reach disk. |
+| `setArtFromUrl` (renderer-supplied URL) | `isAllowedArtUrl(url)` gates the host before `net.fetch`, so a compromised renderer cannot use main as a request-forgery primitive. |
+| `gt-asset://remote/<url>` proxy (`protocol.ts:29-41`) | Requires `https:` **and** an `ALLOWED_ART_HOSTS` hit; anything else is a 403. |
+| `steam://rungameid/<id>` | The id is a zod-validated number, so nothing can be appended to the URI. |
+| `contextIsolation` / `nodeIntegration` | `true` / `false`. Correct. |
+| PowerShell and `reg.exe` invocations | Fixed argument arrays, no shell string interpolation. |
+
+### 12.2 Genuinely worth changing
+
+1. **`protocol.ts:45` uses a `..` denylist where the codebase now has a
+   positive check.** `fileName.includes('..')` does block traversal here —
+   Node's `join()` does not resolve an absolute second argument, so
+   `C:/Windows/win.ini` cannot escape either — but v2.1.13 introduced
+   `isInside()` in `util/safePath.ts` exactly so that this reasoning does not
+   have to be re-done per call site. **Not a live vulnerability; a consistency
+   fix.** Switch it to `isInside()` and add the case to the test suite. Record
+   it honestly in the commit message as hardening, not as a patched exploit.
+2. **Audit the v3 IPC surface for zod validation on every input.** The v3
+   channels (`detect.ipc.ts`, the art channels) were written after the v2.1.13
+   audit and were not part of it. Every channel that takes a renderer-supplied
+   string and turns it into a path, a URL or a process argument needs its input
+   validated in **main**, not merely in the renderer that calls it.
+3. **§9.4 introduces a new untrusted-ish input: `.acf` files on disk.** Game
+   names parsed out of `appmanifest_*.acf` become profile names, and profile
+   names index into save data. Before shipping the importer, confirm a name
+   containing path separators, `..`, or absurd length cannot reach a filesystem
+   path. (Icons are stored under generated UUID names, which is most of the
+   defence already — verify rather than assume it covers every new path.)
+4. **Re-check `setWindowOpenHandler`** still restricts to http/https after any
+   new external link is added by the redesign (About tab, art sources).
+
+### 12.3 Residual, by design — not a bug, do not "fix" silently
+
+The Launch button runs whatever `exePath` is in the save file. Anyone who can
+write to AppData can already run code as the user, so this is not privilege
+escalation — but it does make the save file security-relevant, and `exePath` is
+therefore deliberately **not** exported in `.gtprofile` so a shared profile
+cannot aim Launch at someone else's binary. Keep that exclusion.
+
+### 12.4 Definition of done
+- Changes are hardening with tests, described accurately.
+- **If nothing exploitable is found, say so plainly.** A pass that reports "no
+  new vulnerabilities, two consistency fixes" is a successful pass. Do not
+  inflate a denylist-to-allowlist change into a patched exploit.
+
+---
+
+## 13. Memory pass — last, after §9 and §12
+
+Requested by the user: *"optimize memory usage after everythings done too."*
+Last on purpose — optimising code that §9 is about to replace is wasted work.
+
+### 13.1 Already done — do not redo
+- **v2.1.5**: icons capped at 256px, backgrounds at 2560px on *every* import
+  path (`util/imageResize.ts`), after Task Manager showed ~700MB and a stored
+  icon turned out to be 512×512 despite never rendering above 72px.
+- **v2.1.6**: i18n lazy-loads locales (only `en` is eager); `GameList`'s rows are
+  a `memo()`'d `GameRow` subscribing to its own `running[name]` slice, so a
+  500ms tick no longer re-renders the whole list.
+- **v3**: bounded `sessionLog` (200) + aggregates — §5.7, measured: save file
+  3.29 MB → **0.68 MB**, main process 131 MB → **109 MB** at 40 games.
+
+### 13.2 The one new risk the redesign introduces
+
+**The Library grid (§9.1) renders art for every game at once — that is a new
+memory profile the app has never had.** Today no view shows more than one
+background at a time. Note what the existing fields actually are:
+
+- `iconFile` — capped **256px**. Fine to render 40 of.
+- `bgImage` — capped **2560px**. **Rendering 40 of these in a grid is the
+  failure mode to avoid.** A decoded 2560×1440 RGBA surface is ~14MB; forty is
+  ~560MB, which is the v2.1.5 bug returning in a new place.
+
+So the grid must **not** source its tiles from `bgImage`. Options, in order of
+preference:
+
+1. Store a **third, separately capped image** — a portrait cover (~342×480),
+   which is what `library_600x900` is for anyway (§5.1). Costs a new schema
+   field and a new cap constant; gives the grid a proper Steam-like tile.
+2. Render `iconFile` in the tile. Free, but 256px in a portrait tile will look
+   soft.
+
+**Measure before and after, do not reason about it.** The numbers in §5.7 were
+obtained by measurement and twice contradicted the intuition that produced the
+design (§6.2). Take a Task Manager reading of the main *and* renderer processes
+with the grid open at 40 games, and record it in this file.
+
+### 13.3 Other candidates, in the order worth trying
+1. **Virtualise the grid** if the measurement justifies it — render only visible
+   tiles. Only after measuring; 40 games may simply not need it.
+2. **Release art for games scrolled out of view** — decoded image cache is
+   renderer-side and Chromium usually handles this; verify rather than assume.
+3. **Check `scanSteamLibrary()`'s cache lifetime** (60s) is still appropriate
+   once §9.4 calls it from a second place.
+
+### 13.4 Definition of done
+- Before/after numbers for main and renderer, at a realistic library size,
+  **written into this document** so the next session inherits the measurement
+  instead of re-taking it.
+- No regression in `npm test`, `npm run typecheck`, `npm run build`.
