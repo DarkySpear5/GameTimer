@@ -1,8 +1,12 @@
 import { promises as fs } from 'fs'
+import { execFile } from 'child_process'
+import { promisify } from 'util'
 import { join } from 'path'
 import { regSubkeys, regValues, regKeyName, regTree, type RegKey } from '../util/registry'
 import { scanSteamLibrary } from './steamLibrary'
 import type { FoundGame } from '@shared/types'
+
+const execFileAsync = promisify(execFile)
 
 /**
  * Where installed games come from, one scanner per launcher.
@@ -124,12 +128,100 @@ export async function scanGog(): Promise<FoundGame[]> {
 }
 
 /**
- * Xbox / Microsoft Store games install into C:\XboxGames\<Game>\Content.
+ * Store-installed games, which are NOT the same thing as XboxGames folders.
  *
- * UNVERIFIED against real data: the folder exists on the development machine
- * but holds only "GameSave", so there was nothing to read. The real install
- * folder under Program Files\WindowsApps is ACL-protected and deliberately not
- * touched — XboxGames is the readable one.
+ * VERIFIED 2026-08-08 against Super Lucky's Tale, and almost every assumption
+ * about this one turned out wrong:
+ *
+ *   - It is NOT under C:\XboxGames. That folder held only "GameSave"; the game
+ *     lives in Program Files\WindowsApps (Game Pass installs go to XboxGames,
+ *     Store purchases go here, so both paths are needed).
+ *   - Its package name is `Microsoft.AcornUWP` — an internal CODENAME. Reading
+ *     the folder or package name would have listed "AcornUWP" as the game.
+ *     The real title is in the package manifest: "Super Lucky's Tale".
+ *   - It cannot be launched by its .exe. Store apps run inside an app
+ *     container, so the route is the AUMID:
+ *     shell:appsFolder\Microsoft.AcornUWP_8wekyb3d8bbwe!App
+ *
+ * Nothing here distinguishes a game from Notepad, because Windows does not say.
+ * The one measured difference — games have no file-type associations — is far
+ * too weak to rely on. So every candidate comes back `confident: false`
+ * (offered, listed, but not pre-ticked) and installedGames.ts promotes the ones
+ * Steam's catalogue confirms by exact title, which is the same rule the Add
+ * Game picker already uses.
+ */
+const SYSTEM_PACKAGE_SOURCE =
+  '^(Microsoft\\.(Windows|Xbox|Ink|Language|Winget|Get|Desktop|Store|Sec|Start|Widgets|Gaming|YourPhone|Zune|Application|Web|Raw|HEIF|HEVC|AV1|AVC|MPEG2|VP9|Screen|PowerAutomate|CrossDevice|Advertising)|MicrosoftWindows\\.|MicrosoftCorporationII\\.|windows\\.)'
+
+const SYSTEM_PACKAGE = new RegExp(SYSTEM_PACKAGE_SOURCE, 'i')
+
+/**
+ * The same pattern for PowerShell. Single-quoted into the command, so it must
+ * contain no single quotes of its own — it doesn't, and this is the only value
+ * interpolated into that script.
+ */
+const SYSTEM_PACKAGE_PS = SYSTEM_PACKAGE_SOURCE
+
+export async function scanStorePackages(): Promise<FoundGame[]> {
+  // One PowerShell call: package identity plus the manifest display name, which
+  // is the only place the real title exists.
+  // The family-name filter runs INSIDE PowerShell, before any manifest is
+  // opened. Get-AppxPackageManifest is slow and a normal machine has ~50 Store
+  // packages, nearly all of them Windows components — filtering first turns
+  // fifty manifest reads into about six.
+  const script = [
+    'Get-AppxPackage | Where-Object { $_.SignatureKind -eq "Store" -and -not $_.IsFramework',
+    `-and $_.PackageFamilyName -notmatch '${SYSTEM_PACKAGE_PS}' } |`,
+    'ForEach-Object { try {',
+    '$m = Get-AppxPackageManifest $_.PackageFullName;',
+    '$app = $m.Package.Applications.Application | Select-Object -First 1;',
+    '[PSCustomObject]@{',
+    'name = [string]$m.Package.Properties.DisplayName;',
+    'family = $_.PackageFamilyName;',
+    'appId = [string]$app.Id;',
+    'location = $_.InstallLocation }',
+    '} catch {} } | ConvertTo-Json -Compress'
+  ].join(' ')
+
+  let parsed: unknown
+  try {
+    const { stdout } = await execFileAsync(
+      'powershell.exe',
+      ['-NoProfile', '-NonInteractive', '-Command', script],
+      { windowsHide: true, maxBuffer: 16 * 1024 * 1024, timeout: 60_000 }
+    )
+    parsed = JSON.parse(stdout || '[]')
+  } catch {
+    return []
+  }
+
+  const list = Array.isArray(parsed) ? parsed : [parsed]
+  const games: FoundGame[] = []
+  for (const raw of list as { name?: string; family?: string; appId?: string; location?: string }[]) {
+    const name = (raw?.name ?? '').trim()
+    const family = raw?.family ?? ''
+    if (!name || !family) continue
+    // A display name that is still a resource reference is unusable.
+    if (name.startsWith('ms-resource:')) continue
+    if (SYSTEM_PACKAGE.test(family)) continue
+
+    games.push({
+      id: `xbox:${family}`,
+      name,
+      source: 'xbox',
+      // Never the .exe: a Store app started outside its container fails.
+      exePath: null,
+      steamAppId: null,
+      launchUri: `shell:appsFolder\\${family}!${raw.appId || 'App'}`,
+      confident: false
+    })
+  }
+  return games
+}
+
+/**
+ * Games installed through the Xbox app, which uses <drive>:\XboxGames\<Game>.
+ * Separate from the Store packages above — a machine can have both.
  */
 export async function scanXbox(): Promise<FoundGame[]> {
   const games: FoundGame[] = []

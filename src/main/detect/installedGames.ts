@@ -1,5 +1,6 @@
 import { normalizeGameName } from './matchHit'
 import { listShortcuts, launchUriFromArgs } from './shortcuts'
+import { classifyNames } from './classify'
 import { dataStore } from '../store/dataStore'
 import { profileService } from '../store/profileService'
 import {
@@ -7,6 +8,7 @@ import {
   scanEpic,
   scanGog,
   scanXbox,
+  scanStorePackages,
   scanBattleNet,
   scanEa,
   scanNexon,
@@ -86,6 +88,7 @@ export async function listInstalledGames(
     scanEpic(),
     scanGog(),
     scanXbox(),
+    scanStorePackages(),
     scanBattleNet(),
     scanEa(),
     scanNexon(launcherFolders.nexon ? [launcherFolders.nexon] : []),
@@ -104,6 +107,8 @@ export async function listInstalledGames(
     const uri = byName.get(normalizeGameName(game.name))
     if (uri) game.launchUri = uri
   }
+
+  await promoteConfirmedGames(found)
 
   const profiles = Object.values(dataStore.get().profiles)
   const knownAppIds = new Set(profiles.map((p) => p.steamAppId).filter((id): id is number => id != null))
@@ -134,6 +139,29 @@ export async function listInstalledGames(
   return [...byIdentity.values()].sort(
     (a, b) => a.source.localeCompare(b.source) || a.name.localeCompare(b.name)
   )
+}
+
+/**
+ * Ticks the unconfirmed candidates that Steam's catalogue confirms are games.
+ *
+ * Only the Microsoft Store needs this, and only because Windows does not say
+ * which packages are games — a scan legitimately returns Super Lucky's Tale
+ * alongside Realtek Audio Control, ChatGPT and an LG monitor utility. An exact
+ * Steam title match separates them.
+ *
+ * Promotion only: a "no" leaves the row exactly where it was, offered and
+ * unticked. Offline, every answer is "no" and the user ticks the game
+ * themselves — which is the same outcome as not having this at all, never a
+ * worse one.
+ */
+async function promoteConfirmedGames(games: FoundGame[]): Promise<void> {
+  const unsure = games.filter((g) => !g.confident && g.source === 'xbox')
+  if (unsure.length === 0) return
+
+  const confirmed = await classifyNames(unsure.map((g) => g.name))
+  for (const game of unsure) {
+    if (confirmed.has(game.name)) game.confident = true
+  }
 }
 
 /**
