@@ -38,7 +38,11 @@ export async function writeStatusLog(): Promise<void> {
     for (const [name, info] of entries) {
       const statusLabel = STATUS_LABELS[info.status] ?? 'In Progress'
       let completedOn = ''
-      if (info.statusAt) {
+      // Gated on status, not merely on statusAt being present: an un-completed
+      // game now keeps its old snapshot (see profileService.setStatus), and
+      // rendering it unconditionally here would read as the nonsense
+      // "In Progress (2026-08-07, at 18:54:45)".
+      if (info.status !== 'in_progress' && info.statusAt) {
         const stamp = info.statusSeconds != null ? `, at ${formatSeconds(info.statusSeconds)}` : ''
         completedOn = ` (${info.statusAt}${stamp})`
       }
