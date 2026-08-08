@@ -7,9 +7,11 @@ import { formatSeconds } from '@shared/format'
 import { toast } from '../common/Toast'
 
 /**
- * Read-only, except for the one destructive action at the bottom. Everything
- * numeric is derived from sessionLog on render rather than stored, so nothing
- * here can disagree with the log it came from.
+ * Read-only, except for the one destructive action at the bottom.
+ *
+ * Every figure comes from the profile's running sessionStats aggregate, never
+ * from sessionLog — the log holds only the most recent entries, so recomputing
+ * from it would under-report any game with real history behind it.
  */
 export function GameInfoDialog({
   name,
