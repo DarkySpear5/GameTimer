@@ -112,10 +112,16 @@ export function LibraryDetail({ name }: { name: string }): React.JSX.Element {
   return (
     <div className="flex h-full flex-col overflow-y-auto">
       <div className="relative" style={heroStyle}>
-        <div className="bg-bg/50 px-5 py-4">
+        {/*
+         * The scrim is heavier than a background usually needs because this one
+         * sits under text rather than beside it — a hero image is arbitrary
+         * artwork, and at /50 the back link and the status line were competing
+         * with whatever happened to be behind them.
+         */}
+        <div className="bg-bg/75 px-5 py-4">
           <button
             onClick={() => setLibraryFocus(null)}
-            className="mb-4 text-xs text-subtext transition-colors hover:text-text"
+            className="mb-4 text-xs text-text/80 transition-colors hover:text-text"
           >
             ← {t('btn_back_library')}
           </button>
@@ -131,7 +137,7 @@ export function LibraryDetail({ name }: { name: string }): React.JSX.Element {
                 <FavoriteStar name={profile.name} favorite={profile.favorite} size={20} />
               </div>
 
-              <div className={`text-sm ${isRunning ? 'text-green' : 'text-subtext'}`}>
+              <div className={`text-sm ${isRunning ? 'text-green' : 'text-text/70'}`}>
                 {isRunning ? t('status_tracking') : STATUS_LABEL[profile.status]}
               </div>
 

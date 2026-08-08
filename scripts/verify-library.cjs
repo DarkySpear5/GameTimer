@@ -55,7 +55,13 @@ function game(name, seconds, extra = {}) {
   fs.rmSync(SHOTS, { recursive: true, force: true })
   fs.mkdirSync(ROOT, { recursive: true })
   fs.mkdirSync(SHOTS, { recursive: true })
-  fs.writeFileSync(path.join(ROOT, 'firstrun.json'), '{"legacyImportState":"skipped"}')
+  // Both first-run offers marked as already made — this script is about the
+  // Library, and either prompt would sit over it intercepting clicks. The
+  // installed-games offer is covered by verify-installed.cjs.
+  fs.writeFileSync(
+    path.join(ROOT, 'firstrun.json'),
+    JSON.stringify({ legacyImportState: 'skipped', installedScanState: 'skipped' })
+  )
   fs.writeFileSync(
     DATA,
     JSON.stringify({

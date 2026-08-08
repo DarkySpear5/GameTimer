@@ -13,6 +13,15 @@
 > navigation model (§9.2), sorting + favourites (§9.3), auto-detecting installed
 > games (§9.4), and two closing passes they asked for — security (§12) and
 > memory (§13). No open questions remain.
+>
+> **BUILT 2026-08-08.** Everything in §9, §12 and §13 is implemented, verified
+> and committed to `dev` — six commits, `9cf582c`..`00224ae` plus follow-ups.
+> 105 unit tests; four Playwright suites drive the real UI in an isolated save
+> folder (`scripts/verify-library.cjs`, `verify-installed.cjs`,
+> `verify-detail-level.cjs`, `verify-cover-art.cjs`). `npm run package:dev`
+> built for the user to try. **§10 is still true and is still the only gap:
+> Launch Game, auto-start and the watcher have never been exercised against a
+> real game starting and exiting.** Remaining work is §11, the release.
 
 ---
 

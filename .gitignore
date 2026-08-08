@@ -31,3 +31,4 @@ release-dev/
 .verify-installed-tmp/
 .verify-detail-tmp/
 .measure-tmp/
+.verify-art-tmp/
