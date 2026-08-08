@@ -111,7 +111,7 @@
   "filter_all": "전체",
   "hint_canvas": "목록에서 게임을 우클릭하면 더 많은 옵션을 볼 수 있습니다",
   "hint_note_example": "예: \"친구 집에서 플레이함\"",
-  "hint_right_click": "게임을 우클릭하면 더 많은 옵션을 볼 수 있습니다",
+  "hint_right_click": "게임을 마우스 오른쪽 버튼으로 클릭하면 더 많은 옵션",
   "info_exported_msg": "프로필을 다음 경로로 내보냈습니다:\n{{path}}",
   "info_exported_title": "내보내기 완료",
   "info_imported_msg": "'{{name}}'(으)로 프로필을 가져왔습니다",

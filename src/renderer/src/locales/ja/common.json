@@ -111,7 +111,7 @@
   "filter_all": "すべて",
   "hint_canvas": "リストのゲームを右クリックすると他の操作が表示されます",
   "hint_note_example": "例：「友達の家でプレイした」",
-  "hint_right_click": "ゲームを右クリックすると他の操作が表示されます",
+  "hint_right_click": "ゲームを右クリックで詳細メニュー",
   "info_exported_msg": "プロフィールをエクスポートしました：\n{{path}}",
   "info_exported_title": "エクスポート完了",
   "info_imported_msg": "「{{name}}」としてプロフィールをインポートしました",

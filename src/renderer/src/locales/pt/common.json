@@ -111,7 +111,7 @@
   "filter_all": "Todos",
   "hint_canvas": "Clique com o botão direito em um jogo da lista para mais opções",
   "hint_note_example": "ex.: \"Joguei na casa de um amigo\"",
-  "hint_right_click": "Clique com o botão direito em um jogo para mais opções",
+  "hint_right_click": "Clique com o botão direito num jogo para mais opções",
   "info_exported_msg": "Perfil exportado para:\n{{path}}",
   "info_exported_title": "Exportado",
   "info_imported_msg": "Perfil importado como '{{name}}'",

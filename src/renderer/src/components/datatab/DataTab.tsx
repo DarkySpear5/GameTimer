@@ -188,6 +188,9 @@ export function DataTab(): React.JSX.Element {
         {list.length === 0 && <div className="p-6 text-center text-sm text-subtext">{t('empty_no_games')}</div>}
       </div>
 
+      {/* Right-clicking is invisible until someone tries it, and nobody tries it. */}
+      {list.length > 0 && <div className="mt-2 text-xs text-subtext">{t('hint_right_click')}</div>}
+
       {menu && (
         <ContextMenu
           x={menu.x}

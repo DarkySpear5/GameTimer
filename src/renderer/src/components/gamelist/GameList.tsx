@@ -322,6 +322,10 @@ export function GameList(): React.JSX.Element {
        * typed name. Adding is now a dialog because detecting a running game
        * needs room for a picker, and both routes belong behind the same button.
        */}
+      {sorted.length > 0 && (
+        <div className="px-3 pt-1.5 text-[0.65rem] leading-tight text-subtext">{t('hint_right_click')}</div>
+      )}
+
       <div className="p-2.5">
         <button
           onClick={() => openDialog('add')}
