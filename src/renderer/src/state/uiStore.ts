@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 
 export type MainTab = 'timer' | 'data' | 'about'
-export type DialogKind = 'modify' | 'notes' | 'settings' | 'info' | null
+export type DialogKind = 'modify' | 'notes' | 'settings' | 'info' | 'add' | null
 
 /** Which Data-tab column the table is ordered by. Genres is deliberately absent — a set of tags has no meaningful order. */
 export type DataSortKey =

@@ -117,8 +117,6 @@ export function GameList(): React.JSX.Element {
   const openContextMenu = useUiStore((s) => s.openContextMenu)
   const closeContextMenu = useUiStore((s) => s.closeContextMenu)
   const openDialog = useUiStore((s) => s.openDialog)
-  const [adding, setAdding] = useState(false)
-  const [newName, setNewName] = useState('')
   const [width, setWidth] = useState(SIDEBAR_BASE_WIDTH)
   const resizing = useRef(false)
 
@@ -173,20 +171,6 @@ export function GameList(): React.JSX.Element {
         : [],
     [profiles, settings]
   )
-
-  async function handleAdd(): Promise<void> {
-    const name = newName.trim()
-    setAdding(false)
-    setNewName('')
-    if (!name) return
-    try {
-      const profile = await window.api.profiles.create(name)
-      useProfilesStore.getState().upsert(profile)
-      await selectProfile(profile.name)
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : String(err))
-    }
-  }
 
   async function handleDuplicate(name: string): Promise<void> {
     const copy = await window.api.profiles.duplicate(name)
@@ -326,53 +310,25 @@ export function GameList(): React.JSX.Element {
             contextMenu.target
               ? menuItemsFor(contextMenu.target)
               : [
-                  { label: t('menu_add_game'), onClick: () => setAdding(true) },
+                  { label: t('menu_add_game'), onClick: () => openDialog('add') },
                   { label: t('ctx_import'), onClick: () => void handleImport() }
                 ]
           }
         />
       )}
 
+      {/*
+       * The inline name box this replaced could only ever do one thing: take a
+       * typed name. Adding is now a dialog because detecting a running game
+       * needs room for a picker, and both routes belong behind the same button.
+       */}
       <div className="p-2.5">
-        {adding ? (
-          <div className="flex gap-1.5">
-            <input
-              autoFocus
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              onBlur={() => void handleAdd()}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') void handleAdd()
-                if (e.key === 'Escape') {
-                  setAdding(false)
-                  setNewName('')
-                }
-              }}
-              placeholder={t('dlg_add_game_prompt')}
-              className="w-full flex-1 rounded bg-card px-2.5 py-2 text-sm text-text outline-none ring-1 ring-accent"
-            />
-            <button
-              // Prevents the input's onBlur from firing (and submitting) before
-              // this button's onClick runs, so the click is a single clean
-              // submit instead of racing a blur-triggered one.
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => void handleAdd()}
-              aria-label="Confirm"
-              className="flex shrink-0 items-center justify-center rounded bg-accent px-3 text-bg hover:opacity-90"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4">
-                <path d="M9 6l6 6-6 6" />
-              </svg>
-            </button>
-          </div>
-        ) : (
-          <button
-            onClick={() => setAdding(true)}
-            className="w-full rounded bg-accent py-2 text-sm font-medium text-bg transition-opacity hover:opacity-90"
-          >
-            {t('btn_add_game')}
-          </button>
-        )}
+        <button
+          onClick={() => openDialog('add')}
+          className="w-full rounded bg-accent py-2 text-sm font-medium text-bg transition-opacity hover:opacity-90"
+        >
+          {t('btn_add_game')}
+        </button>
       </div>
     </div>
   )

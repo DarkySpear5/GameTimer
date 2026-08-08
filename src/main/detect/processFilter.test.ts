@@ -52,6 +52,15 @@ describe('filterAndRank', () => {
     expect(filterAndRank(raw)).toHaveLength(1)
   })
 
+  it('excludes Gamut itself by path, not by process name', () => {
+    // In a dev run Gamut's process is called "electron", so the name denylist
+    // does not catch it — it listed itself in the picker until this existed.
+    const self = 'C:\\repo\\node_modules\\electron\\dist\\electron.exe'
+    const raw = [p({ ProcessName: 'electron', MainWindowTitle: 'Gamut', Path: self })]
+    expect(filterAndRank(raw, self)).toEqual([])
+    expect(filterAndRank(raw, 'C:\\other.exe')).toHaveLength(1)
+  })
+
   it('sorts likely games above everything else', () => {
     const raw = [
       p({ ProcessName: 'zzz', MainWindowTitle: 'Aaa tool', Path: 'C:\\Tools\\a.exe' }),

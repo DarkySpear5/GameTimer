@@ -87,10 +87,15 @@ export function isLikelyGame(exePath: string): boolean {
  * no window title (background services), then the denylist, then sorts likely
  * games first and alphabetically within each group.
  */
-export function filterAndRank(raw: RawProcess[]): RankedProcess[] {
+export function filterAndRank(raw: RawProcess[], selfExePath?: string): RankedProcess[] {
   const seen = new Set<string>()
+  // Excluded by PATH, not by name. The name denylist catches "Gamut.exe" in a
+  // packaged build but misses development runs, where the process is called
+  // "electron" — and it listed itself in the picker as a result.
+  const self = selfExePath?.toLowerCase()
   return raw
     .filter((p) => p.Path && p.MainWindowTitle && !NOT_GAMES.has(p.ProcessName.toLowerCase()))
+    .filter((p) => !self || p.Path!.toLowerCase() !== self)
     .filter((p) => {
       // One tile per executable: Electron and Chromium games spawn several
       // windowed helper processes off the same binary.

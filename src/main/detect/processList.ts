@@ -37,7 +37,10 @@ export async function listRunningApps(): Promise<DetectedApp[]> {
   }
 
   return Promise.all(
-    filterAndRank(raw).map(async (p) => ({ ...p, iconDataUrl: await fileIconOrNull(p.exePath) }))
+    filterAndRank(raw, process.execPath).map(async (p) => ({
+      ...p,
+      iconDataUrl: await fileIconOrNull(p.exePath)
+    }))
   )
 }
 
