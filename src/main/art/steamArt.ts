@@ -6,6 +6,7 @@ import { paths } from '../store/paths'
 import { saveCappedImageBuffer } from '../util/imageResize'
 import { ICON_MAX_DIMENSION, BACKGROUND_MAX_DIMENSION, COVER_MAX_DIMENSION } from '@shared/constants'
 import { mapTagsToGenres } from './genreMap'
+import { isAllowedArtUrl } from './allowedHosts'
 import type { GameSearchHit } from '@shared/types'
 
 /**
@@ -133,7 +134,13 @@ export async function fetchArt(appId: number, name?: string): Promise<FetchedArt
   let squareIconUrl: string | undefined
   if (name) {
     const hits = await searchSteamApps(name)
-    squareIconUrl = hits.find((h) => h.appId === appId)?.iconUrl ?? hits[0]?.iconUrl
+    const candidate = hits.find((h) => h.appId === appId)?.iconUrl ?? hits[0]?.iconUrl
+    // Held to the same allowlist as every other art download, even though it
+    // came from Steam's own response rather than the renderer. Every other
+    // fetch in this app is checked; an unchecked one that happens to be fed by
+    // a remote JSON field is the one worth not having. Measured: the endpoint
+    // returns shared.fastly.steamstatic.com, which is already on the list.
+    squareIconUrl = candidate && isAllowedArtUrl(candidate) ? candidate : undefined
   }
 
   const [icon, background, cover] = await Promise.all([

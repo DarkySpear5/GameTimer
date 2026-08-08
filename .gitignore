@@ -30,3 +30,4 @@ release-dev/
 .verify-shots/
 .verify-installed-tmp/
 .verify-detail-tmp/
+.measure-tmp/

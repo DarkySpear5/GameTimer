@@ -52,9 +52,14 @@ async function findSteamRoot(): Promise<string | null> {
  * Cached for a minute: the Add Game picker can resolve several candidates in a
  * row, and re-reading every .acf on disk each time would be wasteful for data
  * that only changes when something is installed or removed.
+ *
+ * `force` skips that cache. The installed-games scan uses it, because there the
+ * cache is actively wrong: someone who installs a game and then asks Gamut to
+ * look for it would be told it isn't there. That scan is a rare, deliberate
+ * action reading a dozen small files, so it can afford to be exact.
  */
-export async function scanSteamLibrary(): Promise<SteamGame[]> {
-  if (cache && Date.now() - cache.at < CACHE_MS) return cache.games
+export async function scanSteamLibrary(force = false): Promise<SteamGame[]> {
+  if (!force && cache && Date.now() - cache.at < CACHE_MS) return cache.games
 
   const games: SteamGame[] = []
   const root = await findSteamRoot()

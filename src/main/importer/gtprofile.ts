@@ -9,6 +9,7 @@ import { writeStatusLog } from '../statusLog/writeStatusLog'
 import { saveCappedImageBuffer } from '../util/imageResize'
 import { ICON_MAX_DIMENSION, BACKGROUND_MAX_DIMENSION } from '@shared/constants'
 import { safeImageExt } from './safeExt'
+import { safeFileNameFromTitle } from '../util/safePath'
 import { aggregateFrom, trimSessionLog } from '@shared/sessionStats'
 import type { GtProfileFile, Profile } from '@shared/types'
 
@@ -56,7 +57,7 @@ export async function exportProfile(win: BrowserWindow, name: string): Promise<{
 
   await fs.mkdir(paths.profilesDir(), { recursive: true })
   const result = await dialog.showSaveDialog(win, {
-    defaultPath: join(paths.profilesDir(), `${profile.name}.gtprofile`),
+    defaultPath: join(paths.profilesDir(), `${safeFileNameFromTitle(profile.name)}.gtprofile`),
     filters: [{ name: 'Gamut Profile', extensions: ['gtprofile'] }]
   })
   if (result.canceled || !result.filePath) return null

@@ -58,7 +58,9 @@ function isGame(game: SteamGame): boolean {
  * silently shorter list is not.
  */
 export async function listInstalledGames(): Promise<InstalledGame[]> {
-  const installed = (await scanSteamLibrary()).filter(isGame)
+  // Deliberately uncached: this runs when the user has explicitly asked what is
+  // installed, and a game installed two minutes ago must show up.
+  const installed = (await scanSteamLibrary(true)).filter(isGame)
   const profiles = Object.values(dataStore.get().profiles)
 
   const knownAppIds = new Set(profiles.map((p) => p.steamAppId).filter((id): id is number => id != null))

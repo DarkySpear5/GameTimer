@@ -725,6 +725,42 @@ cannot aim Launch at someone else's binary. Keep that exclusion.
   new vulnerabilities, two consistency fixes" is a successful pass. Do not
   inflate a denylist-to-allowlist change into a patched exploit.
 
+### 12.5 OUTCOME 2026-08-08 — no vulnerabilities found; three hardening changes
+
+Stated plainly, per §12.4: **nothing exploitable was found.** The v3 IPC surface
+was audited against the checklist in §12.2 and holds up.
+
+**Changed:**
+1. `protocol.ts` now uses `isInside()` instead of a `..` denylist (done as part
+   of the Library work, since the covers route was being added to the same
+   branch). Both stop traversal; one answer used everywhere beats each call site
+   re-deriving that `join()` does not resolve an absolute second argument.
+2. `fetchArt()` now holds the community-icon URL to the same `isAllowedArtUrl`
+   allowlist as every other download. It arrives in Steam's own JSON rather than
+   from the renderer, so this closes the one outbound fetch in the app that was
+   fed by a remote field without a check. Measured: the endpoint returns
+   `shared.fastly.steamstatic.com`, already on the list, so nothing broke.
+3. `safeFileNameFromTitle()` sanitises the export dialog's *suggested* filename.
+   A profile name is deliberately free-form, and since §9.4 those names can come
+   from Steam's appmanifest files rather than only from typing; a name carrying
+   separators would have pointed the save dialog at another folder. The user
+   still confirms that dialog, so this is defence in depth, not a hole. Ten unit
+   tests in `safePath.test.ts`.
+
+**Confirmed sound, no change needed:**
+- `searchSteamApps` and `findGogGame` both `encodeURIComponent` the query, so a
+  crafted name cannot alter the URL.
+- `setWindowOpenHandler` is still restricted to `http:`/`https:`.
+- Profile names never reach a filesystem path anywhere else — stored art is
+  written under `randomUUID()` filenames throughout.
+
+**One correction worth recording so it is not re-investigated:** the regex in
+`safeFileNameFromTitle` reads as though it strips spaces and hyphens when viewed
+in a tool that renders control characters oddly. It does not — the class is
+`[<>:"|?* -]`, i.e. the forbidden characters plus the control range,
+and the `eslint-disable no-control-regex` above it is there for exactly that
+reason. The unit tests assert spaces, hyphens and ampersands survive.
+
 ---
 
 ## 13. Memory pass — last, after §9 and §12
@@ -764,19 +800,52 @@ preference:
 
 **Measure before and after, do not reason about it.** The numbers in §5.7 were
 obtained by measurement and twice contradicted the intuition that produced the
-design (§6.2). Take a Task Manager reading of the main *and* renderer processes
-with the grid open at 40 games, and record it in this file.
+design (§6.2).
 
-### 13.3 Other candidates, in the order worth trying
-1. **Virtualise the grid** if the measurement justifies it — render only visible
-   tiles. Only after measuring; 40 games may simply not need it.
-2. **Release art for games scrolled out of view** — decoded image cache is
-   renderer-side and Chromium usually handles this; verify rather than assume.
-3. **Check `scanSteamLibrary()`'s cache lifetime** (60s) is still appropriate
-   once §9.4 calls it from a second place.
+### 13.2.1 MEASURED 2026-08-08 — the cap was necessary, and the estimate was low
 
-### 13.4 Definition of done
-- Before/after numbers for main and renderer, at a realistic library size,
-  **written into this document** so the next session inherits the measurement
-  instead of re-taking it.
-- No regression in `npm test`, `npm run typecheck`, `npm run build`.
+Option 1 was taken: `coverFile`, its own directory, and
+`COVER_MAX_DIMENSION = 480`. `scripts/measure-library-memory.cjs` runs the real
+app twice over identical 40-game libraries, changing only the pixel size of the
+cover files, and reads Electron's own `app.getAppMetrics()`:
+
+| | 480px covers (shipped) | 2560px covers (what reusing `bgImage` would have cost) |
+|---|---|---|
+| Cover files on disk | 13.5 MB | 76.3 MB |
+| Renderer (`Tab`) | **127 MB** | 412 MB |
+| GPU | 160 MB | 555 MB |
+| Browser | 142 MB | 210 MB |
+| Utility | 49 MB | 50 MB |
+| **Total** | **479 MB** | **1227 MB** |
+
+**+748 MB total, +285 MB in the renderer alone.** The §13.2 estimate of ~560 MB
+was *under* the real figure, because it only counted decoded bitmaps in the
+renderer and missed that GPU texture memory grows with them too — GPU is the
+single largest line in the uncapped run.
+
+**Consequences, already applied:**
+- `GameArt` resolves `coverFile → iconFile → lettered placeholder` and
+  deliberately never falls back to `bgImage`. That is a memory constraint
+  wearing a visual disguise; do not "improve" the fallback chain by adding the
+  background to it.
+- **Virtualising the grid is NOT needed** at this scale and was not done. 127 MB
+  of renderer for 40 games sits beside the 109 MB main process measured in §5.7
+  — the cap did the work, and a virtualised list would have added real
+  complexity for no measured gain. Revisit only if someone turns up with a
+  library large enough to move that number, and measure again first.
+
+### 13.3 Other candidates — resolved
+1. ~~Virtualise the grid~~ — **not needed, see §13.2.1.** Measured, not assumed.
+2. **Release art for games scrolled out of view** — not pursued. Tiles use
+   `loading="lazy"` and Chromium manages the decoded-image cache itself; with
+   the renderer at 127 MB there is nothing here worth hand-managing.
+3. **`scanSteamLibrary()`'s cache** — resolved by giving it a `force` flag.
+   The 60-second cache still serves the Add Game picker resolving several
+   candidates in a row, but the installed-games scan bypasses it: there the
+   cache is actively wrong, since someone who installs a game and immediately
+   asks Gamut to find it would be told it isn't there.
+
+### 13.4 Definition of done — MET
+- Before/after numbers recorded in §13.2.1, reproducible via
+  `node scripts/measure-library-memory.cjs [gameCount]`.
+- `npm test`, `npm run typecheck`, `npm run build` all clean.
