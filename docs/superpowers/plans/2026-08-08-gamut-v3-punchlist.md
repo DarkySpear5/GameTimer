@@ -11,7 +11,7 @@ Status key: `[ ]` not started · `[~]` in progress · `[x]` done
 
 ## A. Art fetching
 
-- [ ] **A1. SteamGridDB as the art source for non-Steam games.**
+- [x] **A1. SteamGridDB as the art source for non-Steam games.**
   Settings → Launchers gets `SteamGridDB API key: [__________]` with a note
   directly beneath: *"for non-Steam icon/background fetch from SteamGridDB"*.
   Used for Nexon / Epic / Xbox / EA / Battle.net games.

@@ -126,7 +126,8 @@ function normalizeLegacySettings(raw: Record<string, unknown> | undefined): Sett
     libraryView: 'grid',
     detailLevel: 'simple',
     extraGameFolders: [],
-    launcherFolders: {}
+    launcherFolders: {},
+    steamGridDbApiKey: ''
   }
 }
 

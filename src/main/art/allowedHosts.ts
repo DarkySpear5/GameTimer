@@ -18,7 +18,10 @@ export const ALLOWED_ART_HOSTS = new Set([
   // Epic's storefront art, for games Steam has delisted or never carried.
   'cdn1.epicgames.com',
   'cdn2.unrealengine.com',
-  'cdn1.unrealengine.com'
+  'cdn1.unrealengine.com',
+  // SteamGridDB, used only when the user supplies their own API key.
+  'cdn2.steamgriddb.com',
+  'cdn.steamgriddb.com'
 ])
 
 /** True only for an https URL on an allowlisted host. */

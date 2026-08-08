@@ -177,6 +177,8 @@
   "label_startup": "Démarrage",
   "label_status": "Statut",
   "label_status_snapshot": "Défini le {{date}} — {{time}} joué à ce moment-là.",
+  "label_steamgriddb_key": "Clé API SteamGridDB",
+  "label_steamgriddb_key_note": "Pour récupérer les icônes et arrière-plans des jeux non-Steam depuis SteamGridDB. Facultatif — tout le reste fonctionne sans.",
   "label_system_tray": "Zone de notification",
   "label_table_size": "Taille du tableau",
   "label_theme": "Thème",

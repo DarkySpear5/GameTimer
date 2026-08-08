@@ -155,6 +155,11 @@ export interface Settings {
    * working detection off.
    */
   launcherFolders: Partial<Record<GameSource, string>>
+  /**
+   * The user's own SteamGridDB API key, for fetching art for non-Steam games.
+   * Empty means the feature is off — every other art source is keyless.
+   */
+  steamGridDbApiKey: string
 }
 
 /** One running application offered in the Add Game picker. */

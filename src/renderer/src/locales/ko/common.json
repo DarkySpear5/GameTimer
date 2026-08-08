@@ -177,6 +177,8 @@
   "label_startup": "시작 프로그램",
   "label_status": "상태",
   "label_status_snapshot": "{{date}}에 설정됨 (그 시점까지 {{time}} 플레이)",
+  "label_steamgriddb_key": "SteamGridDB API 키",
+  "label_steamgriddb_key_note": "Steam이 아닌 게임의 아이콘과 배경을 SteamGridDB에서 가져올 때 사용합니다. 선택 사항입니다.",
   "label_system_tray": "시스템 트레이",
   "label_table_size": "표 크기",
   "label_theme": "테마",

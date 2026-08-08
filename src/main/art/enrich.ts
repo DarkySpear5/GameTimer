@@ -9,6 +9,8 @@ import { fetchArt, fetchGenres, searchSteamApps } from './steamArt'
 import { exactHit } from '../detect/matchHit'
 import { findGogGame } from './gogCatalog'
 import { fetchEpicArt } from './epicArt'
+import { fetchGridDbArt } from './steamGridDb'
+import { dataStore } from '../store/dataStore'
 import { mapTagsToGenres } from './genreMap'
 import { isAllowedArtUrl } from './allowedHosts'
 
@@ -19,13 +21,19 @@ import { isAllowedArtUrl } from './allowedHosts'
  *   Steam  — by appid when known, otherwise by exact title, since a game bought
  *            on Epic or Xbox is usually still LISTED on Steam. Best coverage.
  *   GOG    — DRM-free and older titles Steam never carried
+ *   SteamGridDB — community art, ONLY if the user supplied their own API key
  *   the .exe — its own icon, for a game no storefront lists at all (Rocket
  *            League was delisted from Steam; Heroes of the Storm never was on it)
  *   giving up — the game keeps whatever the user set manually
  *
- * Both sources are keyless and accountless, which is the constraint that ruled
- * out IGDB, SteamGridDB and RAWG. Every step is best-effort: an offline machine
- * gets a game with no art, never an error.
+ * Every source above SteamGridDB is keyless and accountless — the constraint
+ * that ruled out IGDB and RAWG entirely. SteamGridDB is the single exception
+ * and a narrow one: the key is the USER'S OWN, typed into Settings, and the
+ * source is skipped entirely until they enter one. Nothing is shipped in the
+ * binary. See the note at the top of steamGridDb.ts.
+ *
+ * Every step is best-effort: an offline machine gets a game with no art, never
+ * an error.
  */
 
 export interface Enrichment {
@@ -35,7 +43,7 @@ export interface Enrichment {
   coverFile: string | null
   genres: string[]
   /** Which source actually produced something, for logging and the UI's benefit. */
-  source: 'steam' | 'epic' | 'gog' | 'exe' | 'none'
+  source: 'steam' | 'epic' | 'gog' | 'steamgriddb' | 'exe' | 'none'
 }
 
 /**
@@ -160,6 +168,29 @@ export async function enrichGame(
   // URLs are direct, so they can be fetched as-is.
   const gog = await findGogGame(name)
   if (!gog) {
+    // SteamGridDB last of the online sources, because it is the only one that
+    // needs a key. A user who never enters one still gets art for nearly
+    // everything from Steam and Epic above.
+    const gridArt = await fetchGridDbArt(name, dataStore.get().settings.steamGridDbApiKey)
+    if (gridArt.iconUrl || gridArt.coverUrl || gridArt.backgroundUrl) {
+      const [icon, cover, background] = await Promise.all([
+        gridArt.iconUrl ? downloadUsable(gridArt.iconUrl, 32) : Promise.resolve(null),
+        gridArt.coverUrl ? downloadUsable(gridArt.coverUrl, 100) : Promise.resolve(null),
+        gridArt.backgroundUrl ? downloadUsable(gridArt.backgroundUrl, 200) : Promise.resolve(null)
+      ])
+      if (icon || cover || background) {
+        return {
+          iconFile: icon ? await store(icon, paths.iconsDir(), ICON_MAX_DIMENSION) : null,
+          bgImage: background
+            ? await store(background, paths.backgroundsDir(), BACKGROUND_MAX_DIMENSION)
+            : null,
+          coverFile: cover ? await store(cover, paths.coversDir(), COVER_MAX_DIMENSION) : null,
+          genres: [],
+          source: 'steamgriddb'
+        }
+      }
+    }
+
     const iconFile = await iconFromExecutable(exePath)
     return {
       iconFile,

@@ -177,6 +177,8 @@
   "label_startup": "启动",
   "label_status": "状态",
   "label_status_snapshot": "于 {{date}} 设置 — 当时已玩 {{time}}。",
+  "label_steamgriddb_key": "SteamGridDB API 密钥",
+  "label_steamgriddb_key_note": "用于从 SteamGridDB 获取非 Steam 游戏的图标和背景。可选——其他功能无需此密钥。",
   "label_system_tray": "系统托盘",
   "label_table_size": "表格大小",
   "label_theme": "主题",

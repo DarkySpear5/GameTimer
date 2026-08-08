@@ -177,6 +177,8 @@
   "label_startup": "Autostart",
   "label_status": "Status",
   "label_status_snapshot": "Gesetzt am {{date}} — zu diesem Zeitpunkt {{time}} gespielt.",
+  "label_steamgriddb_key": "SteamGridDB-API-Schlüssel",
+  "label_steamgriddb_key_note": "Zum Abrufen von Symbolen und Hintergründen für Nicht-Steam-Spiele von SteamGridDB. Optional — alles andere funktioniert auch ohne.",
   "label_system_tray": "Infobereich",
   "label_table_size": "Tabellengröße",
   "label_theme": "Design",

@@ -177,6 +177,8 @@
   "label_startup": "スタートアップ",
   "label_status": "ステータス",
   "label_status_snapshot": "{{date}} に設定（その時点で {{time}} プレイ済み）",
+  "label_steamgriddb_key": "SteamGridDB APIキー",
+  "label_steamgriddb_key_note": "Steam以外のゲームのアイコンと背景をSteamGridDBから取得するために使います。任意です。",
   "label_system_tray": "システムトレイ",
   "label_table_size": "表のサイズ",
   "label_theme": "テーマ",

@@ -114,7 +114,10 @@ const SettingsSchema = z.object({
   extraGameFolders: z.array(z.string()).catch([]),
   // Per-launcher install folder, for a launcher whose games live somewhere the
   // automatic detection doesn't look. Scanned IN ADDITION to it, never instead.
-  launcherFolders: z.record(z.string(), z.string()).catch({})
+  launcherFolders: z.record(z.string(), z.string()).catch({}),
+  // The user's OWN SteamGridDB key. Empty = the feature is simply off. See the
+  // exception note at the top of art/steamGridDb.ts.
+  steamGridDbApiKey: z.string().catch('')
 })
 
 const AppDataSchema = z.object({

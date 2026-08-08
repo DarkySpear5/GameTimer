@@ -185,6 +185,8 @@
   "label_startup": "Автозапуск",
   "label_status": "Статус",
   "label_status_snapshot": "Установлено {{date}} — сыграно {{time}} на тот момент.",
+  "label_steamgriddb_key": "Ключ API SteamGridDB",
+  "label_steamgriddb_key_note": "Для загрузки значков и фонов не-Steam игр из SteamGridDB. Необязательно — всё остальное работает и без ключа.",
   "label_system_tray": "Системный трей",
   "label_table_size": "Размер таблицы",
   "label_theme": "Тема",

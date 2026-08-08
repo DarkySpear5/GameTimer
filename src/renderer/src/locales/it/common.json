@@ -177,6 +177,8 @@
   "label_startup": "Avvio",
   "label_status": "Stato",
   "label_status_snapshot": "Impostato il {{date}} — {{time}} giocate a quel momento.",
+  "label_steamgriddb_key": "Chiave API SteamGridDB",
+  "label_steamgriddb_key_note": "Per scaricare icone e sfondi dei giochi non Steam da SteamGridDB. Facoltativa: tutto il resto funziona senza.",
   "label_system_tray": "Area di notifica",
   "label_table_size": "Dimensione tabella",
   "label_theme": "Tema",

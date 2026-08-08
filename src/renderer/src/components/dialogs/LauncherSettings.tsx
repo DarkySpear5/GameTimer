@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useUiStore } from '../../state/uiStore'
+import { useSettingsStore, updateSettings } from '../../state/settingsStore'
 import type { GameSource } from '@shared/types'
 
 /**
@@ -32,6 +33,11 @@ export function LauncherSettings(): React.JSX.Element {
   const [launcherFolders, setLauncherFolders] = useState<Partial<Record<GameSource, string>>>({})
   const [extraFolders, setExtraFolders] = useState<string[]>([])
   const openDialog = useUiStore((s) => s.openDialog)
+  const storedKey = useSettingsStore((s) => s.settings?.steamGridDbApiKey ?? '')
+  // Local while typing, committed on blur — an API key is pasted in one go and
+  // saving per keystroke would write the file a few dozen times.
+  const [apiKey, setApiKey] = useState(storedKey)
+  useEffect(() => setApiKey(storedKey), [storedKey])
 
   const load = useCallback(async () => {
     const [launchers, extras] = await Promise.all([
@@ -106,6 +112,28 @@ export function LauncherSettings(): React.JSX.Element {
             </div>
           )
         })}
+      </div>
+
+      {/*
+       * The one place Gamut takes an API key, and it is the user's own. Every
+       * other art source is keyless; this one only runs once a key is entered,
+       * and covers the games Steam and Epic between them do not.
+       */}
+      <div className="flex flex-col gap-1 border-t border-card/60 pt-4">
+        <label className="text-xs text-subtext" htmlFor="sgdb-key">
+          {t('label_steamgriddb_key')}
+        </label>
+        <input
+          id="sgdb-key"
+          type="password"
+          value={apiKey}
+          onChange={(e) => setApiKey(e.target.value)}
+          onBlur={() => void updateSettings({ steamGridDbApiKey: apiKey.trim() })}
+          spellCheck={false}
+          autoComplete="off"
+          className="rounded bg-card px-2.5 py-1.5 text-sm text-text outline-none ring-1 ring-transparent focus:ring-accent"
+        />
+        <span className="text-xs text-subtext">{t('label_steamgriddb_key_note')}</span>
       </div>
 
       {/*

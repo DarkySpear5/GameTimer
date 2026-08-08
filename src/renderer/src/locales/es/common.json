@@ -177,6 +177,8 @@
   "label_startup": "Inicio",
   "label_status": "Estado",
   "label_status_snapshot": "Establecido el {{date}} — {{time}} jugado en ese momento.",
+  "label_steamgriddb_key": "Clave de API de SteamGridDB",
+  "label_steamgriddb_key_note": "Para obtener iconos y fondos de juegos que no son de Steam desde SteamGridDB. Opcional: todo lo demás funciona sin ella.",
   "label_system_tray": "Bandeja del sistema",
   "label_table_size": "Tamaño de la tabla",
   "label_theme": "Tema",
