@@ -375,6 +375,12 @@ function AppearanceTab({ profile }: { profile: Profile }): React.JSX.Element {
 function GenresTab({ profile }: { profile: Profile }): React.JSX.Element {
   const { t } = useTranslation()
   const [selected, setSelected] = useState<Set<string>>(new Set(profile.genres))
+  // Locked whenever the genres came from Steam/GOG rather than from the user,
+  // so a fetched set is not edited by accident. Unlockable on purpose: Steam's
+  // tags are good but not infallible, and being stuck with a wrong set would
+  // be worse than the accident this prevents.
+  const [unlocked, setUnlocked] = useState(false)
+  const locked = profile.genresFromDetection && !unlocked
 
   function toggle(genre: string): void {
     setSelected((prev) => {
@@ -392,20 +398,41 @@ function GenresTab({ profile }: { profile: Profile }): React.JSX.Element {
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="grid max-h-80 grid-cols-2 gap-1 overflow-y-auto">
+      {locked && (
+        <div className="flex items-center justify-between gap-3 rounded bg-card px-3 py-2">
+          <span className="text-xs text-subtext">{t('note_genres_fetched')}</span>
+          <button
+            onClick={() => setUnlocked(true)}
+            className="shrink-0 rounded bg-panel px-2.5 py-1 text-xs text-text hover:text-accent"
+          >
+            {t('btn_unlock_genres')}
+          </button>
+        </div>
+      )}
+      <div className={`grid max-h-80 grid-cols-2 gap-1 overflow-y-auto ${locked ? 'opacity-50' : ''}`}>
         {GENRE_OPTIONS.map((g) => (
-          <label key={g} className="flex items-center gap-2 rounded px-2 py-1 text-sm text-text hover:bg-card">
-            <input type="checkbox" checked={selected.has(g)} onChange={() => toggle(g)} />
+          <label
+            key={g}
+            className={`flex items-center gap-2 rounded px-2 py-1 text-sm text-text ${locked ? '' : 'hover:bg-card'}`}
+          >
+            <input
+              type="checkbox"
+              checked={selected.has(g)}
+              disabled={locked}
+              onChange={() => toggle(g)}
+            />
             {t(g, { ns: 'genres' })}
           </label>
         ))}
       </div>
-      <button
-        onClick={() => void apply()}
-        className="self-start rounded bg-accent px-4 py-1.5 text-sm font-medium text-bg hover:opacity-90"
-      >
-        {t('btn_assign')}
-      </button>
+      {!locked && (
+        <button
+          onClick={() => void apply()}
+          className="self-start rounded bg-accent px-4 py-1.5 text-sm font-medium text-bg hover:opacity-90"
+        >
+          {t('btn_assign')}
+        </button>
+      )}
     </div>
   )
 }

@@ -56,6 +56,14 @@ export interface Profile {
   openSeconds: number
   /** null = follow the global setting. */
   autoStartTimer: boolean | null
+  /**
+   * True when the genres were filled in from Steam/GOG rather than chosen by
+   * the user. The genre picker locks in that case so a fetched set is not
+   * edited by accident — there is an explicit Unlock, because Steam's genres
+   * are coarse (it reports DOOM Eternal as simply "Action") and being stuck
+   * with them would be worse than the accident.
+   */
+  genresFromDetection: boolean
 }
 
 export interface Settings {
@@ -73,6 +81,8 @@ export interface Settings {
   language: string
   /** Default for games whose own autoFetchArt is null. */
   autoFetchArt: boolean
+  /** Zoom multiplier for the Data tab only — its table is dense and reads small at 1x. */
+  dataTableScale: number
   /**
    * Poll for known game executables in the background. Off by default — it is
    * the only thing here with an ongoing cost, and launching from Gamut gives

@@ -4,9 +4,10 @@ import { join } from 'path'
 import { randomUUID } from 'crypto'
 import { paths } from '../store/paths'
 import { saveCappedImageBuffer } from '../util/imageResize'
-import { ICON_MAX_DIMENSION, BACKGROUND_MAX_DIMENSION, GENRE_OPTIONS } from '@shared/constants'
+import { ICON_MAX_DIMENSION, BACKGROUND_MAX_DIMENSION } from '@shared/constants'
 import { fetchArt, fetchGenres } from './steamArt'
 import { findGogGame } from './gogCatalog'
+import { mapTagsToGenres } from './genreMap'
 
 /**
  * One place that answers "what do we know about this game", trying sources in
@@ -27,26 +28,6 @@ export interface Enrichment {
   genres: string[]
   /** Which source actually produced something, for logging and the UI's benefit. */
   source: 'steam' | 'gog' | 'none'
-}
-
-/** GOG's tags are finer than Steam's; keep the ones Gamut actually has. */
-function mapGogGenres(names: string[]): string[] {
-  const known = new Map(GENRE_OPTIONS.map((g) => [g.toLowerCase(), g]))
-  const extra: Record<string, string> = {
-    'role-playing': 'RPG',
-    rpg: 'RPG',
-    shooter: 'Shooter',
-    'point-and-click': 'Adventure',
-    tactical: 'Strategy',
-    'turn-based': 'Turn-Based',
-    roguelike: 'Roguelike',
-    survival: 'Survival',
-    'hack and slash': 'Hack and Slash'
-  }
-  const out = names
-    .map((n) => known.get(n.trim().toLowerCase()) ?? extra[n.trim().toLowerCase()])
-    .filter((g): g is string => !!g)
-  return [...new Set(out)]
 }
 
 async function downloadUsable(url: string, minSide: number): Promise<Buffer | null> {
@@ -96,7 +77,7 @@ export async function enrichGame(name: string, steamAppId: number | null): Promi
   return {
     iconFile: icon ? await store(icon, paths.iconsDir(), ICON_MAX_DIMENSION) : null,
     bgImage: background ? await store(background, paths.backgroundsDir(), BACKGROUND_MAX_DIMENSION) : null,
-    genres: mapGogGenres(gog.genres),
+    genres: mapTagsToGenres(gog.genres),
     source: 'gog'
   }
 }

@@ -58,7 +58,8 @@ const ProfileSchema = z
     autoFetchArt: z.boolean().nullable().catch(null),
     launches: z.number().catch(0),
     openSeconds: z.number().catch(0),
-    autoStartTimer: z.boolean().nullable().catch(null)
+    autoStartTimer: z.boolean().nullable().catch(null),
+    genresFromDetection: z.boolean().catch(false)
   })
 
 const ThemeNameSchema = z
@@ -81,6 +82,7 @@ const SettingsSchema = z.object({
     .catch('All'),
   language: z.string().catch('en'),
   autoFetchArt: z.boolean().catch(true),
+  dataTableScale: z.number().catch(1.15),
   watchForGames: z.boolean().catch(false),
   autoStartTimer: z.boolean().catch(false)
 })

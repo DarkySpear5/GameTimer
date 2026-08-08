@@ -15,7 +15,7 @@ import {
 } from '@shared/constants'
 import type { Settings, ThemeColors, ThemeName } from '@shared/types'
 
-type Tab = 'general' | 'appearance' | 'ui' | 'language'
+type Tab = 'general' | 'games' | 'appearance' | 'language'
 
 const ROLE_KEYS: Record<keyof ThemeColors, string> = {
   bg: 'role_background',
@@ -35,8 +35,10 @@ export function SettingsDialog({ onClose }: { onClose: () => void }): React.JSX.
 
   const TABS: { id: Tab; label: string }[] = [
     { id: 'general', label: t('tab_general') },
+    // Everything about detecting and decorating games in one place — these
+    // were scattered across General before and read as unrelated switches.
+    { id: 'games', label: t('tab_games') },
     { id: 'appearance', label: t('tab_appearance') },
-    { id: 'ui', label: t('tab_ui') },
     { id: 'language', label: t('tab_language') }
   ]
 
@@ -73,6 +75,11 @@ export function SettingsDialog({ onClose }: { onClose: () => void }): React.JSX.
             checked={settings.checkForUpdates}
             onChange={(v) => void updateSettings({ checkForUpdates: v })}
           />
+        </div>
+      )}
+
+      {tab === 'games' && (
+        <div className="flex flex-col gap-3">
           {/*
            * The default for every game that hasn't set its own preference —
            * turning this off stops art being fetched for games added from now
@@ -101,9 +108,17 @@ export function SettingsDialog({ onClose }: { onClose: () => void }): React.JSX.
         </div>
       )}
 
-      {tab === 'appearance' && <AppearanceTab settings={settings} />}
-
-      {tab === 'ui' && <UiTab settings={settings} />}
+      {tab === 'appearance' && (
+        <div className="flex flex-col gap-6">
+          <AppearanceTab settings={settings} />
+          {/* The old separate "UI" tab — same controls, one level down, since
+              theme and text size are the same question to a user. */}
+          <div className="border-t border-card pt-5">
+            <div className="mb-3 text-xs font-medium tracking-wide text-subtext">{t('tab_ui')}</div>
+            <UiTab settings={settings} />
+          </div>
+        </div>
+      )}
 
       {tab === 'language' && (
         <div className="grid grid-cols-2 gap-1.5">
@@ -134,7 +149,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }): React.JSX.
 function UiTab({
   settings
 }: {
-  settings: Pick<Settings, 'fontFamily' | 'fontScale' | 'iconSize'>
+  settings: Pick<Settings, 'fontFamily' | 'fontScale' | 'iconSize' | 'dataTableScale'>
 }): React.JSX.Element {
   const { t } = useTranslation()
   const [allFonts, setAllFonts] = useState<string[]>(FONT_CHOICES)
@@ -189,6 +204,19 @@ function UiTab({
           ))}
           {filtered.length === 0 && <div className="px-2.5 py-2 text-xs text-subtext">—</div>}
         </div>
+      </div>
+      <div>
+        <label className="mb-1 block text-xs text-subtext">{t('label_table_size')}</label>
+        <select
+          value={settings.dataTableScale}
+          onChange={(e) => void updateSettings({ dataTableScale: parseFloat(e.target.value) })}
+          className="w-full rounded bg-card px-2.5 py-1.5 text-sm text-text outline-none"
+        >
+          <option value={1}>{t('size_small')}</option>
+          <option value={1.15}>{t('size_medium')}</option>
+          <option value={1.35}>{t('size_large')}</option>
+          <option value={1.6}>{t('size_xl')}</option>
+        </select>
       </div>
       <div>
         <label className="mb-1 block text-xs text-subtext">{t('label_icon_size')}</label>

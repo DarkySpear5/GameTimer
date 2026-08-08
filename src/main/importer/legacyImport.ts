@@ -93,7 +93,8 @@ function normalizeLegacyProfile(name: string, raw: LegacyProfileRaw): Profile {
     autoFetchArt: null,
     launches: 0,
     openSeconds: 0,
-    autoStartTimer: null
+    autoStartTimer: null,
+    genresFromDetection: false
   }
 }
 
@@ -114,7 +115,8 @@ function normalizeLegacySettings(raw: Record<string, unknown> | undefined): Sett
     language: (raw?.language as string) ?? 'en',
     autoFetchArt: true, // v1 has no equivalent concept — default on, same as a fresh install
     watchForGames: false,
-    autoStartTimer: false
+    autoStartTimer: false,
+    dataTableScale: 1.15
   }
 }
 

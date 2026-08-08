@@ -5,6 +5,7 @@ import { randomUUID } from 'crypto'
 import { paths } from '../store/paths'
 import { saveCappedImageBuffer } from '../util/imageResize'
 import { ICON_MAX_DIMENSION, BACKGROUND_MAX_DIMENSION } from '@shared/constants'
+import { mapTagsToGenres } from './genreMap'
 import type { GameSearchHit } from '@shared/types'
 
 /**
@@ -16,6 +17,7 @@ import type { GameSearchHit } from '@shared/types'
  */
 const SEARCH_URL = 'https://steamcommunity.com/actions/SearchApps/'
 const STORE_API = 'https://store.steampowered.com/api/appdetails'
+const STEAMSPY_API = 'https://steamspy.com/api.php'
 const CDN = 'https://cdn.cloudflare.steamstatic.com/steam/apps'
 
 interface RawHit {
@@ -158,43 +160,40 @@ export async function fetchArt(appId: number, name?: string): Promise<FetchedArt
   }
 }
 
-/**
- * Steam's own genre list for a game, mapped onto Gamut's tags. Keyless, and
- * `filters=genres` keeps the response tiny — the unfiltered one includes the
- * entire store description.
- *
- * Steam's genres are much coarser than Gamut's 51 tags, so this fills in the
- * broad strokes and leaves the specific ones to the user. Anything with no
- * sensible equivalent is dropped rather than approximated.
- */
-const GENRE_MAP: Record<string, string> = {
-  action: 'Action',
-  adventure: 'Adventure',
-  rpg: 'RPG',
-  'role-playing': 'RPG',
-  strategy: 'Strategy',
-  simulation: 'Simulation',
-  sports: 'Sports',
-  racing: 'Racing',
-  casual: 'Casual',
-  'massively multiplayer': 'MMO',
-  violent: 'Gore',
-  gore: 'Gore',
-  'sexual content': 'Adult',
-  nudity: 'Adult'
-}
-
-export async function fetchGenres(appId: number): Promise<string[]> {
+/** Steam's user tags, ranked by how many players applied them. Keyless. */
+async function fetchSteamSpyTags(appId: number): Promise<string[]> {
   try {
-    const res = await net.fetch(`${STORE_API}?appids=${appId}&filters=genres`)
+    const res = await net.fetch(`${STEAMSPY_API}?request=appdetails&appid=${appId}`)
     if (!res.ok) return []
-    const raw = (await res.json()) as Record<string, { success?: boolean; data?: { genres?: { description?: string }[] } }>
-    const genres = raw[String(appId)]?.data?.genres ?? []
-    const mapped = genres
-      .map((g) => GENRE_MAP[(g.description ?? '').trim().toLowerCase()])
-      .filter((g): g is string => !!g)
-    return [...new Set(mapped)]
+    const raw = (await res.json()) as { tags?: Record<string, number> | unknown[] }
+    // An untagged game returns an empty ARRAY here rather than an empty object.
+    return Array.isArray(raw.tags) ? [] : Object.keys(raw.tags ?? {})
   } catch {
     return []
   }
+}
+
+/** Steam's store genres. Coarse — DOOM Eternal is just "Action" — so only a fallback. */
+async function fetchStoreGenres(appId: number): Promise<string[]> {
+  try {
+    const res = await net.fetch(`${STORE_API}?appids=${appId}&filters=genres`)
+    if (!res.ok) return []
+    const raw = (await res.json()) as Record<string, { data?: { genres?: { description?: string }[] } }>
+    return (raw[String(appId)]?.data?.genres ?? []).map((g) => g.description ?? '').filter(Boolean)
+  } catch {
+    return []
+  }
+}
+
+/**
+ * User tags first, store genres second. The difference is not marginal:
+ * store genres call DOOM Eternal "Action" and nothing else, while its user
+ * tags are FPS, Action, Gore, Shooter, Sci-fi — the same words a person would
+ * pick, and the same vocabulary Gamut's genre list already uses.
+ */
+export async function fetchGenres(appId: number): Promise<string[]> {
+  const tags = await fetchSteamSpyTags(appId)
+  const fromTags = mapTagsToGenres(tags)
+  if (fromTags.length > 0) return fromTags
+  return mapTagsToGenres(await fetchStoreGenres(appId))
 }

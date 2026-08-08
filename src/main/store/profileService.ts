@@ -32,7 +32,8 @@ function freshProfile(name: string): Profile {
     autoFetchArt: null,
     launches: 0,
     openSeconds: 0,
-    autoStartTimer: null
+    autoStartTimer: null,
+    genresFromDetection: false
   }
 }
 
@@ -166,7 +167,8 @@ export const profileService = {
       // Counters are the copy's own from zero: it has never been launched.
       launches: 0,
       openSeconds: 0,
-      autoStartTimer: original.autoStartTimer
+      autoStartTimer: original.autoStartTimer,
+      genresFromDetection: original.genresFromDetection
     }
     data.profiles[newName] = copy
     await dataStore.safeSave()
@@ -224,7 +226,10 @@ export const profileService = {
       if (found.iconFile) profile.iconFile = found.iconFile
       if (found.bgImage) profile.bgImage = found.bgImage
       // Only ever fills an empty list — never overwrites tags the user chose.
-      if (found.genres.length > 0 && profile.genres.length === 0) profile.genres = found.genres
+      if (found.genres.length > 0 && profile.genres.length === 0) {
+        profile.genres = found.genres
+        profile.genresFromDetection = true
+      }
     }
 
     await dataStore.safeSave()
@@ -244,7 +249,10 @@ export const profileService = {
       profile.bgImage = found.bgImage
       profile.bgColor = null
     }
-    if (found.genres.length > 0 && profile.genres.length === 0) profile.genres = found.genres
+    if (found.genres.length > 0 && profile.genres.length === 0) {
+      profile.genres = found.genres
+      profile.genresFromDetection = true
+    }
     await dataStore.safeSave()
     return profile
   },
@@ -282,6 +290,8 @@ export const profileService = {
 
   async setGenres(name: string, genres: string[]): Promise<Profile> {
     const profile = requireProfile(name)
+    // Editing at all means the set is the user's now, not the fetcher's.
+    profile.genresFromDetection = false
     profile.genres = genres
     await dataStore.safeSave()
     return profile

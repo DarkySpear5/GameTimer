@@ -1,7 +1,9 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useProfilesStore } from '../../state/profilesStore'
+import { useSettingsStore } from '../../state/settingsStore'
 import { useUiStore, type DataSort, type DataSortKey } from '../../state/uiStore'
+import { ContextMenu } from '../common/ContextMenu'
 import { formatSeconds } from '@shared/format'
 import type { Profile, Status } from '@shared/types'
 
@@ -55,6 +57,12 @@ export function DataTab(): React.JSX.Element {
   const profiles = useProfilesStore((s) => s.profiles)
   const sort = useUiStore((s) => s.dataSort)
   const setDataSort = useUiStore((s) => s.setDataSort)
+  const openDialog = useUiStore((s) => s.openDialog)
+  const scale = useSettingsStore((s) => s.settings?.dataTableScale ?? 1.15)
+  // Its own menu rather than the sidebar's shared one: the actions that make
+  // sense on a table row are a subset, and reusing that state would fight the
+  // sidebar's selection.
+  const [menu, setMenu] = useState<{ x: number; y: number; name: string } | null>(null)
 
   const STATUS_LABELS = useMemo<Record<Status, string>>(
     () => ({
@@ -96,7 +104,7 @@ export function DataTab(): React.JSX.Element {
   const completedCount = list.filter((p) => p.status === 'completed').length
 
   return (
-    <div className="flex-1 overflow-y-auto px-6 py-5">
+    <div className="flex-1 overflow-y-auto px-6 py-5" style={{ zoom: scale }}>
       <div className="mb-5 text-lg font-semibold text-text">{t('stats_title')}</div>
       <div className="mb-5 flex gap-4">
         <StatCard label={t('stat_total_time')} value={formatSeconds(totalSeconds)} />
@@ -127,7 +135,14 @@ export function DataTab(): React.JSX.Element {
             {list.map((p, i) => {
               const isCompleted = p.status === 'completed'
               return (
-                <tr key={p.name} className={i % 2 === 0 ? 'bg-panel' : 'bg-card/40'}>
+                <tr
+                  key={p.name}
+                  onContextMenu={(e) => {
+                    e.preventDefault()
+                    setMenu({ x: e.clientX, y: e.clientY, name: p.name })
+                  }}
+                  className={`cursor-context-menu ${i % 2 === 0 ? 'bg-panel' : 'bg-card/40'}`}
+                >
                   <td className="px-3 py-2 text-text">
                     <div className="flex items-center gap-2">
                       {p.iconFile ? (
@@ -172,6 +187,19 @@ export function DataTab(): React.JSX.Element {
         </table>
         {list.length === 0 && <div className="p-6 text-center text-sm text-subtext">{t('empty_no_games')}</div>}
       </div>
+
+      {menu && (
+        <ContextMenu
+          x={menu.x}
+          y={menu.y}
+          onClose={() => setMenu(null)}
+          items={[
+            { label: t('ctx_info'), onClick: () => openDialog('info', menu.name) },
+            { label: t('ctx_modify'), onClick: () => openDialog('modify', menu.name) },
+            { label: t('ctx_notes'), onClick: () => openDialog('notes', menu.name) }
+          ]}
+        />
+      )}
     </div>
   )
 }

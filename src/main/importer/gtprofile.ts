@@ -141,7 +141,8 @@ export async function importProfile(win: BrowserWindow): Promise<Profile | null>
     // the exporting PC, not the game's history.
     launches: 0,
     openSeconds: 0,
-    autoStartTimer: null
+    autoStartTimer: null,
+    genresFromDetection: false
   }
 
   data.profiles[name] = profile
