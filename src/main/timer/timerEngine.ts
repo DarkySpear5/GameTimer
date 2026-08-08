@@ -3,6 +3,7 @@ import { writeStatusLog } from '../statusLog/writeStatusLog'
 import { backupService } from '../backup/backupService'
 import { todayDateString } from '../util/date'
 import { UI_TICK_MS, CHECKPOINT_MS, STATUS_LOG_MS } from '@shared/constants'
+import { makeSessionEntry } from '@shared/sessionStats'
 import type { TimerTickPayload } from '@shared/ipcContract'
 
 type TickListener = (payload: TimerTickPayload) => void
@@ -17,6 +18,13 @@ type TickListener = (payload: TimerTickPayload) => void
  */
 class TimerEngine {
   private activeTimers = new Map<string, number>()
+  /**
+   * name -> the Date.now() when Play was pressed. Deliberately separate from
+   * activeTimers: that map's values get rewritten every 5s by checkpointAll()
+   * so elapsed time can be committed without stopping the clock, which would
+   * silently restart the session on every checkpoint if the two shared a map.
+   */
+  private sessionStarts = new Map<string, number>()
   private lastCheckpoint = Date.now()
   private lastStatusLog = Date.now()
   private lastBackupDay = ''
@@ -37,12 +45,15 @@ class TimerEngine {
     if (profile.status === 'dropped' || profile.status === 'on_hold') {
       // Pressing Play is the natural "I'm actually playing this again"
       // signal — Completed survives replay, but a stale Dropped/On Hold
-      // label doesn't (matches v1's _start_profile exactly).
+      // label doesn't (matches v1's _start_profile exactly). The
+      // statusAt/statusSeconds snapshot deliberately stays, matching
+      // profileService.setStatus since v2.1.12 — that record is only ever
+      // destroyed by the explicit Clear action, never as a side effect of
+      // something else. This was the last path that still wiped it.
       profile.status = 'in_progress'
-      profile.statusAt = null
-      profile.statusSeconds = null
     }
     this.activeTimers.set(name, Date.now())
+    this.sessionStarts.set(name, Date.now())
     profile.lastPlayed = Date.now()
     if (!profile.startedDate) {
       profile.startedDate = todayDateString()
@@ -54,10 +65,15 @@ class TimerEngine {
     const tickStart = this.activeTimers.get(name)
     if (tickStart === undefined) return
     this.activeTimers.delete(name)
+    const sessionStart = this.sessionStarts.get(name)
+    this.sessionStarts.delete(name)
     try {
       const profile = dataStore.get().profiles[name]
       if (profile) {
         profile.seconds += (Date.now() - tickStart) / 1000
+        if (sessionStart !== undefined) {
+          profile.sessionLog.push(makeSessionEntry(sessionStart, Date.now()))
+        }
       }
       void dataStore.save()
       void writeStatusLog()
@@ -100,11 +116,18 @@ class TimerEngine {
       this.activeTimers.delete(oldName)
       this.activeTimers.set(newName, start)
     }
+    // Carried across too, or renaming mid-session silently discards it.
+    const sessionStart = this.sessionStarts.get(oldName)
+    if (sessionStart !== undefined) {
+      this.sessionStarts.delete(oldName)
+      this.sessionStarts.set(newName, sessionStart)
+    }
   }
 
   /** Drops a profile's timer without committing — used right before it's deleted. */
   stopActive(name: string): void {
     this.activeTimers.delete(name)
+    this.sessionStarts.delete(name)
   }
 
   /** Restarts tick_start without corrupting a running session — used by Reset Time. */
