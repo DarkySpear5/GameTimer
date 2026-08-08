@@ -133,18 +133,18 @@ function game(name, seconds, extra = {}) {
   await win.screenshot({ path: path.join(SHOTS, '03-library-list.png') })
   check('list still shows every game', (await tileNames()).length, 3)
 
-  console.log('\n=== the Timer tab still works, with its own list ===')
-  await win.locator('button:has-text("Timer")').first().click()
+  console.log('\n=== the Timer tab is gone (punchlist C1) ===')
+  // Library already shows a game's clock on its detail page, so a whole tab for
+  // the same job was redundant. Its absence is the assertion.
+  check('no Timer tab', await win.locator('button:has-text("Timer")').count(), 0)
+  check('Library, Stats and About remain', await win.locator('button:has-text("Library")').count(), 1)
+
+  console.log('\n=== Library search narrows the grid ===')
+  await win.locator('input[type="search"]').fill('beta')
   await win.waitForTimeout(400)
-  await win.screenshot({ path: path.join(SHOTS, '04-timer.png') })
-  check(
-    'timer tab shows the empty-selection prompt',
-    await win.locator('text=No profile selected').first().isVisible(),
-    true
-  )
-  // Library owns browsing, so the Timer sidebar has no sort/filter controls of
-  // its own — it is a switcher, not a second place to manage the collection.
-  check('timer sidebar has no dropdowns', await win.locator('aside select, .bg-panel select').count(), 0)
+  check('search filters to one game', await tileNames(), ['Beta Run'])
+  await win.locator('input[type="search"]').fill('')
+  await win.waitForTimeout(400)
 
   console.log('\n=== Stats tab renders with the renamed column ===')
   await win.locator('button:has-text("Stats")').first().click()
