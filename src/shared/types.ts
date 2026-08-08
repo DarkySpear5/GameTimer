@@ -1,6 +1,6 @@
 import type { SessionAggregate, SessionEntry } from './sessionStats'
 
-export type Status = 'in_progress' | 'completed' | 'dropped' | 'on_hold'
+export type Status = 'not_started' | 'in_progress' | 'completed' | 'dropped' | 'on_hold'
 
 export type SortMode =
   | 'name'

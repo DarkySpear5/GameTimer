@@ -225,6 +225,7 @@
   "status_completed": "Terminé",
   "status_dropped": "Abandonné",
   "status_in_progress": "En cours",
+  "status_not_started": "Pas commencé",
   "status_on_hold": "En pause",
   "status_paused": "En pause",
   "status_tracking": "Chronométrage en cours…",

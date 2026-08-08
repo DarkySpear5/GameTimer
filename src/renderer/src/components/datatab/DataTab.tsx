@@ -70,7 +70,8 @@ export function DataTab(): React.JSX.Element {
 
   const STATUS_LABELS = useMemo<Record<Status, string>>(
     () => ({
-      in_progress: t('status_in_progress'),
+      not_started: t('status_not_started'),
+    in_progress: t('status_in_progress'),
       completed: t('status_completed'),
       dropped: t('status_dropped'),
       on_hold: t('status_on_hold')

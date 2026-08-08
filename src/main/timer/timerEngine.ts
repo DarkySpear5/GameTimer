@@ -42,7 +42,7 @@ class TimerEngine {
   start(name: string): void {
     const profile = dataStore.get().profiles[name]
     if (!profile) return
-    if (profile.status === 'dropped' || profile.status === 'on_hold') {
+    if (profile.status === 'not_started' || profile.status === 'dropped' || profile.status === 'on_hold') {
       // Pressing Play is the natural "I'm actually playing this again"
       // signal — Completed survives replay, but a stale Dropped/On Hold
       // label doesn't (matches v1's _start_profile exactly). The

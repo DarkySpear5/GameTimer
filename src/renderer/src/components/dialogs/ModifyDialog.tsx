@@ -82,6 +82,7 @@ function GeneralTab({ profile, onClose }: { profile: Profile; onClose: () => voi
   }
 
   const STATUS_OPTIONS: { value: Status; label: string }[] = [
+    { value: 'not_started', label: t('status_not_started') },
     { value: 'in_progress', label: t('status_in_progress') },
     { value: 'completed', label: t('status_completed') },
     { value: 'dropped', label: t('status_dropped') },

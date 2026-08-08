@@ -225,6 +225,7 @@
   "status_completed": "Abgeschlossen",
   "status_dropped": "Abgebrochen",
   "status_in_progress": "In Bearbeitung",
+  "status_not_started": "Nicht begonnen",
   "status_on_hold": "Pausiert",
   "status_paused": "Pausiert",
   "status_tracking": "Zeit wird erfasst…",

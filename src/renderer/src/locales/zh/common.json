@@ -225,6 +225,7 @@
   "status_completed": "已完成",
   "status_dropped": "已弃坑",
   "status_in_progress": "进行中",
+  "status_not_started": "未开始",
   "status_on_hold": "搁置",
   "status_paused": "已暂停",
   "status_tracking": "计时中…",

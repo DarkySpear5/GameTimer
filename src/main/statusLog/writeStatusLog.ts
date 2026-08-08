@@ -6,6 +6,7 @@ import { timestampString } from '../util/date'
 import type { Status } from '@shared/types'
 
 const STATUS_LABELS: Partial<Record<Status, string>> = {
+  not_started: 'Not Started',
   completed: 'Completed',
   dropped: 'Dropped',
   on_hold: 'On Hold'

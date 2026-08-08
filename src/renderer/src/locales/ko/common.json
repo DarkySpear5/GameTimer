@@ -225,6 +225,7 @@
   "status_completed": "완료됨",
   "status_dropped": "중단함",
   "status_in_progress": "진행 중",
+  "status_not_started": "시작 안 함",
   "status_on_hold": "보류",
   "status_paused": "일시정지됨",
   "status_tracking": "시간 측정 중…",

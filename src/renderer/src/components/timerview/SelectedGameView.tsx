@@ -24,6 +24,7 @@ export function SelectedGameView(): React.JSX.Element {
   const running = useTimerStore((s) => s.running)
 
   const STATUS_LABEL: Record<Status, string> = {
+    not_started: t('status_not_started'),
     in_progress: t('status_paused'),
     completed: t('status_completed'),
     dropped: t('status_dropped'),

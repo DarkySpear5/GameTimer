@@ -12,7 +12,7 @@ import { emptyAggregate } from '@shared/sessionStats'
 import { DEFAULT_CUSTOM_COLORS, THEME_ORDER, ICON_MAX_DIMENSION, BACKGROUND_MAX_DIMENSION } from '@shared/constants'
 import type { LegacyDetectResult, Profile, Settings, Status } from '@shared/types'
 
-const VALID_STATUSES: Status[] = ['in_progress', 'completed', 'dropped', 'on_hold']
+const VALID_STATUSES: Status[] = ['not_started', 'in_progress', 'completed', 'dropped', 'on_hold']
 
 /**
  * v1's on-disk shape is snake_case and, even after v1's own load_data()

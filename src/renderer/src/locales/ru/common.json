@@ -233,6 +233,7 @@
   "status_completed": "Завершено",
   "status_dropped": "Брошено",
   "status_in_progress": "В процессе",
+  "status_not_started": "Не начата",
   "status_on_hold": "Отложено",
   "status_paused": "На паузе",
   "status_tracking": "Идёт отсчёт времени…",

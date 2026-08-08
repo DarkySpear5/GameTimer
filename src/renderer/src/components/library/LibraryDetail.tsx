@@ -57,6 +57,7 @@ export function LibraryDetail({ name }: { name: string }): React.JSX.Element {
   const canLaunch = profile.steamAppId != null || !!profile.exePath
 
   const STATUS_LABEL: Record<Status, string> = {
+    not_started: t('status_not_started'),
     in_progress: t('status_in_progress'),
     completed: t('status_completed'),
     dropped: t('status_dropped'),

@@ -159,6 +159,7 @@ export function LibraryBrowse(): React.JSX.Element {
   const running = useTimerStore((s) => (sortMode === 'playtime' ? s.running : EMPTY_RUNNING))
 
   const STATUS_LABEL: Record<Status, string> = {
+    not_started: t('status_not_started'),
     in_progress: t('status_in_progress'),
     completed: t('status_completed'),
     dropped: t('status_dropped'),

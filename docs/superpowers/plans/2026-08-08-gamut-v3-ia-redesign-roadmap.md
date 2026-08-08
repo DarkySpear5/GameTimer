@@ -629,6 +629,26 @@ its own sort control or simply follows Library's — it should follow, since one
 `sortMode` setting driving two views is one concept instead of two, and the
 Timer list is for switching between a handful of games, not browsing.
 
+### 9.6b "Not Started" status — added by the user, 2026-08-08
+
+A fifth status, `not_started`, sitting before `in_progress` everywhere statuses
+are listed. Asked for after trying the build.
+
+**Newly created games default to it**, which is the point: a game you have just
+added — or that the §9.4 scan just imported at zero playtime — has not been
+played, and calling it "In Progress" was a small lie the Library made 10 times
+over on first run.
+
+Two details that make it behave rather than just exist:
+- **Pressing Play promotes it to In Progress.** `timerEngine.start()` already
+  did exactly this for Dropped and On Hold ("pressing Play is the natural I'm
+  actually playing this signal"); `not_started` is the same case and the most
+  obvious one. Without this a game would sit at "Not Started" while you played
+  it, which reads as a bug.
+- **The zod `.catch()` default deliberately stays `in_progress`.** An existing
+  save with a corrupt status must keep behaving as it always has, not silently
+  claim the game was never played. Only *new* profiles start at `not_started`.
+
 ### 9.7 Remaining smaller items
 - Nothing else is outstanding from the user's earlier requests. Everything else
   previously asked for is built (§4).

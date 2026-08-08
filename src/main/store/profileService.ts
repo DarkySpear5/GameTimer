@@ -19,7 +19,10 @@ function freshProfile(name: string): Profile {
     iconFile: null,
     bgColor: null,
     bgImage: null,
-    status: 'in_progress',
+    // A game you have just added has not been played yet, and saying so is
+    // more honest than calling it In Progress. Pressing Play promotes it —
+    // see timerEngine.start, which already did this for Dropped/On Hold.
+    status: 'not_started',
     statusAt: null,
     statusSeconds: null,
     genres: [],

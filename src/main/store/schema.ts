@@ -9,7 +9,7 @@ import type { AppData } from '@shared/types'
  * silently falls back to its default instead of failing the whole load.
  */
 const StatusSchema = z
-  .enum(['in_progress', 'completed', 'dropped', 'on_hold'])
+  .enum(['not_started', 'in_progress', 'completed', 'dropped', 'on_hold'])
   .catch('in_progress')
 
 const ThemeColorsSchema = z
@@ -97,7 +97,7 @@ const SettingsSchema = z.object({
     .catch('name'),
   genreFilter: z.string().catch('All'),
   statusFilter: z
-    .union([z.literal('All'), z.enum(['in_progress', 'completed', 'dropped', 'on_hold'])])
+    .union([z.literal('All'), z.enum(['not_started', 'in_progress', 'completed', 'dropped', 'on_hold'])])
     .catch('All'),
   language: z.string().catch('en'),
   autoFetchArt: z.boolean().catch(true),

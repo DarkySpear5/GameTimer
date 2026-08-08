@@ -34,3 +34,28 @@ describe('sessionLog schema', () => {
     expect(freshAppData().profiles).toEqual({})
   })
 })
+
+describe('status schema', () => {
+  it('accepts the not_started status added in v3', () => {
+    const data = parseAppData({ profiles: { Doom: { name: 'Doom', status: 'not_started' } } })
+    expect(data.profiles.Doom.status).toBe('not_started')
+  })
+
+  it.each(['in_progress', 'completed', 'dropped', 'on_hold'] as const)('still accepts %s', (status) => {
+    const data = parseAppData({ profiles: { Doom: { name: 'Doom', status } } })
+    expect(data.profiles.Doom.status).toBe(status)
+  })
+
+  // The .catch default deliberately stays in_progress rather than moving to
+  // not_started: an existing save with a corrupt status should keep behaving
+  // exactly as it always has, not silently claim the game was never played.
+  it('falls back to in_progress for an unknown status', () => {
+    const data = parseAppData({ profiles: { Doom: { name: 'Doom', status: 'abandoned' } } })
+    expect(data.profiles.Doom.status).toBe('in_progress')
+  })
+
+  it('lets not_started be used as a status filter', () => {
+    const data = parseAppData({ profiles: {}, settings: { statusFilter: 'not_started' } })
+    expect(data.settings.statusFilter).toBe('not_started')
+  })
+})

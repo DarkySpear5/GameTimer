@@ -225,6 +225,7 @@
   "status_completed": "クリア済み",
   "status_dropped": "中断",
   "status_in_progress": "プレイ中",
+  "status_not_started": "未プレイ",
   "status_on_hold": "保留",
   "status_paused": "一時停止中",
   "status_tracking": "計測中…",
