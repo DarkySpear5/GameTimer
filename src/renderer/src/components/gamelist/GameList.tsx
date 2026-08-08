@@ -237,6 +237,7 @@ export function GameList(): React.JSX.Element {
 
   function menuItemsFor(name: string): ContextMenuItem[] {
     return [
+      { label: t('ctx_info'), onClick: () => openDialog('info', name) },
       { label: t('ctx_modify'), onClick: () => openDialog('modify', name) },
       { label: t('ctx_duplicate'), onClick: () => void handleDuplicate(name) },
       { label: t('ctx_reset_time'), onClick: () => void handleResetTime(name) },

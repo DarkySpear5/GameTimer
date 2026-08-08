@@ -8,6 +8,7 @@ import { AboutTab } from './components/about/AboutTab'
 import { ModifyDialog } from './components/dialogs/ModifyDialog'
 import { NotesDialog } from './components/dialogs/NotesDialog'
 import { SettingsDialog } from './components/dialogs/SettingsDialog'
+import { GameInfoDialog } from './components/dialogs/GameInfoDialog'
 import { LegacyImportPrompt } from './components/dialogs/LegacyImportPrompt'
 import { UpdatePrompt } from './components/dialogs/UpdatePrompt'
 import { ToastHost } from './components/common/Toast'
@@ -78,6 +79,7 @@ function App(): React.JSX.Element {
       {dialog === 'modify' && dialogTarget && <ModifyDialog name={dialogTarget} onClose={closeDialog} />}
       {dialog === 'notes' && dialogTarget && <NotesDialog name={dialogTarget} onClose={closeDialog} />}
       {dialog === 'settings' && <SettingsDialog onClose={closeDialog} />}
+      {dialog === 'info' && dialogTarget && <GameInfoDialog name={dialogTarget} onClose={closeDialog} />}
 
       <LegacyImportPrompt />
       <UpdatePrompt />
