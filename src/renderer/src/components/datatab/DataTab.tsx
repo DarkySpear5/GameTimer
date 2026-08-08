@@ -104,7 +104,15 @@ export function DataTab(): React.JSX.Element {
   const completedCount = list.filter((p) => p.status === 'completed').length
 
   return (
-    <div className="flex-1 overflow-y-auto px-6 py-5" style={{ zoom: scale }}>
+    <div className="flex-1 overflow-y-auto">
+      {/*
+       * The zoom lives on this inner wrapper, NOT the scroll container, and
+       * the context menu below sits deliberately outside it. CSS zoom scales
+       * its descendants' coordinate system — including position:fixed — so a
+       * menu placed at a click's viewport Y while inside a zoomed element
+       * renders 15% further down the page than the cursor.
+       */}
+      <div className="px-6 py-5" style={{ zoom: scale }}>
       <div className="mb-5 text-lg font-semibold text-text">{t('stats_title')}</div>
       <div className="mb-5 flex gap-4">
         <StatCard label={t('stat_total_time')} value={formatSeconds(totalSeconds)} />
@@ -190,6 +198,7 @@ export function DataTab(): React.JSX.Element {
 
       {/* Right-clicking is invisible until someone tries it, and nobody tries it. */}
       {list.length > 0 && <div className="mt-2 text-xs text-subtext">{t('hint_right_click')}</div>}
+      </div>
 
       {menu && (
         <ContextMenu
