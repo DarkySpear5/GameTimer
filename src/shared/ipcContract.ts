@@ -92,7 +92,9 @@ export const IPC = {
     setAutoStartTimer: 'detect:setAutoStartTimer',
     classify: 'detect:classify',
     artOptions: 'detect:artOptions',
-    setArtFromUrl: 'detect:setArtFromUrl'
+    setArtFromUrl: 'detect:setArtFromUrl',
+    link: 'detect:link',
+    unlink: 'detect:unlink'
   }
 } as const
 
@@ -196,6 +198,9 @@ export interface GameTimerApi {
     artOptions(name: string, steamAppId: number | null): Promise<ArtOptions>
     /** Downloads the chosen image and makes it this game's icon or background. */
     setArtFromUrl(name: string, kind: 'icon' | 'background', url: string): Promise<Profile>
+    /** Attaches an .exe to an existing game so it can be detected and launched. */
+    link(name: string, exePath: string, steamAppId: number | null): Promise<Profile>
+    unlink(name: string): Promise<Profile>
   }
 }
 

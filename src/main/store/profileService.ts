@@ -205,6 +205,43 @@ export const profileService = {
   },
 
   /**
+   * Links an executable to a game that already exists — the route for a
+   * manually added game to become auto-detectable without being re-created and
+   * losing its playtime, sessions and completion record.
+   *
+   * Art and genres are only filled in where they are missing, so linking never
+   * overwrites choices already made.
+   */
+  async linkExecutable(name: string, exePath: string, steamAppId: number | null): Promise<Profile> {
+    const profile = requireProfile(name)
+    profile.exePath = exePath
+    profile.steamAppId = steamAppId
+
+    const wantsArt = profile.autoFetchArt ?? dataStore.get().settings.autoFetchArt
+    if (wantsArt && (!profile.iconFile || !profile.bgImage || profile.genres.length === 0)) {
+      const found = await enrichGame(profile.name, steamAppId)
+      if (found.iconFile && !profile.iconFile) profile.iconFile = found.iconFile
+      if (found.bgImage && !profile.bgImage) profile.bgImage = found.bgImage
+      if (found.genres.length > 0 && profile.genres.length === 0) {
+        profile.genres = found.genres
+        profile.genresFromDetection = true
+      }
+    }
+
+    await dataStore.safeSave()
+    return profile
+  },
+
+  /** Detaches the executable. The game keeps everything else, including its art. */
+  async unlinkExecutable(name: string): Promise<Profile> {
+    const profile = requireProfile(name)
+    profile.exePath = null
+    profile.steamAppId = null
+    await dataStore.safeSave()
+    return profile
+  },
+
+  /**
    * Creates a game from the Add Game picker: links the executable, caches the
    * resolved appid, and pulls cover/background art if this game (or, when it
    * has no preference of its own, the global setting) allows it.

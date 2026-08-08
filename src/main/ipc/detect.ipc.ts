@@ -33,6 +33,10 @@ export function registerDetectIpc(): void {
     (_e, name: string, kind: 'icon' | 'background', url: string) =>
       profileService.setArtFromUrl(name, kind, url)
   )
+  ipcMain.handle(IPC.detect.link, (_e, name: string, exePath: string, steamAppId: number | null) =>
+    profileService.linkExecutable(name, exePath, steamAppId)
+  )
+  ipcMain.handle(IPC.detect.unlink, (_e, name: string) => profileService.unlinkExecutable(name))
   ipcMain.handle(IPC.detect.classify, (_e, exePaths: string[]) => classifyGames(exePaths))
   ipcMain.handle(IPC.detect.launch, (_e, name: string) => launchGame(name))
   ipcMain.handle(IPC.detect.setAutoStartTimer, (_e, name: string, value: boolean | null) =>

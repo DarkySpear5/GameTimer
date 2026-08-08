@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Modal } from '../common/Modal'
 import { toast } from '../common/Toast'
 import { useProfilesStore } from '../../state/profilesStore'
 import { selectProfile } from '../../state/uiStore'
+import { RunningAppPicker } from './RunningAppPicker'
 import type { DetectedApp, GameIdentity, GameSearchHit } from '@shared/types'
 
 type Mode = 'choose' | 'picker' | 'confirm' | 'manual'
@@ -16,7 +17,6 @@ type Mode = 'choose' | 'picker' | 'confirm' | 'manual'
 export function AddGameDialog({ onClose }: { onClose: () => void }): React.JSX.Element {
   const { t } = useTranslation()
   const [mode, setMode] = useState<Mode>('choose')
-  const [apps, setApps] = useState<DetectedApp[] | null>(null)
   const [busy, setBusy] = useState(false)
   const [manualName, setManualName] = useState('')
 
@@ -24,26 +24,6 @@ export function AddGameDialog({ onClose }: { onClose: () => void }): React.JSX.E
   const [pending, setPending] = useState<{ app: DetectedApp; identity: GameIdentity } | null>(null)
   const [query, setQuery] = useState('')
   const [hits, setHits] = useState<GameSearchHit[] | null>(null)
-
-  useEffect(() => {
-    if (mode !== 'picker' || apps !== null) return
-    void (async () => {
-      const found = await window.api.detect.listRunning()
-      setApps(found)
-      // Second pass: ask Steam's catalogue about the ones the path heuristic
-      // could not place, and promote any it confirms. Deliberately after the
-      // list is already on screen — the picker must be usable instantly, and
-      // this is a network round trip per app. Promotion only: a "no" (or being
-      // offline) leaves everything exactly where it already was.
-      const unsure = found.filter((a) => !a.likelyGame).map((a) => a.exePath)
-      if (unsure.length === 0) return
-      const confirmed = new Set(await window.api.detect.classify(unsure))
-      if (confirmed.size === 0) return
-      setApps((current) =>
-        (current ?? found).map((a) => (confirmed.has(a.exePath) ? { ...a, likelyGame: true } : a))
-      )
-    })()
-  }, [mode, apps])
 
   const finish = useCallback(
     async (name: string, exePath: string | null, appId: number | null): Promise<void> => {
@@ -106,50 +86,7 @@ export function AddGameDialog({ onClose }: { onClose: () => void }): React.JSX.E
         </div>
       )}
 
-      {mode === 'picker' && (
-        <>
-          {apps === null && <div className="py-8 text-center text-sm text-subtext">{t('add_scanning')}</div>}
-          {apps !== null && apps.length === 0 && (
-            <div className="py-8 text-center text-sm text-subtext">{t('add_no_apps')}</div>
-          )}
-          {/*
-           * Split into two labelled groups rather than one undifferentiated
-           * grid. Gamut can tell a game-library install from an ordinary
-           * program, and an unlabelled list of Adrenalin / Discord / whatever
-           * reads as though it thinks those ARE games. The other apps still
-           * appear, because plenty of games install outside the standard
-           * folders and the user has to be able to pick those too.
-           */}
-          {apps !== null && apps.length > 0 && (
-            <div className="flex flex-col gap-4">
-              {(
-                [
-                  ['games', apps.filter((a) => a.likelyGame)],
-                  ['other', apps.filter((a) => !a.likelyGame)]
-                ] as const
-              ).map(([group, list]) =>
-                list.length === 0 ? null : (
-                  <div key={group}>
-                    <div className="mb-1.5 text-xs font-medium text-subtext">
-                      {group === 'games' ? t('add_group_games') : t('add_group_other')}
-                    </div>
-                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                      {list.map((a) => (
-                        <AppTile key={a.pid} app={a} disabled={busy} onPick={() => void handlePick(a)} />
-                      ))}
-                    </div>
-                  </div>
-                )
-              )}
-              {apps.every((a) => !a.likelyGame) && (
-                <div className="rounded bg-card/40 px-3 py-2 text-xs text-subtext">
-                  {t('add_no_games_hint')}
-                </div>
-              )}
-            </div>
-          )}
-        </>
-      )}
+      {mode === 'picker' && <RunningAppPicker busy={busy} onPick={(a) => void handlePick(a)} />}
 
       {mode === 'confirm' && pending && (
         <div className="flex flex-col gap-3">
@@ -236,36 +173,6 @@ export function AddGameDialog({ onClose }: { onClose: () => void }): React.JSX.E
         </div>
       )}
     </Modal>
-  )
-}
-
-function AppTile({
-  app,
-  disabled,
-  onPick
-}: {
-  app: DetectedApp
-  disabled: boolean
-  onPick: () => void
-}): React.JSX.Element {
-  return (
-    <button
-      disabled={disabled}
-      onClick={onPick}
-      className={`flex flex-col items-center gap-2 rounded-lg p-3 text-center transition-colors disabled:opacity-50 ${
-        app.likelyGame ? 'bg-card hover:bg-card/70' : 'bg-card/40 hover:bg-card/60'
-      }`}
-    >
-      {app.iconDataUrl ? (
-        <img src={app.iconDataUrl} className="h-10 w-10 rounded object-contain" alt="" />
-      ) : (
-        <span className="h-10 w-10 rounded bg-panel" />
-      )}
-      <span className="w-full truncate text-xs text-text" title={app.title}>
-        {app.title}
-      </span>
-      <span className="w-full truncate text-[0.65rem] text-subtext">{app.processName}</span>
-    </button>
   )
 }
 

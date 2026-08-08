@@ -33,6 +33,29 @@ async function screenshots(appId: number): Promise<ArtOption[]> {
   }
 }
 
+/**
+ * Steam's asset coverage is uneven — a 2007 title like appid 3600 serves
+ * header.jpg but 404s on library_600x900, library_hero and logo.png. Offering
+ * those unchecked put broken-image tiles in the picker, so every candidate is
+ * confirmed to exist before it is offered.
+ *
+ * HEAD rather than GET: this only needs to know whether the image is there,
+ * and the picker would otherwise pull every full-size screenshot twice.
+ */
+async function existing(options: ArtOption[]): Promise<ArtOption[]> {
+  const checked = await Promise.all(
+    options.map(async (o) => {
+      try {
+        const res = await net.fetch(o.thumb, { method: 'HEAD' })
+        return res.ok ? o : null
+      } catch {
+        return null
+      }
+    })
+  )
+  return checked.filter((o): o is ArtOption => o !== null)
+}
+
 export async function getArtOptions(name: string, steamAppId: number | null): Promise<ArtOptions> {
   const icons: ArtOption[] = []
   const backgrounds: ArtOption[] = []
@@ -67,5 +90,7 @@ export async function getArtOptions(name: string, steamAppId: number | null): Pr
     add(backgrounds, gog.coverHorizontal)
   }
 
-  return { icons, backgrounds }
+  // Checked in parallel — a dozen HEAD requests, once, when the tab opens.
+  const [liveIcons, liveBackgrounds] = await Promise.all([existing(icons), existing(backgrounds)])
+  return { icons: liveIcons, backgrounds: liveBackgrounds }
 }

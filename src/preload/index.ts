@@ -107,7 +107,9 @@ const api: GameTimerApi = {
     classify: (exePaths) => ipcRenderer.invoke(IPC.detect.classify, exePaths),
     artOptions: (name, steamAppId) => ipcRenderer.invoke(IPC.detect.artOptions, name, steamAppId),
     setArtFromUrl: (name, kind, url) =>
-      ipcRenderer.invoke(IPC.detect.setArtFromUrl, name, kind, url)
+      ipcRenderer.invoke(IPC.detect.setArtFromUrl, name, kind, url),
+    link: (name, exePath, steamAppId) => ipcRenderer.invoke(IPC.detect.link, name, exePath, steamAppId),
+    unlink: (name) => ipcRenderer.invoke(IPC.detect.unlink, name)
   }
 }
 

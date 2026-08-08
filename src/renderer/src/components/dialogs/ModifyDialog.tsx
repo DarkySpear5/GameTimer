@@ -3,6 +3,12 @@ import { useTranslation } from 'react-i18next'
 import { Modal } from '../common/Modal'
 import { useProfilesStore } from '../../state/profilesStore'
 import { toast } from '../common/Toast'
+import { RunningAppPicker } from './RunningAppPicker'
+
+/** Last path segment, for showing which executable a game is linked to. */
+function basename(fullPath: string): string {
+  return fullPath.replace(/\\/g, '/').split('/').filter(Boolean).pop() ?? fullPath
+}
 import { GENRE_OPTIONS } from '@shared/constants'
 import { formatSeconds } from '@shared/format'
 import type { ArtOptions, Profile, Status } from '@shared/types'
@@ -49,6 +55,31 @@ export function ModifyDialog({ name, onClose }: { name: string; onClose: () => v
 function GeneralTab({ profile, onClose }: { profile: Profile; onClose: () => void }): React.JSX.Element {
   const { t } = useTranslation()
   const [newName, setNewName] = useState(profile.name)
+  const [linking, setLinking] = useState(false)
+  const [busy, setBusy] = useState(false)
+
+  /**
+   * Attaching an .exe to a game that was added by hand. Without this the only
+   * way to make an existing game detectable was to delete and re-add it, which
+   * would throw away its playtime, sessions and completion record.
+   */
+  async function link(exePath: string, windowTitle: string): Promise<void> {
+    setBusy(true)
+    try {
+      const identity = await window.api.detect.identify(exePath, windowTitle)
+      const updated = await window.api.detect.link(profile.name, exePath, identity.steamAppId)
+      useProfilesStore.getState().upsert(updated)
+      setLinking(false)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : String(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function unlink(): Promise<void> {
+    useProfilesStore.getState().upsert(await window.api.detect.unlink(profile.name))
+  }
 
   const STATUS_OPTIONS: { value: Status; label: string }[] = [
     { value: 'in_progress', label: t('status_in_progress') },
@@ -121,6 +152,35 @@ function GeneralTab({ profile, onClose }: { profile: Profile; onClose: () => voi
                 })
               : profile.statusAt}
           </div>
+        )}
+      </div>
+
+      <div>
+        <label className="mb-1 block text-xs text-subtext">{t('label_linked_exe')}</label>
+        {profile.exePath ? (
+          <div className="flex items-center gap-2">
+            <div className="min-w-0 flex-1 truncate rounded bg-card px-2.5 py-1.5 text-xs text-subtext" title={profile.exePath}>
+              {basename(profile.exePath)}
+              {profile.steamAppId != null && ` · appid ${profile.steamAppId}`}
+            </div>
+            <button
+              onClick={() => void unlink()}
+              className="shrink-0 rounded bg-card px-3 py-1.5 text-xs text-text hover:text-accent"
+            >
+              {t('btn_unlink_exe')}
+            </button>
+          </div>
+        ) : linking ? (
+          <div className="rounded bg-card/40 p-2">
+            <RunningAppPicker busy={busy} onPick={(a) => void link(a.exePath, a.title)} />
+          </div>
+        ) : (
+          <button
+            onClick={() => setLinking(true)}
+            className="w-full rounded bg-card px-3 py-1.5 text-sm text-text hover:bg-card/70"
+          >
+            {t('btn_link_exe')}
+          </button>
         )}
       </div>
 
@@ -463,12 +523,16 @@ function ArtStrip({
   onPick: (url: string) => void
   tall?: boolean
 }): React.JSX.Element | null {
-  if (options.length === 0) return null
+  // Main already drops candidates that 404, but a tile that fails for any
+  // other reason should disappear rather than sit there as a broken image.
+  const [failed, setFailed] = useState<Set<string>>(new Set())
+  const visible = options.filter((o) => !failed.has(o.url))
+  if (visible.length === 0) return null
   return (
     <div>
       <label className="mb-1 block text-xs text-subtext">{label}</label>
       <div className="flex gap-2 overflow-x-auto pb-1">
-        {options.map((o) => (
+        {visible.map((o) => (
           <button
             key={o.url}
             disabled={disabled}
@@ -484,6 +548,7 @@ function ArtStrip({
               className="h-full w-full object-cover"
               alt=""
               loading="lazy"
+              onError={() => setFailed((prev) => new Set(prev).add(o.url))}
             />
           </button>
         ))}
