@@ -14,7 +14,11 @@ export const ALLOWED_ART_HOSTS = new Set([
   'shared.akamai.steamstatic.com',
   'store.akamai.steamstatic.com',
   'steamcdn-a.akamaihd.net',
-  'images.gog-statics.com'
+  'images.gog-statics.com',
+  // Epic's storefront art, for games Steam has delisted or never carried.
+  'cdn1.epicgames.com',
+  'cdn2.unrealengine.com',
+  'cdn1.unrealengine.com'
 ])
 
 /** True only for an https URL on an allowlisted host. */

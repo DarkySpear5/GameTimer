@@ -230,7 +230,7 @@ export const profileService = {
       wantsArt &&
       (!profile.iconFile || !profile.bgImage || !profile.coverFile || profile.genres.length === 0)
     ) {
-      const found = await enrichGame(profile.name, steamAppId)
+      const found = await enrichGame(profile.name, steamAppId, exePath)
       if (found.iconFile && !profile.iconFile) profile.iconFile = found.iconFile
       if (found.bgImage && !profile.bgImage) profile.bgImage = found.bgImage
       if (found.coverFile && !profile.coverFile) profile.coverFile = found.coverFile
@@ -276,7 +276,7 @@ export const profileService = {
     // Runs even without an appid: enrichGame falls back to GOG, which is how
     // a non-Steam game still gets art and genres.
     if (dataStore.get().settings.autoFetchArt) {
-      const found = await enrichGame(name, steamAppId)
+      const found = await enrichGame(name, steamAppId, exePath)
       if (found.iconFile) profile.iconFile = found.iconFile
       if (found.bgImage) profile.bgImage = found.bgImage
       if (found.coverFile) profile.coverFile = found.coverFile
@@ -294,7 +294,7 @@ export const profileService = {
   /** Re-pulls art and genres from Steam, then GOG — the Modify dialog's manual refresh. Works with or without an appid. */
   async refreshArt(name: string): Promise<Profile> {
     const profile = requireProfile(name)
-    const found = await enrichGame(profile.name, profile.steamAppId)
+    const found = await enrichGame(profile.name, profile.steamAppId, profile.exePath)
     if (found.iconFile) {
       await deleteFileIfExists(profile.iconFile, paths.iconsDir())
       profile.iconFile = found.iconFile
