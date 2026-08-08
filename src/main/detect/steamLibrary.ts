@@ -2,7 +2,13 @@ import { promises as fs } from 'fs'
 import { join } from 'path'
 import { execFile } from 'child_process'
 import { promisify } from 'util'
-import { matchExeToGame, parseAppManifest, parseLibraryFolders, type SteamGame } from './steamVdf'
+import {
+  dedupeLibraryRoots,
+  matchExeToGame,
+  parseAppManifest,
+  parseLibraryFolders,
+  type SteamGame
+} from './steamVdf'
 
 const execFileAsync = promisify(execFile)
 
@@ -58,13 +64,16 @@ export async function scanSteamLibrary(): Promise<SteamGame[]> {
   }
 
   // The root itself is always a library; libraryfolders.vdf lists any others.
-  const roots = new Set<string>([root])
+  // Deduped case-insensitively — the registry and the vdf routinely disagree
+  // about capitalisation for the same folder. See dedupeLibraryRoots.
+  const discovered = [root]
   try {
     const vdf = await fs.readFile(join(root, 'steamapps', 'libraryfolders.vdf'), 'utf-8')
-    for (const p of parseLibraryFolders(vdf)) roots.add(p)
+    discovered.push(...parseLibraryFolders(vdf))
   } catch {
     /* single-library install, or Steam has never run */
   }
+  const roots = dedupeLibraryRoots(discovered)
 
   for (const libraryRoot of roots) {
     const steamapps = join(libraryRoot, 'steamapps')
@@ -85,8 +94,12 @@ export async function scanSteamLibrary(): Promise<SteamGame[]> {
     }
   }
 
-  cache = { games, at: Date.now() }
-  return games
+  // Belt-and-braces on top of the root dedupe: a game moved between library
+  // folders can leave a stale appmanifest behind in the old one, so the same
+  // appid legitimately appears twice on disk.
+  const unique = [...new Map(games.map((g) => [g.appId, g])).values()]
+  cache = { games: unique, at: Date.now() }
+  return unique
 }
 
 /** Exact identity for a Steam-installed game, or null if the exe is not one. */

@@ -34,6 +34,29 @@ export function parseLibraryFolders(vdf: string): string[] {
   return out
 }
 
+/**
+ * Collapses library roots that are the same folder written differently.
+ *
+ * Measured against a real install: the registry reports
+ * `c:\program files (x86)\steam` while libraryfolders.vdf reports
+ * `C:\Program Files (x86)\Steam`. A plain Set<string> keeps both, so every
+ * appmanifest gets read twice and every installed game is listed twice.
+ * Harmless while the only caller was matching one exe (a duplicate resolves to
+ * the same game), which is why it went unnoticed — but the moment the library
+ * is shown to the user it is a list where everything appears twice.
+ *
+ * Windows paths are case-insensitive, so the comparison key is lowercased with
+ * any trailing separator dropped. The first spelling seen is the one returned.
+ */
+export function dedupeLibraryRoots(roots: string[]): string[] {
+  const seen = new Map<string, string>()
+  for (const root of roots) {
+    const key = root.replace(/[\\/]+$/, '').toLowerCase()
+    if (key && !seen.has(key)) seen.set(key, root)
+  }
+  return [...seen.values()]
+}
+
 /** One appmanifest_<appid>.acf. Returns null if it lacks any field we need. */
 export function parseAppManifest(acf: string): SteamGame | null {
   const appId = Number(kv(acf, 'appid'))

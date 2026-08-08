@@ -6,7 +6,7 @@ import { create } from 'zustand'
  * answers "what am I playing", which only matters once a game is chosen.
  */
 export type MainTab = 'library' | 'timer' | 'stats' | 'about'
-export type DialogKind = 'modify' | 'notes' | 'settings' | 'info' | 'add' | null
+export type DialogKind = 'modify' | 'notes' | 'settings' | 'info' | 'add' | 'installed' | null
 
 /**
  * Which tab the Modify dialog opens on. Declared here rather than in the

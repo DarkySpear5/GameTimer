@@ -2,6 +2,7 @@ import type {
   AppData,
   ArtOptions,
   DetectedApp,
+  InstalledGame,
   GameIdentity,
   GameSearchHit,
   GtProfileFile,
@@ -94,6 +95,10 @@ export const IPC = {
     classify: 'detect:classify',
     artOptions: 'detect:artOptions',
     setArtFromUrl: 'detect:setArtFromUrl',
+    listInstalled: 'detect:listInstalled',
+    importInstalled: 'detect:importInstalled',
+    installedScanPending: 'detect:installedScanPending',
+    skipInstalledScan: 'detect:skipInstalledScan',
     link: 'detect:link',
     unlink: 'detect:unlink'
   }
@@ -203,6 +208,14 @@ export interface GameTimerApi {
     /** Attaches an .exe to an existing game so it can be detected and launched. */
     link(name: string, exePath: string, steamAppId: number | null): Promise<Profile>
     unlink(name: string): Promise<Profile>
+    /** Every game installed through Steam, each flagged with whether the library already has it. Read-only. */
+    listInstalled(): Promise<InstalledGame[]>
+    /** Creates a profile per chosen appid, at zero playtime. Already-present games are skipped. */
+    importInstalled(appIds: number[]): Promise<{ importedCount: number }>
+    /** Whether the one-time "add your installed games" offer still needs to be made. */
+    installedScanPending(): Promise<boolean>
+    /** Records that the offer was declined, so it is not made again. */
+    skipInstalledScan(): Promise<void>
   }
 }
 

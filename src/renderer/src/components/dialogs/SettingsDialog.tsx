@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Modal } from '../common/Modal'
 import { EyedropperButton } from '../common/EyedropperButton'
 import { useSettingsStore, updateSettings, updateSettingsOptimistic } from '../../state/settingsStore'
+import { useUiStore } from '../../state/uiStore'
 import {
   THEMES,
   THEME_ORDER,
@@ -105,6 +106,21 @@ export function SettingsDialog({ onClose }: { onClose: () => void }): React.JSX.
             checked={settings.autoStartTimer}
             onChange={(v) => void updateSettings({ autoStartTimer: v })}
           />
+
+          {/*
+           * The permanent home of the first-run offer. Its existence is what
+           * makes that one-time prompt safe to decline — "not now" costs
+           * nothing when the door stays open.
+           */}
+          <div className="mt-2 flex flex-col gap-1.5 border-t border-card/60 pt-4">
+            <button
+              onClick={() => useUiStore.getState().openDialog('installed')}
+              className="self-start rounded bg-card px-3 py-1.5 text-sm text-text hover:bg-card/70"
+            >
+              {t('installed_scan_button')}
+            </button>
+            <span className="text-xs text-subtext">{t('installed_scan_hint')}</span>
+          </div>
         </div>
       )}
 

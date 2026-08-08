@@ -141,6 +141,14 @@ export interface DetectedApp {
   likelyGame: boolean
 }
 
+/** One game found installed on this PC, offered by the installed-games scan. */
+export interface InstalledGame {
+  appId: number
+  name: string
+  /** Already in the library — shown, but pre-unticked and labelled. */
+  alreadyAdded: boolean
+}
+
 export interface GameSearchHit {
   appId: number
   name: string

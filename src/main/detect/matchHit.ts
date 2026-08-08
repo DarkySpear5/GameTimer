@@ -15,8 +15,13 @@ import type { GameSearchHit } from '@shared/types'
  * and "Discord" return plenty of hits but never themselves.
  */
 
-/** Case, punctuation and spacing all vary between a folder name and Steam's title. */
-function normalize(value: string): string {
+/**
+ * Case, punctuation and spacing all vary between a folder name and Steam's
+ * title. Exported because the installed-games importer needs exactly the same
+ * notion of "the same game" to avoid adding a duplicate of something already
+ * in the library under a slightly different spelling.
+ */
+export function normalizeGameName(value: string): string {
   return value
     .toLowerCase()
     .replace(/[™®©]/g, '')
@@ -28,9 +33,9 @@ function normalize(value: string): string {
  * inside other titles. Null is the "this is not a game" answer.
  */
 export function exactHit(query: string, hits: GameSearchHit[]): GameSearchHit | null {
-  const target = normalize(query)
+  const target = normalizeGameName(query)
   if (!target) return null
-  return hits.find((h) => normalize(h.name) === target) ?? null
+  return hits.find((h) => normalizeGameName(h.name) === target) ?? null
 }
 
 /**

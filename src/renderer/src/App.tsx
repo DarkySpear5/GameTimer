@@ -11,7 +11,8 @@ import { NotesDialog } from './components/dialogs/NotesDialog'
 import { SettingsDialog } from './components/dialogs/SettingsDialog'
 import { GameInfoDialog } from './components/dialogs/GameInfoDialog'
 import { AddGameDialog } from './components/dialogs/AddGameDialog'
-import { LegacyImportPrompt } from './components/dialogs/LegacyImportPrompt'
+import { FirstRunPrompts } from './components/dialogs/FirstRunPrompts'
+import { InstalledGamesDialog } from './components/dialogs/InstalledGamesDialog'
 import { UpdatePrompt } from './components/dialogs/UpdatePrompt'
 import { ToastHost } from './components/common/Toast'
 import { useProfilesStore } from './state/profilesStore'
@@ -98,7 +99,9 @@ function App(): React.JSX.Element {
       {dialog === 'info' && dialogTarget && <GameInfoDialog name={dialogTarget} onClose={closeDialog} />}
       {dialog === 'add' && <AddGameDialog onClose={closeDialog} />}
 
-      <LegacyImportPrompt />
+      {dialog === 'installed' && <InstalledGamesDialog onClose={closeDialog} />}
+
+      <FirstRunPrompts />
       <UpdatePrompt />
       <ToastHost />
     </div>

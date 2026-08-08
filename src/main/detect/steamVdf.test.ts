@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { matchExeToGame, parseAppManifest, parseLibraryFolders, type SteamGame } from './steamVdf'
+import {
+  dedupeLibraryRoots,
+  matchExeToGame,
+  parseAppManifest,
+  parseLibraryFolders,
+  type SteamGame
+} from './steamVdf'
 
 // Real shapes, trimmed. Both formats are Valve KeyValues, not JSON.
 const MANIFEST = `"AppState"
@@ -86,5 +92,37 @@ describe('matchExeToGame', () => {
   it('returns null when the folder is not an installed game', () => {
     const exe = 'C:\\Steam\\steamapps\\common\\Something Else\\x.exe'
     expect(matchExeToGame(exe, games)).toBeNull()
+  })
+})
+
+describe('dedupeLibraryRoots', () => {
+  // Backslashes here are escaped Windows separators, not JS escapes.
+  const STEAM_LOWER = 'c:\\program files (x86)\\steam'
+  const STEAM_CASED = 'C:\\Program Files (x86)\\Steam'
+
+  it('collapses the same folder written with different capitalisation', () => {
+    // Exactly what a real install produces: the registry answers lowercase,
+    // libraryfolders.vdf answers cased. Keeping both read every appmanifest
+    // twice and listed every installed game twice.
+    expect(dedupeLibraryRoots([STEAM_LOWER, STEAM_CASED])).toEqual([STEAM_LOWER])
+  })
+
+  it('keeps genuinely different libraries', () => {
+    expect(dedupeLibraryRoots(['C:\\Steam', 'D:\\SteamLibrary'])).toEqual([
+      'C:\\Steam',
+      'D:\\SteamLibrary'
+    ])
+  })
+
+  it('ignores a trailing separator', () => {
+    expect(dedupeLibraryRoots(['D:\\SteamLibrary', 'D:\\SteamLibrary\\'])).toEqual(['D:\\SteamLibrary'])
+  })
+
+  it('keeps the first spelling it saw', () => {
+    expect(dedupeLibraryRoots(['D:\\SteamLibrary\\', 'd:\\steamlibrary'])).toEqual(['D:\\SteamLibrary\\'])
+  })
+
+  it('drops empty entries', () => {
+    expect(dedupeLibraryRoots(['', 'C:\\Steam'])).toEqual(['C:\\Steam'])
   })
 })
