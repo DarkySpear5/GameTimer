@@ -1,14 +1,10 @@
 import { app } from 'electron'
 import { execFile } from 'child_process'
 import { promisify } from 'util'
-import { filterAndRank, type RankedProcess, type RawProcess } from './processFilter'
+import { filterAndRank, type RawProcess } from './processFilter'
+import type { DetectedApp } from '@shared/types'
 
 const execFileAsync = promisify(execFile)
-
-export interface RunningApp extends RankedProcess {
-  /** data: URL of the exe's own icon, or null if Windows wouldn't give one up. */
-  iconDataUrl: string | null
-}
 
 /**
  * Every running application that has a visible window, likely games first,
@@ -19,7 +15,7 @@ export interface RunningApp extends RankedProcess {
  * at zero — Get-Process is the only thing Windows ships that hands back window
  * title and full image path together.
  */
-export async function listRunningApps(): Promise<RunningApp[]> {
+export async function listRunningApps(): Promise<DetectedApp[]> {
   let raw: RawProcess[] = []
   try {
     const { stdout } = await execFileAsync(

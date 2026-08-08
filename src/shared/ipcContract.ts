@@ -1,5 +1,8 @@
 import type {
   AppData,
+  DetectedApp,
+  GameIdentity,
+  GameSearchHit,
   GtProfileFile,
   LegacyDetectResult,
   Profile,
@@ -22,6 +25,8 @@ export const IPC = {
     duplicate: 'profiles:duplicate',
     setStatus: 'profiles:setStatus',
     clearStatusRecord: 'profiles:clearStatusRecord',
+    refreshArt: 'profiles:refreshArt',
+    setAutoFetchArt: 'profiles:setAutoFetchArt',
     setGenres: 'profiles:setGenres',
     setRating: 'profiles:setRating',
     setNotes: 'profiles:setNotes',
@@ -76,6 +81,12 @@ export const IPC = {
   },
   fonts: {
     list: 'fonts:list'
+  },
+  detect: {
+    listRunning: 'detect:listRunning',
+    identify: 'detect:identify',
+    search: 'detect:search',
+    createGame: 'detect:createGame'
   }
 } as const
 
@@ -98,6 +109,10 @@ export interface GameTimerApi {
     setStatus(name: string, status: Status): Promise<Profile>
     /** Irreversibly clears the completion/dropped snapshot. Confirm with the user before calling. */
     clearStatusRecord(name: string): Promise<Profile>
+    /** Re-downloads cover and background for a game that already knows its appid. */
+    refreshArt(name: string): Promise<Profile>
+    /** null = follow the global setting. */
+    setAutoFetchArt(name: string, value: boolean | null): Promise<Profile>
     setGenres(name: string, genres: string[]): Promise<Profile>
     setRating(name: string, rating: 0 | 1 | 2 | 3 | 4 | 5): Promise<Profile>
     setNotes(name: string, notes: string): Promise<Profile>
@@ -155,6 +170,16 @@ export interface GameTimerApi {
   fonts: {
     /** Curated fonts merged with every font installed on this PC (incl. third-party), deduped and sorted. */
     list(): Promise<string[]>
+  }
+  detect: {
+    /** Running applications with a visible window, likely games first. Read-only. */
+    listRunning(): Promise<DetectedApp[]>
+    /** Resolves an executable to a game. Check `confident` before applying the result. */
+    identify(exePath: string, windowTitle: string): Promise<GameIdentity>
+    /** Keyless fuzzy search of Steam's catalogue, for correcting a wrong guess. */
+    search(query: string): Promise<GameSearchHit[]>
+    /** Creates the profile, links the exe/appid, and fetches art if enabled. */
+    createGame(name: string, exePath: string | null, steamAppId: number | null): Promise<Profile>
   }
 }
 

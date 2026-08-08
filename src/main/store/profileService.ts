@@ -7,6 +7,7 @@ import { timerEngine } from '../timer/timerEngine'
 import { writeStatusLog } from '../statusLog/writeStatusLog'
 import { todayDateString } from '../util/date'
 import { saveCappedImage } from '../util/imageResize'
+import { fetchArt } from '../art/steamArt'
 import { ICON_MAX_DIMENSION, BACKGROUND_MAX_DIMENSION } from '@shared/constants'
 import type { Profile, Status } from '@shared/types'
 
@@ -188,6 +189,60 @@ export const profileService = {
     }
     await dataStore.safeSave()
     void writeStatusLog()
+    return profile
+  },
+
+  /**
+   * Creates a game from the Add Game picker: links the executable, caches the
+   * resolved appid, and pulls cover/background art if this game (or, when it
+   * has no preference of its own, the global setting) allows it.
+   *
+   * Art is best-effort by design — a game with no Steam listing, or a machine
+   * with no network, still gets created. It just has no art, exactly like a
+   * manually added one.
+   */
+  async createDetected(
+    name: string,
+    exePath: string | null,
+    steamAppId: number | null
+  ): Promise<Profile> {
+    const profile = await this.create(name)
+    profile.exePath = exePath
+    profile.steamAppId = steamAppId
+
+    if (steamAppId != null && dataStore.get().settings.autoFetchArt) {
+      const art = await fetchArt(steamAppId)
+      if (art.iconFile) profile.iconFile = art.iconFile
+      if (art.bgImage) profile.bgImage = art.bgImage
+    }
+
+    await dataStore.safeSave()
+    return profile
+  },
+
+  /** Re-pulls art for a game that already knows its appid — the Modify dialog's manual refresh. */
+  async refreshArt(name: string): Promise<Profile> {
+    const profile = requireProfile(name)
+    if (profile.steamAppId == null) return profile
+    const art = await fetchArt(profile.steamAppId)
+    if (art.iconFile) {
+      await deleteFileIfExists(profile.iconFile, paths.iconsDir())
+      profile.iconFile = art.iconFile
+    }
+    if (art.bgImage) {
+      await deleteFileIfExists(profile.bgImage, paths.backgroundsDir())
+      profile.bgImage = art.bgImage
+      profile.bgColor = null
+    }
+    await dataStore.safeSave()
+    return profile
+  },
+
+  /** null = follow the global setting; true/false override it for this game. */
+  async setAutoFetchArt(name: string, value: boolean | null): Promise<Profile> {
+    const profile = requireProfile(name)
+    profile.autoFetchArt = value
+    await dataStore.safeSave()
     return profile
   },
 

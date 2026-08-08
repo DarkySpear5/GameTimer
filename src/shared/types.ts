@@ -61,6 +61,36 @@ export interface Settings {
   autoFetchArt: boolean
 }
 
+/** One running application offered in the Add Game picker. */
+export interface DetectedApp {
+  pid: number
+  processName: string
+  title: string
+  exePath: string
+  /** data: URL of the exe's own icon, or null if Windows wouldn't give one up. */
+  iconDataUrl: string | null
+  /** Sits under a known game-library root — these sort first in the picker. */
+  likelyGame: boolean
+}
+
+export interface GameSearchHit {
+  appId: number
+  name: string
+}
+
+export interface GameIdentity {
+  name: string
+  steamAppId: number | null
+  /**
+   * True only when resolved from a Steam appmanifest, which is exact. False
+   * means it came from a fuzzy name search and must be confirmed before use —
+   * that search returns wrong-but-plausible results (e.g. a game's Playtest
+   * entry instead of the game).
+   */
+  confident: boolean
+  suggestions: GameSearchHit[]
+}
+
 export interface UpdateInfo {
   version: string
   releaseNotes?: string | null

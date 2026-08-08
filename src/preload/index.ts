@@ -14,6 +14,8 @@ const api: GameTimerApi = {
     duplicate: (name) => ipcRenderer.invoke(IPC.profiles.duplicate, name),
     setStatus: (name, status) => ipcRenderer.invoke(IPC.profiles.setStatus, name, status),
     clearStatusRecord: (name) => ipcRenderer.invoke(IPC.profiles.clearStatusRecord, name),
+    refreshArt: (name) => ipcRenderer.invoke(IPC.profiles.refreshArt, name),
+    setAutoFetchArt: (name, value) => ipcRenderer.invoke(IPC.profiles.setAutoFetchArt, name, value),
     setGenres: (name, genres) => ipcRenderer.invoke(IPC.profiles.setGenres, name, genres),
     setRating: (name, rating) => ipcRenderer.invoke(IPC.profiles.setRating, name, rating),
     setNotes: (name, notes) => ipcRenderer.invoke(IPC.profiles.setNotes, name, notes),
@@ -92,6 +94,13 @@ const api: GameTimerApi = {
   },
   fonts: {
     list: () => ipcRenderer.invoke(IPC.fonts.list)
+  },
+  detect: {
+    listRunning: () => ipcRenderer.invoke(IPC.detect.listRunning),
+    identify: (exePath, windowTitle) => ipcRenderer.invoke(IPC.detect.identify, exePath, windowTitle),
+    search: (query) => ipcRenderer.invoke(IPC.detect.search, query),
+    createGame: (name, exePath, steamAppId) =>
+      ipcRenderer.invoke(IPC.detect.createGame, name, exePath, steamAppId)
   }
 }
 
