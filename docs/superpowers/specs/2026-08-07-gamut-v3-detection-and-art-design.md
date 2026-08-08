@@ -1,7 +1,7 @@
 # Gamut v3 — game detection, session stats, and automatic art
 
 Date: 2026-08-07
-Branch: `dev` (off `v2`)
+Branch: `dev` (off `main`)
 Target: one public release, **v3.0.0**
 
 ## Why
@@ -299,7 +299,8 @@ on an already-completed game. One stray click permanently erases a game's
 completion date and completion-time snapshot, with no confirmation and no undo.
 
 This is a **live bug in v2.1.11**, not a v3 item, so it does not wait for v3.
-It is fixed on `v2` and shipped as **v2.1.12**; `dev` inherits it by merge. Users
+It is fixed on the release branch and shipped as **v2.1.12**; `dev` inherits it
+by merge. Users
 on the current build should not be one misclick from losing a completion record
 for however long v3 takes.
 
@@ -308,9 +309,22 @@ separate action behind an irreversible-action confirmation.
 
 ## Release process
 
-`dev` is the working branch. `v2` remains the public release branch and keeps
-receiving 2.x patches. When v3 is stable, `dev` is promoted to a `v3` branch which
-becomes the repo default — mirroring how `v2` succeeded `main`.
+Branches are named for their role, not for the rewrite that produced them:
+
+| Branch | Holds |
+|---|---|
+| `main` | Gamut as released. Every tag and every auto-update ships from here. Repo default. |
+| `dev` | v3 in progress. Unstable by design; nothing reaches users from here. |
+| `v1` | The frozen Python/Tkinter edition (v1.9.1). Historical. |
+
+v3 lands by merging `dev` into `main` when it is stable and cutting a `v3.0.0`
+tag there. There is no `v3` branch — the whole point of the rename was to stop
+creating a new long-lived branch per major version, which is what left the
+actively-released app sitting on a branch called `v2` while `main` held frozen
+Python code.
+
+Patches to the shipping version are made on `main` directly and merged down into
+`dev`, exactly as v2.1.12 was.
 
 > **Auto-updater trap.** `electron-builder.yml` sets `releaseType: release`. Any
 > v3 build published with that setting will be pushed to **every v2.x user**,
@@ -358,7 +372,7 @@ build contains zero dev strings.
 One public v3.0.0, built in three ordered stages on `dev`. Each is verified before
 the next begins.
 
-0. **v2.1.12 patch on `v2`** — the `setStatus` completion-wipe fix, released
+0. **v2.1.12 patch on `main`** — the `setStatus` completion-wipe fix, released
    immediately and merged into `dev`. Not part of v3.
 1. **Stats.** Sessions, session log, More Info window, the deliberate
    clear-completion action. No network, no polling, no process access. Works on
