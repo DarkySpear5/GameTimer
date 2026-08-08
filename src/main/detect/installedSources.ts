@@ -73,6 +73,7 @@ export async function scanEpic(): Promise<FoundGame[]> {
         source: 'epic',
         exePath: (await fileExists(exePath)) ? exePath : null,
         steamAppId: null,
+        installDir: location,
         launchUri: null,
         confident: true
       })
@@ -119,6 +120,7 @@ export async function scanGog(): Promise<FoundGame[]> {
         source: 'gog',
         exePath: exePath && (await fileExists(exePath)) ? exePath : null,
         steamAppId: null,
+        installDir: dir || null,
         launchUri: null,
         confident: true
       })
@@ -212,6 +214,7 @@ export async function scanStorePackages(): Promise<FoundGame[]> {
       // Never the .exe: a Store app started outside its container fails.
       exePath: null,
       steamAppId: null,
+      installDir: null,
       launchUri: `shell:appsFolder\\${family}!${raw.appId || 'App'}`,
       confident: false
     })
@@ -252,6 +255,7 @@ export async function scanXbox(): Promise<FoundGame[]> {
         source: 'xbox',
         exePath,
         steamAppId: null,
+        installDir: join(root, dir),
         launchUri: null,
         confident: true
       })
@@ -306,6 +310,7 @@ export async function scanFolder(
       source,
       exePath,
       steamAppId: null,
+      installDir: null,
       launchUri: null,
       confident: exePath != null
     })
@@ -355,6 +360,7 @@ export async function scanNexon(extraRoots: string[] = []): Promise<FoundGame[]>
         source: 'nexon',
         exePath: await findGameExe(join(root, dir), dir),
         steamAppId: null,
+        installDir: null,
         launchUri: null,
         confident: true
       })
@@ -371,6 +377,7 @@ export async function scanNexon(extraRoots: string[] = []): Promise<FoundGame[]>
       source: 'nexon',
       exePath: null,
       steamAppId: null,
+      installDir: null,
       launchUri: null,
       confident: false
     })
@@ -546,6 +553,7 @@ async function scanUninstallByPublisher(
         source,
         exePath: (await fileExists(location)) ? await findGameExe(location, name) : null,
         steamAppId: null,
+        installDir: null,
         launchUri: null,
         confident: true
       })
@@ -577,6 +585,7 @@ export async function scanSteam(): Promise<FoundGame[]> {
     // and why it is the correct route anyway — Steam applies launch options.
     exePath: null,
     steamAppId: g.appId,
+    installDir: null,
     launchUri: null,
     confident: true
   }))

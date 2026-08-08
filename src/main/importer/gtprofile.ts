@@ -146,6 +146,8 @@ export async function importProfile(win: BrowserWindow): Promise<Profile | null>
     // Not carried across machines, same reasoning as exePath — it points at a
     // launcher install on the exporter's PC.
     launchUri: null,
+    // Machine-specific, like exePath.
+    installDir: null,
     autoFetchArt: null,
     // Launch counts are machine-specific — they describe processes seen on
     // the exporting PC, not the game's history.

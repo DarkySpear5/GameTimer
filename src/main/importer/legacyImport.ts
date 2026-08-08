@@ -94,6 +94,7 @@ function normalizeLegacyProfile(name: string, raw: LegacyProfileRaw): Profile {
     exePath: null,
     steamAppId: null,
     launchUri: null,
+    installDir: null,
     autoFetchArt: null,
     launches: 0,
     openSeconds: 0,

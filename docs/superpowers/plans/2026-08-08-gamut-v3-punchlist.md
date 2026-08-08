@@ -20,14 +20,14 @@ Status key: `[ ]` not started · `[~]` in progress · `[x]` done
 
 ## B. Launching (all measured broken on real games)
 
-- [ ] **B1. Vindictus** — shows "Loading Nexon Launcher…" then nothing happens.
+- [~] **B1. Vindictus** — shows "Loading Nexon Launcher…" then nothing happens.
 - [x] **B2. Xbox games have no Launch Game button at all** (no `.exe`, so the
   button's `canLaunch` test fails — it must accept `launchUri` too).
-- [ ] **B3. Heroes of the Storm** — Battle.net opens and navigates to the game's
+- [~] **B3. Heroes of the Storm** — Battle.net opens and navigates to the game's
   page, but never starts it. Same from another game's page.
-- [ ] **B4. Rocket League timer** — starts after the first EasyAntiCheat splash,
+- [x] **B4. Rocket League timer** — starts after the first EasyAntiCheat splash,
   then a second EAC process opens and the timer PAUSES and never resumes.
-- [ ] **B5. Closing a game does not stop the timer** (possibly all games, or
+- [x] **B5. Closing a game does not stop the timer** (possibly all games, or
   only launcher-fronted ones — needs checking).
 
 ## C. Structure

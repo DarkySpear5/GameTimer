@@ -214,7 +214,13 @@ export async function importInstalledGames(
   let importedCount = 0
   for (const game of games) {
     try {
-      await profileService.createDetected(game.name, game.exePath, game.steamAppId, game.launchUri)
+      await profileService.createDetected(
+        game.name,
+        game.exePath,
+        game.steamAppId,
+        game.launchUri,
+        game.installDir
+      )
       importedCount++
     } catch {
       // One unimportable game — a name collision with something added while

@@ -35,6 +35,7 @@ function freshProfile(name: string): Profile {
     exePath: null,
     steamAppId: null,
     launchUri: null,
+    installDir: null,
     autoFetchArt: null,
     launches: 0,
     openSeconds: 0,
@@ -172,6 +173,7 @@ export const profileService = {
       exePath: original.exePath,
       steamAppId: original.steamAppId,
       launchUri: original.launchUri,
+      installDir: original.installDir,
       autoFetchArt: original.autoFetchArt,
       // Counters are the copy's own from zero: it has never been launched.
       launches: 0,
@@ -266,12 +268,14 @@ export const profileService = {
     name: string,
     exePath: string | null,
     steamAppId: number | null,
-    launchUri: string | null = null
+    launchUri: string | null = null,
+    installDir: string | null = null
   ): Promise<Profile> {
     const profile = await this.create(name)
     profile.exePath = exePath
     profile.steamAppId = steamAppId
     profile.launchUri = launchUri
+    profile.installDir = installDir
 
     // Runs even without an appid: enrichGame falls back to GOG, which is how
     // a non-Steam game still gets art and genres.

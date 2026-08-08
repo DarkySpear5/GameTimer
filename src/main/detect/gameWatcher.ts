@@ -1,5 +1,6 @@
 import { execFile } from 'child_process'
 import { promisify } from 'util'
+import { isGameRunning } from './watchMatch'
 import { dataStore } from '../store/dataStore'
 import { timerEngine } from '../timer/timerEngine'
 
@@ -57,14 +58,14 @@ function autoStartEnabled(name: string): boolean {
 
 async function poll(): Promise<void> {
   const data = dataStore.get()
-  const linked = Object.values(data.profiles).filter((p) => p.exePath)
+  const linked = Object.values(data.profiles).filter((p) => p.exePath || p.installDir)
   if (linked.length === 0) return
 
   const running = await runningExePaths()
   let touched = false
 
   for (const profile of linked) {
-    const isRunning = running.has(profile.exePath!.toLowerCase())
+    const isRunning = isGameRunning(profile, running)
     const wasOpen = open.has(profile.name)
 
     if (isRunning && !wasOpen) {

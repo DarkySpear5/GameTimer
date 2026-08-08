@@ -35,6 +35,7 @@ function profile(name: string, overrides: Partial<Profile> = {}): Profile {
     favorite: false,
     coverFile: null,
     launchUri: null,
+    installDir: null,
     ...overrides
   }
 }

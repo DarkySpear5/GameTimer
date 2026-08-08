@@ -54,6 +54,16 @@ export interface Profile {
   /** Resolved once, then cached — used for art and for launching via steam://rungameid. */
   steamAppId: number | null
   /**
+   * The folder this game is installed in.
+   *
+   * Watched INSTEAD of a single executable, because one game is rarely one
+   * process: Rocket League starts a launcher that hands off to the real binary
+   * and then exits, Stardew Valley runs through SMAPI, and Steam games have no
+   * exe recorded at all. Matching one exact path meant the timer paused the
+   * moment a launcher handed over and never resumed.
+   */
+  installDir: string | null
+  /**
    * The launcher's own URI for starting this game (nxl://, battlenet://, …).
    * Preferred over exePath: a Nexon game run straight from its .exe never gets
    * through the launcher's authentication.
@@ -186,6 +196,8 @@ export interface FoundGame {
   source: GameSource
   /** Null when the source records a name but no install (see the Nexon note in installedSources.ts). */
   exePath: string | null
+  /** The game's install folder, which is what the watcher polls. */
+  installDir: string | null
   steamAppId: number | null
   /**
    * How the launcher itself starts this game, e.g. nxl://launch/10300. Preferred

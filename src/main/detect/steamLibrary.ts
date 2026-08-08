@@ -92,7 +92,10 @@ export async function scanSteamLibrary(force = false): Promise<SteamGame[]> {
       if (!entry.startsWith('appmanifest_') || !entry.endsWith('.acf')) continue
       try {
         const game = parseAppManifest(await fs.readFile(join(steamapps, entry), 'utf-8'))
-        if (game) games.push(game)
+        if (game) {
+          game.installPath = join(steamapps, 'common', game.installDir)
+          games.push(game)
+        }
       } catch {
         /* unreadable manifest — skip it, never fail the whole scan */
       }

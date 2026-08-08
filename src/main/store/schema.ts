@@ -73,7 +73,8 @@ const ProfileSchema = z
     genresFromDetection: z.boolean().catch(false),
     favorite: z.boolean().catch(false),
     coverFile: z.string().nullable().catch(null),
-    launchUri: z.string().nullable().catch(null)
+    launchUri: z.string().nullable().catch(null),
+    installDir: z.string().nullable().catch(null)
   })
 
 const ThemeNameSchema = z

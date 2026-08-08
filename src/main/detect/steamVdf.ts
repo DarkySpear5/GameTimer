@@ -13,6 +13,12 @@ export interface SteamGame {
   name: string
   /** Folder under steamapps/common, which is what an exe path can be matched against. */
   installDir: string
+  /**
+   * Full path to that folder. The manifest records only the folder NAME, so
+   * this is filled in by the scanner, which is the only place that knows which
+   * library root the manifest came from.
+   */
+  installPath?: string
 }
 
 /** Reads a flat `"key"  "value"` pair out of a KeyValues blob. */
