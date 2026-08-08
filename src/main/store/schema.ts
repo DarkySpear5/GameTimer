@@ -50,7 +50,12 @@ const ProfileSchema = z
     rating: RatingSchema,
     // .catch([]) rather than validation: same contract as every other field
     // here — a partial or corrupt file loses the bad field, never the library.
-    sessionLog: z.array(SessionEntrySchema).catch([])
+    sessionLog: z.array(SessionEntrySchema).catch([]),
+    exePath: z.string().nullable().catch(null),
+    steamAppId: z.number().nullable().catch(null),
+    // Tri-state on purpose: null means "follow the global setting", so
+    // flipping the cogwheel moves every game the user hasn't overridden.
+    autoFetchArt: z.boolean().nullable().catch(null)
   })
 
 const ThemeNameSchema = z
@@ -71,7 +76,8 @@ const SettingsSchema = z.object({
   statusFilter: z
     .union([z.literal('All'), z.enum(['in_progress', 'completed', 'dropped', 'on_hold'])])
     .catch('All'),
-  language: z.string().catch('en')
+  language: z.string().catch('en'),
+  autoFetchArt: z.boolean().catch(true)
 })
 
 const AppDataSchema = z.object({

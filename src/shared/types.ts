@@ -36,6 +36,12 @@ export interface Profile {
    * defaults it to [].
    */
   sessionLog: SessionEntry[]
+  /** Full path of the .exe this game was detected from, or null if added manually. */
+  exePath: string | null
+  /** Resolved once, then cached — used for art and for launching via steam://rungameid. */
+  steamAppId: number | null
+  /** null = follow the global setting. Explicit true/false overrides it for this game only. */
+  autoFetchArt: boolean | null
 }
 
 export interface Settings {
@@ -51,6 +57,8 @@ export interface Settings {
   genreFilter: string
   statusFilter: 'All' | Status
   language: string
+  /** Default for games whose own autoFetchArt is null. */
+  autoFetchArt: boolean
 }
 
 export interface UpdateInfo {
@@ -79,6 +87,14 @@ export interface GtProfileFile {
   startedDate: string | null
   notes: string
   rating: number
+  /**
+   * Optional so the format stays readable by v1 and v2, which simply ignore
+   * it. Present so exporting from a newer build and importing into an older
+   * one — or into a fresh install — carries session history instead of
+   * silently resetting the count to zero while keeping the playtime.
+   */
+  sessionLog?: SessionEntry[]
+  steamAppId?: number | null
   iconB64?: string
   iconExt?: string
   bgImageB64?: string

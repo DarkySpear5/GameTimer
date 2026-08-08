@@ -25,7 +25,10 @@ function freshProfile(name: string): Profile {
     startedDate: null,
     notes: '',
     rating: 0,
-    sessionLog: []
+    sessionLog: [],
+    exePath: null,
+    steamAppId: null,
+    autoFetchArt: null
   }
 }
 
@@ -150,7 +153,12 @@ export const profileService = {
       // snapshot too, so an empty log here would make the copy claim hours
       // of playtime across zero sessions. Spread so the two profiles never
       // share one array.
-      sessionLog: [...original.sessionLog]
+      sessionLog: [...original.sessionLog],
+      // The copy points at the same game, so it keeps the link and the art
+      // preference — only the name differs.
+      exePath: original.exePath,
+      steamAppId: original.steamAppId,
+      autoFetchArt: original.autoFetchArt
     }
     data.profiles[newName] = copy
     await dataStore.safeSave()

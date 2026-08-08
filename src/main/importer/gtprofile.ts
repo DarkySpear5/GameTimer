@@ -26,7 +26,12 @@ export async function exportProfile(win: BrowserWindow, name: string): Promise<{
     lastPlayed: profile.lastPlayed,
     startedDate: profile.startedDate,
     notes: profile.notes,
-    rating: profile.rating
+    rating: profile.rating,
+    // Carried so an export/import round trip keeps the session history. Older
+    // builds ignore the extra keys; without them a re-import would keep the
+    // playtime but silently reset Sessions to zero.
+    sessionLog: profile.sessionLog,
+    steamAppId: profile.steamAppId
   }
 
   if (profile.iconFile) {
@@ -125,9 +130,13 @@ export async function importProfile(win: BrowserWindow): Promise<Profile | null>
     startedDate: imported.startedDate ?? null,
     notes: imported.notes ?? '',
     rating: (imported.rating ?? 0) as Profile['rating'],
-    // The .gtprofile format carries no session history, so an import starts
-    // its log fresh rather than inventing entries to match `seconds`.
-    sessionLog: []
+    // Present only in files written by v3+. A v1/v2 export legitimately has
+    // none, and starts with an empty log rather than inventing entries.
+    sessionLog: imported.sessionLog ?? [],
+    // Never carried across machines — the exe lives on the exporter's disk.
+    exePath: null,
+    steamAppId: imported.steamAppId ?? null,
+    autoFetchArt: null
   }
 
   data.profiles[name] = profile
