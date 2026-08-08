@@ -21,7 +21,7 @@ Status key: `[ ]` not started · `[~]` in progress · `[x]` done
 ## B. Launching (all measured broken on real games)
 
 - [ ] **B1. Vindictus** — shows "Loading Nexon Launcher…" then nothing happens.
-- [ ] **B2. Xbox games have no Launch Game button at all** (no `.exe`, so the
+- [x] **B2. Xbox games have no Launch Game button at all** (no `.exe`, so the
   button's `canLaunch` test fails — it must accept `launchUri` too).
 - [ ] **B3. Heroes of the Storm** — Battle.net opens and navigates to the game's
   page, but never starts it. Same from another game's page.
@@ -32,19 +32,19 @@ Status key: `[ ]` not started · `[~]` in progress · `[x]` done
 
 ## C. Structure
 
-- [ ] **C1. Remove the Timer tab entirely.** It is redundant: Library already
+- [x] **C1. Remove the Timer tab entirely.** It is redundant: Library already
   holds everything, and clicking a game shows its timer.
   (Supersedes the earlier "add sort/filter to Timer" and "add a search bar to
   Timer" requests — both are void once the tab is gone.)
-- [ ] **C2. Search bar in Library.**
-- [ ] **C3. Sort by platform in Library** — Steam → Xbox → Epic → EA → GOG → …
+- [x] **C2. Search bar in Library.**
+- [x] **C3. Sort by platform in Library** — Steam → Xbox → Epic → EA → GOG → …
 
 ## D. Game actions
 
-- [ ] **D1. Add "Reset time"** to Modify → Time, under the time.
-- [ ] **D2. Remove "Note (optional)"** from Modify → Time.
-- [ ] **D3. Remove "Duplicate"** everywhere.
-- [ ] **D4. Add "Import"** to a focused game in Library (Export exists, Import
+- [x] **D1. Add "Reset time"** to Modify → Time, under the time.
+- [x] **D2. Remove "Note (optional)"** from Modify → Time.
+- [x] **D3. Remove "Duplicate"** everywhere.
+- [x] **D4. Add "Import"** to a focused game in Library (Export exists, Import
   does not).
 - [ ] **D5. Notes become a multi-note list** — a `+` button, renameable notes, a
   list view showing note names, click to open, back arrow to return. Outlook /
@@ -52,32 +52,32 @@ Status key: `[ ]` not started · `[~]` in progress · `[x]` done
 
 ## E. Library presentation
 
-- [ ] **E1. "Profile Icon Size" → "Icon Size"**, and make it control the
+- [x] **E1. "Profile Icon Size" → "Icon Size"**, and make it control the
   Library **list** mode's icons.
-- [ ] **E2. List mode must show the ICON, not the background image.**
-- [ ] **E3. Add Game dialog needs the Scan button.**
-- [ ] **E4. Right-click menu at the bottom of the Library runs off-screen** —
+- [x] **E2. List mode must show the ICON, not the background image.**
+- [x] **E3. Add Game dialog needs the Scan button.**
+- [x] **E4. Right-click menu at the bottom of the Library runs off-screen** —
   options below the window edge are unreachable, so a game can't be deleted.
 
 ## F. Stats
 
-- [ ] **F1. Exclude `not_started` games from Stats.**
-- [ ] **F2. Detail level becomes a button inside the Stats window.** It shows
+- [x] **F1. Exclude `not_started` games from Stats.**
+- [x] **F2. Detail level becomes a button inside the Stats window.** It shows
   the level you would switch TO: labelled "Advanced" while Simple is active,
   "Simple" while Advanced is active. Remove the setting from Settings → Games.
 
 ## G. Settings
 
-- [ ] **G1. Tab order: General → Launchers → Games → Appearance → Language.**
+- [x] **G1. Tab order: General → Launchers → Games → Appearance → Language.**
 - [ ] **G2. Font picker becomes a dropdown** (keep the search box inside it).
-- [ ] **G3. "Data table size" → "Stats table size".**
-- [ ] **G4. Font size range 0.7x – 1.5x.**
-- [ ] **G5. "Watch for games in the background" is meaningless to a reader** —
+- [x] **G3. "Data table size" → "Stats table size".**
+- [x] **G4. Font size range 0.7x – 1.5x.**
+- [x] **G5. "Watch for games in the background" is meaningless to a reader** —
   clarify the label, or explain what it does, or both.
 
 ## H. About
 
-- [ ] **H1. Credit the sources used for icon/background fetching.**
+- [x] **H1. Credit the sources used for icon/background fetching.**
 
 ## Z. Last
 

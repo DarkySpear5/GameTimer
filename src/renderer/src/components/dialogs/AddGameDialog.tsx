@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Modal } from '../common/Modal'
+import { useUiStore } from '../../state/uiStore'
 import { toast } from '../common/Toast'
 import { useProfilesStore } from '../../state/profilesStore'
 import { selectProfile } from '../../state/uiStore'
@@ -81,6 +82,19 @@ export function AddGameDialog({ onClose }: { onClose: () => void }): React.JSX.E
             hint={t('add_detect_hint')}
             onClick={() => setMode('picker')}
             primary
+          />
+          {/*
+           * E3: scanning every launcher is the fastest way to add games, and it
+           * was only reachable from Settings — the one place nobody looks when
+           * their goal is "add a game".
+           */}
+          <BigButton
+            label={t('installed_scan_button')}
+            hint={t('installed_scan_hint')}
+            onClick={() => {
+              onClose()
+              useUiStore.getState().openDialog('installed')
+            }}
           />
           <BigButton label={t('add_manual')} hint={t('add_manual_hint')} onClick={() => setMode('manual')} />
         </div>

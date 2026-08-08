@@ -12,8 +12,8 @@ import { LibraryDetail } from './LibraryDetail'
  * going back are navigation *within* your library, not a change of subject.
  *
  * This tab owns every management action in the app — add, edit, rate, tag,
- * favourite, art, link, duplicate, export, delete. That concentration is what
- * lets the Timer tab's right-click menu be timing-only.
+ * favourite, art, link, import, export, delete — there is nowhere else to do
+ * any of it, which is what let the separate Timer tab go away entirely.
  */
 export function LibraryTab(): React.JSX.Element {
   const { t } = useTranslation()
@@ -22,10 +22,6 @@ export function LibraryTab(): React.JSX.Element {
   const closeContextMenu = useUiStore((s) => s.closeContextMenu)
   const openDialog = useUiStore((s) => s.openDialog)
   const setLibraryFocus = useUiStore((s) => s.setLibraryFocus)
-
-  async function handleDuplicate(name: string): Promise<void> {
-    useProfilesStore.getState().upsert(await window.api.profiles.duplicate(name))
-  }
 
   async function handleDelete(name: string): Promise<void> {
     if (!window.confirm(t('confirm_delete_msg', { name }))) return
@@ -55,7 +51,8 @@ export function LibraryTab(): React.JSX.Element {
 
   function menuItemsFor(name: string): ContextMenuItem[] {
     const profile = useProfilesStore.getState().profiles[name]
-    const canLaunch = !!profile && (profile.steamAppId != null || !!profile.exePath)
+    const canLaunch =
+      !!profile && (profile.steamAppId != null || !!profile.launchUri || !!profile.exePath)
     return [
       ...(canLaunch
         ? [{ label: t('btn_launch_game'), onClick: () => void launchGame(name) }]
@@ -67,7 +64,6 @@ export function LibraryTab(): React.JSX.Element {
         label: t(profile?.favorite ? 'ctx_favorite_remove' : 'ctx_favorite_add'),
         onClick: () => void handleToggleFavorite(name)
       },
-      { label: t('ctx_duplicate'), onClick: () => void handleDuplicate(name), separatorBefore: true },
       { label: t('ctx_export'), onClick: () => void handleExport(name) },
       { label: t('ctx_import'), onClick: () => void handleImport() },
       { label: t('ctx_delete'), onClick: () => void handleDelete(name), danger: true, separatorBefore: true }

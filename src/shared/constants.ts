@@ -72,7 +72,7 @@ export const FONT_CHOICES = [
   'Comic Sans MS'
 ]
 
-export const FONT_SCALE_MIN = 1.0
+export const FONT_SCALE_MIN = 0.7
 export const FONT_SCALE_MAX = 1.5
 
 export const ICON_SIZE_OPTIONS: Record<string, number> = {

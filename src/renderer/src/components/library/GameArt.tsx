@@ -16,10 +16,12 @@ import type { Profile } from '@shared/types'
  * every game's art on screen at once — forty decoded backgrounds would cost
  * hundreds of megabytes. A background belongs behind one game, never in a tile.
  */
-export function gameArtUrl(profile: Profile): string | null {
-  if (profile.coverFile) return `gt-asset://covers/${encodeURIComponent(profile.coverFile)}`
-  if (profile.iconFile) return `gt-asset://icons/${encodeURIComponent(profile.iconFile)}`
-  return null
+export function gameArtUrl(profile: Profile, preferIcon = false): string | null {
+  const cover = profile.coverFile ? `gt-asset://covers/${encodeURIComponent(profile.coverFile)}` : null
+  const icon = profile.iconFile ? `gt-asset://icons/${encodeURIComponent(profile.iconFile)}` : null
+  // A list row is a small square, so the square icon wins there; a grid tile is
+  // a portrait frame, so the poster wins there. Each falls back to the other.
+  return preferIcon ? (icon ?? cover) : (cover ?? icon)
 }
 
 /** First character of the name, for a game with no art at all. */
@@ -30,13 +32,16 @@ export function artPlaceholderLetter(name: string): string {
 export function GameArt({
   profile,
   className = '',
-  rounded = 'rounded-lg'
+  rounded = 'rounded-lg',
+  preferIcon = false
 }: {
   profile: Profile
   className?: string
   rounded?: string
+  /** List rows pass true: a square icon reads better than a cropped poster. */
+  preferIcon?: boolean
 }): React.JSX.Element {
-  const url = gameArtUrl(profile)
+  const url = gameArtUrl(profile, preferIcon)
   if (url) {
     return (
       <img

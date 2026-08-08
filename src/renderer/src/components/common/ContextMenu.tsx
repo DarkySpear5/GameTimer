@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 export interface ContextMenuItem {
   label: string
@@ -32,13 +32,32 @@ export function ContextMenu({ x, y, items, onClose }: ContextMenuProps): React.J
     }
   }, [onClose])
 
-  const clampedX = Math.min(x, window.innerWidth - 180)
-  const clampedY = Math.min(y, window.innerHeight - items.length * 32 - 16)
+  /*
+   * Measured after layout rather than estimated. The old clamp assumed every
+   * item was 32px tall and ignored separators entirely, so a longer menu opened
+   * near the bottom of the window ran off the edge and its last entries —
+   * Delete among them — simply could not be clicked. Only the real height
+   * knows, so the menu renders once invisibly, gets measured, then positions.
+   */
+  const [pos, setPos] = useState<{ left: number; top: number } | null>(null)
+
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const { offsetWidth: w, offsetHeight: h } = el
+    const margin = 8
+    setPos({
+      left: Math.max(margin, Math.min(x, window.innerWidth - w - margin)),
+      // Flip above the cursor when there isn't room below, which is what every
+      // native menu does, rather than merely sliding up and covering the click.
+      top: y + h + margin > window.innerHeight ? Math.max(margin, y - h) : y
+    })
+  }, [x, y, items.length])
 
   return (
     <div
       ref={ref}
-      style={{ left: clampedX, top: clampedY }}
+      style={{ left: pos?.left ?? x, top: pos?.top ?? y, visibility: pos ? 'visible' : 'hidden' }}
       className="fixed z-50 w-44 rounded-lg bg-card py-1 shadow-2xl"
     >
       {items.map((item, i) => (

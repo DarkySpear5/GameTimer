@@ -5,7 +5,7 @@ import { create } from 'zustand'
  * the question someone opening the app for the first time actually has. Timer
  * answers "what am I playing", which only matters once a game is chosen.
  */
-export type MainTab = 'library' | 'timer' | 'stats' | 'about'
+export type MainTab = 'library' | 'stats' | 'about'
 export type DialogKind =
   | 'modify'
   | 'notes'
@@ -94,6 +94,5 @@ export async function selectProfile(name: string | null): Promise<void> {
  */
 export async function launchGame(name: string): Promise<void> {
   await selectProfile(name)
-  useUiStore.getState().setActiveTab('timer')
   await window.api.detect.launch(name)
 }

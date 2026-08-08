@@ -1,9 +1,7 @@
 import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { TitleBar } from './components/titlebar/TitleBar'
-import { GameList } from './components/gamelist/GameList'
 import { LibraryTab } from './components/library/LibraryTab'
-import { SelectedGameView } from './components/timerview/SelectedGameView'
 import { DataTab } from './components/datatab/DataTab'
 import { AboutTab } from './components/about/AboutTab'
 import { ModifyDialog } from './components/dialogs/ModifyDialog'
@@ -21,14 +19,11 @@ import { loadSettings } from './state/settingsStore'
 import { startTimerTickSubscription } from './state/timerStore'
 import { useUiStore } from './state/uiStore'
 
-// Library first and default — "what do I have" is the question someone opening
-// this app actually has; "what am I playing" only matters once a game is
-// chosen. Timer stays its own tab rather than folding into Library because
-// Gamut supports concurrent timers, so what is running now is genuinely a
-// different view from the collection.
+// The Timer tab is gone. It existed to answer "what am I playing", but a game's
+// Library detail page already shows its clock, its Play/Pause and its Launch —
+// so the tab was a second route to one job, and the app is smaller without it.
 const TAB_KEYS = {
   library: 'tab_library',
-  timer: 'tab_timer',
   stats: 'tab_stats',
   about: 'tab_about'
 } as const
@@ -82,12 +77,6 @@ function App(): React.JSX.Element {
         </button>
       </div>
       {activeTab === 'library' && <LibraryTab />}
-      {activeTab === 'timer' && (
-        <div className="flex flex-1 overflow-hidden">
-          <GameList />
-          <SelectedGameView />
-        </div>
-      )}
       {activeTab === 'stats' && <DataTab />}
       {activeTab === 'about' && <AboutTab />}
 

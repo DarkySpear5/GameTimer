@@ -216,7 +216,11 @@ export function TimeTab({ profile }: { profile: Profile }): React.JSX.Element {
   const [direction, setDirection] = useState<'add' | 'remove'>('add')
   const [hours, setHours] = useState('0')
   const [minutes, setMinutes] = useState('0')
-  const [note, setNote] = useState('')
+
+  async function resetTime(): Promise<void> {
+    if (!window.confirm(t('confirm_reset_time_msg', { name: profile.name }))) return
+    useProfilesStore.getState().upsert(await window.api.profiles.resetTime(profile.name))
+  }
 
   async function apply(): Promise<void> {
     const h = parseInt(hours, 10) || 0
@@ -227,11 +231,10 @@ export function TimeTab({ profile }: { profile: Profile }): React.JSX.Element {
       return
     }
     const signed = direction === 'remove' ? -deltaSeconds : deltaSeconds
-    const updated = await window.api.profiles.addRemoveTime(profile.name, signed, note.trim() || undefined)
+    const updated = await window.api.profiles.addRemoveTime(profile.name, signed)
     useProfilesStore.getState().upsert(updated)
     setHours('0')
     setMinutes('0')
-    setNote('')
   }
 
   return (
@@ -293,21 +296,26 @@ export function TimeTab({ profile }: { profile: Profile }): React.JSX.Element {
           />
         </div>
       </div>
-      <div>
-        <label className="mb-1 block text-xs text-subtext">{t('label_note_optional')}</label>
-        <input
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-          placeholder={t('hint_note_example')}
-          className="w-full rounded bg-card px-2.5 py-1.5 text-sm text-text outline-none"
-        />
-      </div>
       <button
         onClick={() => void apply()}
         className="self-start rounded bg-accent px-4 py-1.5 text-sm font-medium text-bg hover:opacity-90"
       >
         {t('btn_apply')}
       </button>
+
+      {/*
+       * D1: resetting the clock is a time action, so it belongs on the Time tab
+       * beside the time — it was previously only reachable from a context menu.
+       * Destructive, so it sits below the divider, in red, behind a confirm.
+       */}
+      <div className="mt-1 border-t border-card pt-4">
+        <button
+          onClick={() => void resetTime()}
+          className="rounded px-3 py-1.5 text-xs text-red transition-colors hover:bg-red hover:text-bg"
+        >
+          {t('ctx_reset_time')}
+        </button>
+      </div>
     </div>
   )
 }

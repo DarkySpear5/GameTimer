@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useProfilesStore } from '../../state/profilesStore'
-import { useSettingsStore } from '../../state/settingsStore'
+import { useSettingsStore, updateSettings } from '../../state/settingsStore'
 import { useUiStore, type DataSort, type DataSortKey } from '../../state/uiStore'
 import { ContextMenu } from '../common/ContextMenu'
 import { formatSeconds } from '@shared/format'
@@ -89,8 +89,12 @@ export function DataTab(): React.JSX.Element {
   )
 
   const list = useMemo(() => {
+    // F1: a Not Started game has no playtime, no dates and no rating — every
+    // column would be a dash, so it is noise in a table about what you played.
     const flip = effectiveSort.dir === 'asc' ? 1 : -1
-    return Object.values(profiles).sort((a, b) => {
+    return Object.values(profiles)
+      .filter((p) => p.status !== 'not_started')
+      .sort((a, b) => {
       const av = sortValue(a, effectiveSort.key, STATUS_LABELS[a.status])
       const bv = sortValue(b, effectiveSort.key, STATUS_LABELS[b.status])
       if (av === null || bv === null) {
@@ -127,7 +131,21 @@ export function DataTab(): React.JSX.Element {
        * renders 15% further down the page than the cursor.
        */}
       <div className="px-6 py-5" style={{ zoom: scale }}>
-      <div className="mb-5 text-lg font-semibold text-text">{t('stats_title')}</div>
+      {/*
+       * The detail switch lives here rather than in Settings, because what it
+       * changes is on screen while you press it. The label names the level you
+       * are switching TO — press "Advanced" to get more columns, and the button
+       * then reads "Simple" to go back.
+       */}
+      <div className="mb-5 flex items-center justify-between gap-3">
+        <div className="text-lg font-semibold text-text">{t('stats_title')}</div>
+        <button
+          onClick={() => void updateSettings({ detailLevel: advanced ? 'simple' : 'advanced' })}
+          className="rounded bg-card px-3 py-1.5 text-xs text-text transition-opacity hover:opacity-80"
+        >
+          {t(advanced ? 'detail_simple' : 'detail_advanced')}
+        </button>
+      </div>
       <div className="mb-5 flex gap-4">
         <StatCard label={t('stat_total_time')} value={formatSeconds(totalSeconds)} />
         <StatCard label={t('stat_games_tracked')} value={String(list.length)} />

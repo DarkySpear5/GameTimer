@@ -94,7 +94,16 @@ const SettingsSchema = z.object({
   // falls back to Name rather than refusing to load. Same contract as every
   // other field — a save file never loses more than the field it got wrong.
   sortMode: z
-    .enum(['name', 'name_desc', 'last_played', 'playtime', 'favorite', 'rating', 'genre'])
+    .enum([
+      'name',
+      'name_desc',
+      'last_played',
+      'playtime',
+      'favorite',
+      'rating',
+      'genre',
+      'platform'
+    ])
     .catch('name'),
   genreFilter: z.string().catch('All'),
   statusFilter: z

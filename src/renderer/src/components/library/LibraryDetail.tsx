@@ -54,7 +54,9 @@ export function LibraryDetail({ name }: { name: string }): React.JSX.Element {
   const isRunning = liveSeconds !== undefined
   const seconds = liveSeconds ?? profile.seconds
   const summary = summaryFrom(profile.sessionStats)
-  const canLaunch = profile.steamAppId != null || !!profile.exePath
+  // Xbox/Store games have NEITHER an appid nor a runnable .exe — they launch by
+  // AUMID — so launchUri has to count here or their button never appears.
+  const canLaunch = profile.steamAppId != null || !!profile.launchUri || !!profile.exePath
 
   const STATUS_LABEL: Record<Status, string> = {
     not_started: t('status_not_started'),
@@ -83,8 +85,13 @@ export function LibraryDetail({ name }: { name: string }): React.JSX.Element {
     useProfilesStore.getState().upsert(await window.api.profiles.setRating(name, rating))
   }
 
-  async function handleDuplicate(): Promise<void> {
-    useProfilesStore.getState().upsert(await window.api.profiles.duplicate(name))
+  /** D4: the counterpart to Export — pulls a .gtprofile in as a new game. */
+  async function handleImport(): Promise<void> {
+    const imported = await window.api.importExport.importProfile()
+    if (imported) {
+      useProfilesStore.getState().upsert(imported)
+      toast.info(t('info_imported_msg', { name: imported.name }))
+    }
   }
 
   async function handleExport(): Promise<void> {
@@ -232,8 +239,8 @@ export function LibraryDetail({ name }: { name: string }): React.JSX.Element {
             { label: t('ctx_modify'), onClick: () => openDialog('modify', name) },
             { label: t('ctx_info'), onClick: () => openDialog('info', name) },
             { label: t('ctx_notes'), onClick: () => openDialog('notes', name) },
-            { label: t('ctx_duplicate'), onClick: () => void handleDuplicate() },
-            { label: t('ctx_export'), onClick: () => void handleExport() }
+            { label: t('ctx_export'), onClick: () => void handleExport() },
+            { label: t('ctx_import'), onClick: () => void handleImport() }
           ].map((action) => (
             <button
               key={action.label}

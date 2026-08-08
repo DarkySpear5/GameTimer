@@ -38,10 +38,11 @@ export function SettingsDialog({ onClose }: { onClose: () => void }): React.JSX.
     { id: 'general', label: t('tab_general') },
     // Everything about detecting and decorating games in one place — these
     // were scattered across General before and read as unrelated switches.
-    { id: 'games', label: t('tab_games') },
+
     // Detection sources get their own tab: they are about where games COME
     // FROM, which is a different question from how they behave once added.
     { id: 'launchers', label: t('tab_launchers') },
+    { id: 'games', label: t('tab_games') },
     { id: 'appearance', label: t('tab_appearance') },
     { id: 'language', label: t('tab_language') }
   ]
@@ -94,11 +95,19 @@ export function SettingsDialog({ onClose }: { onClose: () => void }): React.JSX.
             checked={settings.autoFetchArt}
             onChange={(v) => void updateSettings({ autoFetchArt: v })}
           />
-          <ToggleRow
-            label={t('label_watch_games')}
-            checked={settings.watchForGames}
-            onChange={(v) => void updateSettings({ watchForGames: v })}
-          />
+          <div>
+            <ToggleRow
+              label={t('label_watch_games')}
+              checked={settings.watchForGames}
+              onChange={(v) => void updateSettings({ watchForGames: v })}
+            />
+            {/*
+             * "Watch for games in the background" said what the code does, not
+             * what the user gets. The label now names the outcome and the hint
+             * explains the mechanism and what depends on it.
+             */}
+            <div className="mt-1 text-xs text-subtext">{t('label_watch_games_hint')}</div>
+          </div>
           {/*
            * Off by default and that is a product decision, not caution:
            * auto-tracking measures "the process was open", which is how Steam
@@ -109,33 +118,6 @@ export function SettingsDialog({ onClose }: { onClose: () => void }): React.JSX.
             checked={settings.autoStartTimer}
             onChange={(v) => void updateSettings({ autoStartTimer: v })}
           />
-
-          {/*
-           * One switch for both the Stats table and the More info window. Two
-           * separate toggles would make "show me more" something you have to
-           * find twice, and nobody thinks of those two screens as unrelated.
-           *
-           * Lives under Games rather than Appearance because it decides WHAT
-           * information about your games is shown, not how the app looks —
-           * Appearance keeps theme, font and sizes.
-           */}
-          <div className="mt-2 border-t border-card/60 pt-4">
-            <label className="mb-1 block text-xs text-subtext">{t('label_detail_level')}</label>
-            <div className="flex overflow-hidden rounded bg-card">
-              {(['simple', 'advanced'] as const).map((level) => (
-                <button
-                  key={level}
-                  onClick={() => void updateSettings({ detailLevel: level })}
-                  className={`flex-1 px-3 py-1.5 text-sm transition-colors ${
-                    settings.detailLevel === level ? 'bg-accent text-bg' : 'text-subtext hover:text-text'
-                  }`}
-                >
-                  {t(level === 'simple' ? 'detail_simple' : 'detail_advanced')}
-                </button>
-              ))}
-            </div>
-            <div className="mt-1 text-xs text-subtext">{t('label_detail_level_hint')}</div>
-          </div>
 
         </div>
       )}

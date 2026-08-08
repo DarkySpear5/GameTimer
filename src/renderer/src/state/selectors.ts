@@ -53,12 +53,50 @@ export function sortAndFilterProfiles(
     case 'genre':
       list.sort((a, b) => a.genres.join(', ').localeCompare(b.genres.join(', ')) || byName(a, b))
       break
+    case 'platform':
+      list.sort((a, b) => platformRank(a) - platformRank(b) || byName(a, b))
+      break
     case 'name':
     default:
       list.sort(byName)
   }
 
   return list
+}
+
+/**
+ * The storefront a game came from, in the order the user asked for:
+ * Steam → Xbox → Epic → EA → Battle.net → GOG → Nexon → everything else.
+ *
+ * A profile does not record its source — it records how to START it, which is
+ * the same information seen from the other side. A Steam appid means Steam; a
+ * launch URI names its launcher in the scheme; anything left is a bare
+ * executable or a manually added game, and those sort last together.
+ */
+const PLATFORM_ORDER = ['steam', 'xbox', 'epic', 'ea', 'battlenet', 'gog', 'nexon']
+
+export function platformRank(profile: Profile): number {
+  if (profile.steamAppId != null) return 0
+  const uri = profile.launchUri ?? ''
+  if (uri.startsWith('shell:appsFolder')) return PLATFORM_ORDER.indexOf('xbox')
+  if (uri.startsWith('com.epicgames.launcher:')) return PLATFORM_ORDER.indexOf('epic')
+  if (uri.startsWith('origin2:') || uri.startsWith('link2ea:')) return PLATFORM_ORDER.indexOf('ea')
+  if (uri.startsWith('battlenet:')) return PLATFORM_ORDER.indexOf('battlenet')
+  if (uri.startsWith('goggalaxy:')) return PLATFORM_ORDER.indexOf('gog')
+  if (uri.startsWith('nxl:')) return PLATFORM_ORDER.indexOf('nexon')
+  return PLATFORM_ORDER.length
+}
+
+/**
+ * Free-text match over a game's name and its genres. Case- and
+ * punctuation-insensitive, so "hollow knight" finds "Hollow Knight" and
+ * "deadby" finds "Dead by Daylight".
+ */
+export function matchesSearch(profile: Profile, query: string): boolean {
+  const q = query.trim().toLowerCase().replace(/[^a-z0-9]/g, '')
+  if (!q) return true
+  const haystack = (profile.name + ' ' + profile.genres.join(' ')).toLowerCase().replace(/[^a-z0-9]/g, '')
+  return haystack.includes(q)
 }
 
 /** Live seconds for display: committed `seconds` plus whatever the running timer's ticked since the last checkpoint. */

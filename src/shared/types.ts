@@ -10,6 +10,7 @@ export type SortMode =
   | 'favorite'
   | 'rating'
   | 'genre'
+  | 'platform'
 
 export type ThemeName = 'Midnight Blue' | 'Paper White' | 'Slate Grey' | 'Rose' | 'Retro Terminal' | 'Custom'
 

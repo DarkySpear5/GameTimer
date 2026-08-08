@@ -59,6 +59,14 @@ export function AboutTab(): React.JSX.Element {
           </li>
         ))}
       </ul>
+      {/*
+       * H1: where the cover art comes from. Worth stating plainly — these are
+       * other people's storefronts and databases, and a tracker that quietly
+       * pulls their images should say so.
+       */}
+      <div className="mt-5 mb-2 font-semibold">{t('about_art_header')}</div>
+      <div className="text-subtext">{t('about_art_credits')}</div>
+
       <div className="mt-5 mb-2 font-semibold">{t('about_contact_header')}</div>
       <div className="flex flex-col gap-1.5">
         <div>

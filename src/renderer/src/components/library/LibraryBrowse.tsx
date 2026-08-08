@@ -1,10 +1,10 @@
-import { memo, useCallback, useMemo } from 'react'
+import { memo, useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useProfilesStore } from '../../state/profilesStore'
 import { useSettingsStore, updateSettings } from '../../state/settingsStore'
 import { useTimerStore } from '../../state/timerStore'
 import { useUiStore } from '../../state/uiStore'
-import { sortAndFilterProfiles } from '../../state/selectors'
+import { sortAndFilterProfiles, matchesSearch } from '../../state/selectors'
 import { formatSeconds } from '@shared/format'
 import { GENRE_OPTIONS } from '@shared/constants'
 import { GameArt } from './GameArt'
@@ -21,7 +21,8 @@ const SORT_OPTIONS: { value: SortMode; labelKey: string }[] = [
   { value: 'playtime', labelKey: 'sort_playtime' },
   { value: 'favorite', labelKey: 'sort_favorite' },
   { value: 'rating', labelKey: 'sort_rating_desc' },
-  { value: 'genre', labelKey: 'sort_genre_az' }
+  { value: 'genre', labelKey: 'sort_genre_az' },
+  { value: 'platform', labelKey: 'sort_platform' }
 ]
 
 /**
@@ -91,11 +92,14 @@ const GameTile = memo(function GameTile({
 const GameListRow = memo(function GameListRow({
   profile,
   statusLabel,
+  iconSize,
   onOpen,
   onContextMenu
 }: {
   profile: Profile
   statusLabel: string
+  /** Settings → Appearance → Icon Size. The list is the only view it governs. */
+  iconSize: number
   onOpen: (name: string) => void
   onContextMenu: (e: React.MouseEvent, name: string) => void
 }): React.JSX.Element {
@@ -112,8 +116,8 @@ const GameListRow = memo(function GameListRow({
       data-testid="library-item"
       className="group flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left hover:bg-card/60"
     >
-      <div className="h-11 w-11 shrink-0 overflow-hidden rounded">
-        <GameArt profile={profile} rounded="rounded" />
+      <div className="shrink-0 overflow-hidden rounded" style={{ width: iconSize, height: iconSize }}>
+        <GameArt profile={profile} rounded="rounded" preferIcon />
       </div>
       <span
         data-testid="library-item-name"
@@ -154,6 +158,7 @@ export function LibraryBrowse(): React.JSX.Element {
   const openContextMenu = useUiStore((s) => s.openContextMenu)
   const openDialog = useUiStore((s) => s.openDialog)
 
+  const [search, setSearch] = useState('')
   const view = settings?.libraryView ?? 'grid'
   const sortMode = settings?.sortMode ?? 'name'
   const running = useTimerStore((s) => (sortMode === 'playtime' ? s.running : EMPTY_RUNNING))
@@ -166,19 +171,19 @@ export function LibraryBrowse(): React.JSX.Element {
     on_hold: t('status_on_hold')
   }
 
-  const sorted = useMemo(
-    () =>
-      settings
-        ? sortAndFilterProfiles(
-            profiles,
-            settings.sortMode,
-            settings.genreFilter,
-            settings.statusFilter,
-            running
-          )
-        : [],
-    [profiles, settings, running]
-  )
+  const sorted = useMemo(() => {
+    if (!settings) return []
+    const list = sortAndFilterProfiles(
+      profiles,
+      settings.sortMode,
+      settings.genreFilter,
+      settings.statusFilter,
+      running
+    )
+    // Search narrows what the filters and sort already produced, rather than
+    // being another filter dropdown — typing is how people find one known game.
+    return search.trim() ? list.filter((p) => matchesSearch(p, search)) : list
+  }, [profiles, settings, running, search])
 
   // Stable references, so the memo() on the tiles has something to compare.
   const handleOpen = useCallback((name: string) => setLibraryFocus(name), [setLibraryFocus])
@@ -252,6 +257,16 @@ export function LibraryBrowse(): React.JSX.Element {
           </select>
         </Field>
 
+        <Field label={t('label_search')}>
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={t('placeholder_search_games')}
+            className="w-44 rounded bg-card px-2 py-1 text-xs text-text outline-none ring-1 ring-transparent focus:ring-accent"
+          />
+        </Field>
+
         <div className="ml-auto flex items-end gap-2">
           <button
             onClick={() => openDialog('add')}
@@ -306,6 +321,7 @@ export function LibraryBrowse(): React.JSX.Element {
                 key={p.name}
                 profile={p}
                 statusLabel={STATUS_LABEL[p.status]}
+                iconSize={settings?.iconSize ?? 36}
                 onOpen={handleOpen}
                 onContextMenu={handleContextMenu}
               />

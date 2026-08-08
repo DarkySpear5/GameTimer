@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { displaySeconds, sortAndFilterProfiles } from './selectors'
+import { displaySeconds, matchesSearch, platformRank, sortAndFilterProfiles } from './selectors'
 import type { Profile } from '@shared/types'
 
 function profile(name: string, overrides: Partial<Profile> = {}): Profile {
@@ -173,5 +173,70 @@ describe('displaySeconds', () => {
 
   it('treats a live zero as running, not as absent', () => {
     expect(displaySeconds(profile('A', { seconds: 10 }), { A: 0 })).toBe(0)
+  })
+})
+
+describe('platformRank', () => {
+  // A profile never stores which storefront it came from — it stores how to
+  // START it, which is the same fact seen from the other side.
+  it('puts Steam first, by appid', () => {
+    expect(platformRank(profile('A', { steamAppId: 400 }))).toBe(0)
+  })
+
+  it.each([
+    ['shell:appsFolder\\Microsoft.AcornUWP_8wekyb3d8bbwe!App', 1],
+    ['com.epicgames.launcher://apps/Sugar?action=launch', 2],
+    ['origin2://game/launch?offerIds=1', 3],
+    ['battlenet://heroes', 4],
+    ['goggalaxy://openGameView/123', 5],
+    ['nxl://launch/10300', 6]
+  ])('ranks %s by its launcher', (uri, rank) => {
+    expect(platformRank(profile('A', { launchUri: uri }))).toBe(rank)
+  })
+
+  it('sorts a bare executable last', () => {
+    expect(platformRank(profile('A', { exePath: 'C:\\Games\\game.exe' }))).toBe(7)
+  })
+
+  it('orders a mixed library Steam → Xbox → Epic → EA → Battle.net → GOG → Nexon → other', () => {
+    const games = library(
+      profile('Nex', { launchUri: 'nxl://launch/1' }),
+      profile('Steam', { steamAppId: 1 }),
+      profile('Plain', {}),
+      profile('Xbox', { launchUri: 'shell:appsFolder\\A_b!App' }),
+      profile('Epic', { launchUri: 'com.epicgames.launcher://apps/x' })
+    )
+    expect(names(sortAndFilterProfiles(games, 'platform', 'All', 'All'))).toEqual([
+      'Steam',
+      'Xbox',
+      'Epic',
+      'Nex',
+      'Plain'
+    ])
+  })
+})
+
+describe('matchesSearch', () => {
+  const doom = profile('DOOM Eternal', { genres: ['FPS', 'Action'] })
+
+  it('matches an empty query', () => {
+    expect(matchesSearch(doom, '   ')).toBe(true)
+  })
+
+  it('ignores case and punctuation', () => {
+    expect(matchesSearch(doom, 'doom eternal')).toBe(true)
+    expect(matchesSearch(profile('Ratchet & Clank'), 'ratchetclank')).toBe(true)
+  })
+
+  it('matches a fragment spanning a space', () => {
+    expect(matchesSearch(doom, 'doomet')).toBe(true)
+  })
+
+  it('matches on genre too', () => {
+    expect(matchesSearch(doom, 'fps')).toBe(true)
+  })
+
+  it('rejects a non-match', () => {
+    expect(matchesSearch(doom, 'stardew')).toBe(false)
   })
 })
