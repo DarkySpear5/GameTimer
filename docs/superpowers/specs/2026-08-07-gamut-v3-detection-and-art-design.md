@@ -219,7 +219,6 @@ upgrade with zero risk — `seconds` and `statusSeconds` remain tracked time.
 
 | Field | Type | Notes |
 |---|---|---|
-| `sessions` | number | +1 on Play |
 | `sessionLog` | `{ startedAt: number, seconds: number, short?: true }[]` | Every session, kept forever. `short` marks sub-60s sessions excluded from counts and averages. |
 | `launches` | number | +1 on a confirmed launch |
 | `openSeconds` | number | Total process-open time, when known |
@@ -228,9 +227,11 @@ upgrade with zero risk — `seconds` and `statusSeconds` remain tracked time.
 | `autoFetchArt` | boolean \| null | `null` = follow the global setting |
 | `autoStartTimer` | boolean \| null | `null` = follow the global setting |
 
-**Derived, never stored:** average session, longest session, first played, last
-played, idle time. All computed from `sessionLog` so they cannot drift out of
-sync with reality.
+**Derived, never stored:** the session count itself, average session, longest
+session, first played, last played, idle time. All computed from `sessionLog`,
+so no displayed figure can ever contradict the log it claims to summarize — a
+stored `sessions` counter would be a second source of truth free to drift from
+the entries beside it.
 
 `sessionLog` is unbounded by decision. At roughly 50 bytes per entry, three
 sessions a day for five years across a whole library stays under ~300 KB, and
