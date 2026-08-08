@@ -102,6 +102,8 @@ export interface DetectedApp {
 export interface GameSearchHit {
   appId: number
   name: string
+  /** Square community icon. The only genuinely square art Steam exposes — store assets are all wide or tall. */
+  iconUrl?: string
 }
 
 export interface GameIdentity {

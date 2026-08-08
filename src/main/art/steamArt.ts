@@ -1,4 +1,4 @@
-import { net } from 'electron'
+import { net, nativeImage } from 'electron'
 import { promises as fs } from 'fs'
 import { join } from 'path'
 import { randomUUID } from 'crypto'
@@ -8,32 +8,30 @@ import { ICON_MAX_DIMENSION, BACKGROUND_MAX_DIMENSION } from '@shared/constants'
 import type { GameSearchHit } from '@shared/types'
 
 /**
- * Steam's public art and search endpoints. Both are keyless: no account, no
+ * Steam's public art, search and store endpoints. All keyless: no account, no
  * API key, no server of our own. That is the entire reason this exists rather
  * than an IGDB integration — IGDB requires a Twitch client secret, which
  * cannot be shipped inside an app, and its own docs say desktop clients should
  * not call it directly.
- *
- * A game does not need to be installed through Steam for any of this, only
- * listed in Steam's catalogue — which covers the overwhelming majority of PC
- * games including Epic, GOG and itch releases.
  */
 const SEARCH_URL = 'https://steamcommunity.com/actions/SearchApps/'
+const STORE_API = 'https://store.steampowered.com/api/appdetails'
 const CDN = 'https://cdn.cloudflare.steamstatic.com/steam/apps'
 
 interface RawHit {
   appid?: string | number
   name?: string
+  icon?: string
 }
 
 /**
  * Fuzzy name search. Tolerates typos and pluralisation — "field of mistria"
  * correctly returns "Fields of Mistria".
  *
- * Callers must treat results as a suggestion, never a fact: the search fails
- * *closed* on nonsense (SMAPI, BootstrapPackagedGame all return nothing) but
- * fails *open* on plausible input — "MarvelRivals" confidently returns
- * "Marvel Rivals Playtest", the wrong app entirely.
+ * Results are a suggestion, never a fact: it is a SUBSTRING matcher whose
+ * first result is often wrong ("Hollow Knight" returns Silksong first), and it
+ * returns hits for things that are not games at all ("Discord" returns Discord
+ * Bot Maker). See matchHit.ts — an exact title match is the real signal.
  */
 export async function searchSteamApps(query: string): Promise<GameSearchHit[]> {
   const trimmed = query.trim()
@@ -44,7 +42,8 @@ export async function searchSteamApps(query: string): Promise<GameSearchHit[]> {
     const raw: unknown = await res.json()
     if (!Array.isArray(raw)) return []
     return (raw as RawHit[])
-      .map((h) => ({ appId: Number(h.appid), name: String(h.name ?? '') }))
+      .map((h) => ({ appId: Number(h.appid), name: String(h.name ?? ''), iconUrl: h.icon })
+      )
       .filter((h) => Number.isFinite(h.appId) && h.appId > 0 && h.name)
       .slice(0, 12)
   } catch {
@@ -52,7 +51,6 @@ export async function searchSteamApps(query: string): Promise<GameSearchHit[]> {
   }
 }
 
-/** Cover art URL — also what the picker shows for a confirmation prompt. */
 export function coverUrl(appId: number): string {
   return `${CDN}/${appId}/library_600x900.jpg`
 }
@@ -68,49 +66,135 @@ async function download(url: string): Promise<Buffer | null> {
   }
 }
 
+/**
+ * Rejects anything that downloaded but isn't usable art. Steam answers a
+ * missing asset with a tiny placeholder rather than a clean 404 on some CDN
+ * edges, and a 1x1 or undecodable image saved as a game's icon looks like a
+ * bug in Gamut rather than a gap in Steam's catalogue.
+ *
+ * `maxAspect` is the real quality gate: it is what stops a wide banner being
+ * saved as a square icon, which is precisely how the first version went wrong.
+ */
+function isUsable(buf: Buffer, minSide: number, maxAspect: number): boolean {
+  const img = nativeImage.createFromBuffer(buf)
+  if (img.isEmpty()) return false
+  const { width, height } = img.getSize()
+  if (width < minSide || height < minSide) return false
+  const aspect = Math.max(width / height, height / width)
+  return aspect <= maxAspect
+}
+
+/** First candidate that downloads AND passes the quality gate. */
+async function firstUsable(urls: string[], minSide: number, maxAspect: number): Promise<Buffer | null> {
+  for (const url of urls) {
+    const buf = await download(url)
+    if (buf && isUsable(buf, minSide, maxAspect)) return buf
+  }
+  return null
+}
+
+async function store(buf: Buffer, dir: string, max: number): Promise<string | null> {
+  try {
+    await fs.mkdir(dir, { recursive: true })
+    const name = `${randomUUID()}.jpg`
+    await saveCappedImageBuffer(buf, join(dir, name), max)
+    return name
+  } catch {
+    return null
+  }
+}
+
 export interface FetchedArt {
   iconFile: string | null
   bgImage: string | null
 }
 
 /**
- * Downloads a game's cover and hero image and stores them exactly where
- * manually chosen art goes, through the same size caps — so nothing
- * downstream needs to know an image was fetched rather than picked.
+ * Downloads a game's icon and background, storing them exactly where manually
+ * chosen art goes and through the same size caps.
  *
- * Each half is independent: a game with a cover but no hero image still gets
- * its cover. Returning nulls is a normal outcome (offline, or an appid with no
- * art), never an exception.
+ * Both halves use a fallback chain, because Steam's asset coverage is uneven:
+ * `library_600x900` and `library_hero` simply do not exist for older titles —
+ * appid 3600 (a 2007 game) 404s on both but serves `header.jpg` fine, and
+ * fetching nothing at all was the visible result.
+ *
+ * The icon deliberately prefers the community square icon from the search
+ * endpoint over any of the store artwork. The first version used
+ * `library_600x900`, which is tall portrait box art: cropped into a square
+ * tile it reads as a random slice of a poster rather than a game icon.
  */
-export async function fetchArt(appId: number): Promise<FetchedArt> {
-  const [cover, hero] = await Promise.all([
-    download(coverUrl(appId)),
-    download(`${CDN}/${appId}/library_hero.jpg`)
+export async function fetchArt(appId: number, name?: string): Promise<FetchedArt> {
+  // The square icon URL is only available through search, so look it up by the
+  // name we already resolved. One request, and it is the only source of a
+  // genuinely square icon.
+  let squareIconUrl: string | undefined
+  if (name) {
+    const hits = await searchSteamApps(name)
+    squareIconUrl = hits.find((h) => h.appId === appId)?.iconUrl ?? hits[0]?.iconUrl
+  }
+
+  const [icon, background] = await Promise.all([
+    firstUsable(
+      [
+        ...(squareIconUrl ? [squareIconUrl] : []),
+        `${CDN}/${appId}/capsule_231x87.jpg`,
+        `${CDN}/${appId}/header.jpg`
+      ],
+      // Aspect 3 tolerates the wide capsule fallbacks, which are still far
+      // better than no icon; the square community icon wins whenever it exists.
+      32,
+      3
+    ),
+    firstUsable(
+      [`${CDN}/${appId}/library_hero.jpg`, `${CDN}/${appId}/capsule_616x353.jpg`, `${CDN}/${appId}/header.jpg`],
+      200,
+      4
+    )
   ])
 
-  let iconFile: string | null = null
-  let bgImage: string | null = null
-
-  if (cover) {
-    try {
-      await fs.mkdir(paths.iconsDir(), { recursive: true })
-      const name = `${randomUUID()}.jpg`
-      await saveCappedImageBuffer(cover, join(paths.iconsDir(), name), ICON_MAX_DIMENSION)
-      iconFile = name
-    } catch {
-      /* keep going — a failed write should not cost the background too */
-    }
+  return {
+    iconFile: icon ? await store(icon, paths.iconsDir(), ICON_MAX_DIMENSION) : null,
+    bgImage: background ? await store(background, paths.backgroundsDir(), BACKGROUND_MAX_DIMENSION) : null
   }
-  if (hero) {
-    try {
-      await fs.mkdir(paths.backgroundsDir(), { recursive: true })
-      const name = `${randomUUID()}.jpg`
-      await saveCappedImageBuffer(hero, join(paths.backgroundsDir(), name), BACKGROUND_MAX_DIMENSION)
-      bgImage = name
-    } catch {
-      /* as above */
-    }
-  }
+}
 
-  return { iconFile, bgImage }
+/**
+ * Steam's own genre list for a game, mapped onto Gamut's tags. Keyless, and
+ * `filters=genres` keeps the response tiny — the unfiltered one includes the
+ * entire store description.
+ *
+ * Steam's genres are much coarser than Gamut's 51 tags, so this fills in the
+ * broad strokes and leaves the specific ones to the user. Anything with no
+ * sensible equivalent is dropped rather than approximated.
+ */
+const GENRE_MAP: Record<string, string> = {
+  action: 'Action',
+  adventure: 'Adventure',
+  rpg: 'RPG',
+  'role-playing': 'RPG',
+  strategy: 'Strategy',
+  simulation: 'Simulation',
+  sports: 'Sports',
+  racing: 'Racing',
+  casual: 'Casual',
+  'massively multiplayer': 'MMO',
+  violent: 'Gore',
+  gore: 'Gore',
+  'sexual content': 'Adult',
+  nudity: 'Adult'
+}
+
+export async function fetchGenres(appId: number): Promise<string[]> {
+  try {
+    const res = await net.fetch(`${STORE_API}?appids=${appId}&filters=genres`)
+    if (!res.ok) return []
+    const raw = (await res.json()) as Record<string, { success?: boolean; data?: { genres?: { description?: string }[] } }>
+    const genres = raw[String(appId)]?.data?.genres ?? []
+    const mapped = genres
+      .map((g) => GENRE_MAP[(g.description ?? '').trim().toLowerCase()])
+      .filter((g): g is string => !!g)
+    return [...new Set(mapped)]
+  } catch {
+    return []
+  }
 }

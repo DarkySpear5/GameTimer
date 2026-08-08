@@ -7,7 +7,7 @@ import { timerEngine } from '../timer/timerEngine'
 import { writeStatusLog } from '../statusLog/writeStatusLog'
 import { todayDateString } from '../util/date'
 import { saveCappedImage } from '../util/imageResize'
-import { fetchArt } from '../art/steamArt'
+import { enrichGame } from '../art/enrich'
 import { ICON_MAX_DIMENSION, BACKGROUND_MAX_DIMENSION } from '@shared/constants'
 import type { Profile, Status } from '@shared/types'
 
@@ -217,30 +217,34 @@ export const profileService = {
     profile.exePath = exePath
     profile.steamAppId = steamAppId
 
-    if (steamAppId != null && dataStore.get().settings.autoFetchArt) {
-      const art = await fetchArt(steamAppId)
-      if (art.iconFile) profile.iconFile = art.iconFile
-      if (art.bgImage) profile.bgImage = art.bgImage
+    // Runs even without an appid: enrichGame falls back to GOG, which is how
+    // a non-Steam game still gets art and genres.
+    if (dataStore.get().settings.autoFetchArt) {
+      const found = await enrichGame(name, steamAppId)
+      if (found.iconFile) profile.iconFile = found.iconFile
+      if (found.bgImage) profile.bgImage = found.bgImage
+      // Only ever fills an empty list — never overwrites tags the user chose.
+      if (found.genres.length > 0 && profile.genres.length === 0) profile.genres = found.genres
     }
 
     await dataStore.safeSave()
     return profile
   },
 
-  /** Re-pulls art for a game that already knows its appid — the Modify dialog's manual refresh. */
+  /** Re-pulls art and genres from Steam, then GOG — the Modify dialog's manual refresh. Works with or without an appid. */
   async refreshArt(name: string): Promise<Profile> {
     const profile = requireProfile(name)
-    if (profile.steamAppId == null) return profile
-    const art = await fetchArt(profile.steamAppId)
-    if (art.iconFile) {
+    const found = await enrichGame(profile.name, profile.steamAppId)
+    if (found.iconFile) {
       await deleteFileIfExists(profile.iconFile, paths.iconsDir())
-      profile.iconFile = art.iconFile
+      profile.iconFile = found.iconFile
     }
-    if (art.bgImage) {
+    if (found.bgImage) {
       await deleteFileIfExists(profile.bgImage, paths.backgroundsDir())
-      profile.bgImage = art.bgImage
+      profile.bgImage = found.bgImage
       profile.bgColor = null
     }
+    if (found.genres.length > 0 && profile.genres.length === 0) profile.genres = found.genres
     await dataStore.safeSave()
     return profile
   },
