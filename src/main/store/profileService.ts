@@ -9,7 +9,7 @@ import { todayDateString } from '../util/date'
 import { saveCappedImage } from '../util/imageResize'
 import { enrichGame, storeArtFromUrl } from '../art/enrich'
 import { emptyAggregate } from '@shared/sessionStats'
-import { ICON_MAX_DIMENSION, BACKGROUND_MAX_DIMENSION } from '@shared/constants'
+import { ICON_MAX_DIMENSION, BACKGROUND_MAX_DIMENSION, COVER_MAX_DIMENSION } from '@shared/constants'
 import type { Profile, Status } from '@shared/types'
 
 function freshProfile(name: string): Profile {
@@ -36,7 +36,8 @@ function freshProfile(name: string): Profile {
     openSeconds: 0,
     autoStartTimer: null,
     genresFromDetection: false,
-    favorite: false
+    favorite: false,
+    coverFile: null
   }
 }
 
@@ -44,6 +45,26 @@ function requireProfile(name: string): Profile {
   const profile = dataStore.get().profiles[name]
   if (!profile) throw new Error(`No such profile: ${name}`)
   return profile
+}
+
+/**
+ * Copies one of a profile's images for duplicate(), under a fresh name so the
+ * two profiles never share a file — deleting one game's art must not blank the
+ * other's. Failure is deliberately not fatal: a copy with no icon is a far
+ * better outcome than no copy at all.
+ */
+async function copyProfileImage(file: string | null, dir: string, max: number): Promise<string | null> {
+  if (!file) return null
+  const oldPath = join(dir, file)
+  if (!existsSync(oldPath)) return null
+  const newFile = `${randomUUID()}${extname(file)}`
+  try {
+    await fs.mkdir(dir, { recursive: true })
+    await saveCappedImage(oldPath, join(dir, newFile), max)
+    return newFile
+  } catch {
+    return null
+  }
 }
 
 async function deleteFileIfExists(path: string | null, dir: string): Promise<void> {
@@ -95,6 +116,7 @@ export const profileService = {
     timerEngine.stopActive(name)
     await deleteFileIfExists(profile.iconFile, paths.iconsDir())
     await deleteFileIfExists(profile.bgImage, paths.backgroundsDir())
+    await deleteFileIfExists(profile.coverFile, paths.coversDir())
     const data = dataStore.get()
     delete data.profiles[name]
     if (data.lastSelected === name) data.lastSelected = null
@@ -115,33 +137,11 @@ export const profileService = {
       counter++
     }
 
-    let newIconFile: string | null = null
-    if (original.iconFile) {
-      const oldPath = join(paths.iconsDir(), original.iconFile)
-      if (existsSync(oldPath)) {
-        newIconFile = `${randomUUID()}${extname(original.iconFile)}`
-        try {
-          await fs.mkdir(paths.iconsDir(), { recursive: true })
-          await saveCappedImage(oldPath, join(paths.iconsDir(), newIconFile), ICON_MAX_DIMENSION)
-        } catch {
-          newIconFile = null
-        }
-      }
-    }
-
-    let newBgImage: string | null = null
-    if (original.bgImage) {
-      const oldPath = join(paths.backgroundsDir(), original.bgImage)
-      if (existsSync(oldPath)) {
-        newBgImage = `${randomUUID()}${extname(original.bgImage)}`
-        try {
-          await fs.mkdir(paths.backgroundsDir(), { recursive: true })
-          await saveCappedImage(oldPath, join(paths.backgroundsDir(), newBgImage), BACKGROUND_MAX_DIMENSION)
-        } catch {
-          newBgImage = null
-        }
-      }
-    }
+    const [newIconFile, newBgImage, newCoverFile] = await Promise.all([
+      copyProfileImage(original.iconFile, paths.iconsDir(), ICON_MAX_DIMENSION),
+      copyProfileImage(original.bgImage, paths.backgroundsDir(), BACKGROUND_MAX_DIMENSION),
+      copyProfileImage(original.coverFile, paths.coversDir(), COVER_MAX_DIMENSION)
+    ])
 
     const copy: Profile = {
       name: newName,
@@ -173,7 +173,8 @@ export const profileService = {
       openSeconds: 0,
       autoStartTimer: original.autoStartTimer,
       genresFromDetection: original.genresFromDetection,
-      favorite: original.favorite
+      favorite: original.favorite,
+      coverFile: newCoverFile
     }
     data.profiles[newName] = copy
     await dataStore.safeSave()
@@ -220,10 +221,14 @@ export const profileService = {
     profile.steamAppId = steamAppId
 
     const wantsArt = profile.autoFetchArt ?? dataStore.get().settings.autoFetchArt
-    if (wantsArt && (!profile.iconFile || !profile.bgImage || profile.genres.length === 0)) {
+    if (
+      wantsArt &&
+      (!profile.iconFile || !profile.bgImage || !profile.coverFile || profile.genres.length === 0)
+    ) {
       const found = await enrichGame(profile.name, steamAppId)
       if (found.iconFile && !profile.iconFile) profile.iconFile = found.iconFile
       if (found.bgImage && !profile.bgImage) profile.bgImage = found.bgImage
+      if (found.coverFile && !profile.coverFile) profile.coverFile = found.coverFile
       if (found.genres.length > 0 && profile.genres.length === 0) {
         profile.genres = found.genres
         profile.genresFromDetection = true
@@ -267,6 +272,7 @@ export const profileService = {
       const found = await enrichGame(name, steamAppId)
       if (found.iconFile) profile.iconFile = found.iconFile
       if (found.bgImage) profile.bgImage = found.bgImage
+      if (found.coverFile) profile.coverFile = found.coverFile
       // Only ever fills an empty list — never overwrites tags the user chose.
       if (found.genres.length > 0 && profile.genres.length === 0) {
         profile.genres = found.genres
@@ -290,6 +296,10 @@ export const profileService = {
       await deleteFileIfExists(profile.bgImage, paths.backgroundsDir())
       profile.bgImage = found.bgImage
       profile.bgColor = null
+    }
+    if (found.coverFile) {
+      await deleteFileIfExists(profile.coverFile, paths.coversDir())
+      profile.coverFile = found.coverFile
     }
     if (found.genres.length > 0 && profile.genres.length === 0) {
       profile.genres = found.genres

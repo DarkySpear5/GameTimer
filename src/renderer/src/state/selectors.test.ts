@@ -33,6 +33,7 @@ function profile(name: string, overrides: Partial<Profile> = {}): Profile {
     autoStartTimer: null,
     genresFromDetection: false,
     favorite: false,
+    coverFile: null,
     ...overrides
   }
 }

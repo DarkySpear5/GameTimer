@@ -26,3 +26,5 @@ release-dev/
 .verify-tmp/
 *.tsbuildinfo
 .vite/
+.verify-library-tmp/
+.verify-shots/

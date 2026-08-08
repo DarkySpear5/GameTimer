@@ -19,6 +19,7 @@ export const paths = {
   backupsDir: () => join(root(), 'backups'),
   iconsDir: () => join(root(), 'icons'),
   backgroundsDir: () => join(root(), 'backgrounds'),
+  coversDir: () => join(root(), 'covers'),
   profilesDir: () => join(root(), 'profiles'),
   firstRunFile: () => join(root(), 'firstrun.json')
 }

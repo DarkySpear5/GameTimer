@@ -4,7 +4,7 @@ import { join } from 'path'
 import { randomUUID } from 'crypto'
 import { paths } from '../store/paths'
 import { saveCappedImageBuffer } from '../util/imageResize'
-import { ICON_MAX_DIMENSION, BACKGROUND_MAX_DIMENSION } from '@shared/constants'
+import { ICON_MAX_DIMENSION, BACKGROUND_MAX_DIMENSION, COVER_MAX_DIMENSION } from '@shared/constants'
 import { fetchArt, fetchGenres } from './steamArt'
 import { findGogGame } from './gogCatalog'
 import { mapTagsToGenres } from './genreMap'
@@ -26,6 +26,8 @@ import { isAllowedArtUrl } from './allowedHosts'
 export interface Enrichment {
   iconFile: string | null
   bgImage: string | null
+  /** Portrait box art for the Library grid. Null whenever no source had one. */
+  coverFile: string | null
   genres: string[]
   /** Which source actually produced something, for logging and the UI's benefit. */
   source: 'steam' | 'gog' | 'none'
@@ -60,7 +62,7 @@ async function store(buf: Buffer, dir: string, max: number): Promise<string | nu
 export async function enrichGame(name: string, steamAppId: number | null): Promise<Enrichment> {
   if (steamAppId != null) {
     const [art, genres] = await Promise.all([fetchArt(steamAppId, name), fetchGenres(steamAppId)])
-    if (art.iconFile || art.bgImage || genres.length > 0) {
+    if (art.iconFile || art.bgImage || art.coverFile || genres.length > 0) {
       return { ...art, genres, source: 'steam' }
     }
   }
@@ -68,7 +70,7 @@ export async function enrichGame(name: string, steamAppId: number | null): Promi
   // GOG's images use a {formatter} placeholder on some fields but the cover
   // URLs are direct, so they can be fetched as-is.
   const gog = await findGogGame(name)
-  if (!gog) return { iconFile: null, bgImage: null, genres: [], source: 'none' }
+  if (!gog) return { iconFile: null, bgImage: null, coverFile: null, genres: [], source: 'none' }
 
   const [icon, background] = await Promise.all([
     gog.coverVertical ? downloadUsable(gog.coverVertical, 32) : Promise.resolve(null),
@@ -78,6 +80,10 @@ export async function enrichGame(name: string, steamAppId: number | null): Promi
   return {
     iconFile: icon ? await store(icon, paths.iconsDir(), ICON_MAX_DIMENSION) : null,
     bgImage: background ? await store(background, paths.backgroundsDir(), BACKGROUND_MAX_DIMENSION) : null,
+    // GOG's coverVertical is already the portrait poster, so the cover and the
+    // icon come from one download stored twice at two different caps. GOG
+    // exposes nothing square, and a 480px poster is not an acceptable icon.
+    coverFile: icon ? await store(icon, paths.coversDir(), COVER_MAX_DIMENSION) : null,
     genres: mapTagsToGenres(gog.genres),
     source: 'gog'
   }

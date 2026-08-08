@@ -4,7 +4,7 @@ import { join } from 'path'
 import { randomUUID } from 'crypto'
 import { paths } from '../store/paths'
 import { saveCappedImageBuffer } from '../util/imageResize'
-import { ICON_MAX_DIMENSION, BACKGROUND_MAX_DIMENSION } from '@shared/constants'
+import { ICON_MAX_DIMENSION, BACKGROUND_MAX_DIMENSION, COVER_MAX_DIMENSION } from '@shared/constants'
 import { mapTagsToGenres } from './genreMap'
 import type { GameSearchHit } from '@shared/types'
 
@@ -109,6 +109,7 @@ async function store(buf: Buffer, dir: string, max: number): Promise<string | nu
 export interface FetchedArt {
   iconFile: string | null
   bgImage: string | null
+  coverFile: string | null
 }
 
 /**
@@ -135,7 +136,7 @@ export async function fetchArt(appId: number, name?: string): Promise<FetchedArt
     squareIconUrl = hits.find((h) => h.appId === appId)?.iconUrl ?? hits[0]?.iconUrl
   }
 
-  const [icon, background] = await Promise.all([
+  const [icon, background, cover] = await Promise.all([
     firstUsable(
       [
         ...(squareIconUrl ? [squareIconUrl] : []),
@@ -151,12 +152,20 @@ export async function fetchArt(appId: number, name?: string): Promise<FetchedArt
       [`${CDN}/${appId}/library_hero.jpg`, `${CDN}/${appId}/capsule_616x353.jpg`, `${CDN}/${appId}/header.jpg`],
       200,
       4
-    )
+    ),
+    // The portrait box art the Library grid wants, and the one case where
+    // library_600x900 is the right choice rather than the wrong one — it is a
+    // poster, so it belongs in a poster-shaped tile, not cropped into a square
+    // icon. header.jpg is a deliberate last resort: wide art centre-cropped
+    // into a tall tile still reads as the game, and appid 3600 proves that
+    // 600x900 simply does not exist for older titles.
+    firstUsable([`${CDN}/${appId}/library_600x900.jpg`, `${CDN}/${appId}/header.jpg`], 100, 4)
   ])
 
   return {
     iconFile: icon ? await store(icon, paths.iconsDir(), ICON_MAX_DIMENSION) : null,
-    bgImage: background ? await store(background, paths.backgroundsDir(), BACKGROUND_MAX_DIMENSION) : null
+    bgImage: background ? await store(background, paths.backgroundsDir(), BACKGROUND_MAX_DIMENSION) : null,
+    coverFile: cover ? await store(cover, paths.coversDir(), COVER_MAX_DIMENSION) : null
   }
 }
 

@@ -71,7 +71,8 @@ const ProfileSchema = z
     openSeconds: z.number().catch(0),
     autoStartTimer: z.boolean().nullable().catch(null),
     genresFromDetection: z.boolean().catch(false),
-    favorite: z.boolean().catch(false)
+    favorite: z.boolean().catch(false),
+    coverFile: z.string().nullable().catch(null)
   })
 
 const ThemeNameSchema = z
@@ -102,7 +103,8 @@ const SettingsSchema = z.object({
   autoFetchArt: z.boolean().catch(true),
   dataTableScale: z.number().catch(1.15),
   watchForGames: z.boolean().catch(false),
-  autoStartTimer: z.boolean().catch(false)
+  autoStartTimer: z.boolean().catch(false),
+  libraryView: z.enum(['grid', 'list']).catch('grid')
 })
 
 const AppDataSchema = z.object({

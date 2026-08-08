@@ -3,6 +3,7 @@ import { join } from 'path'
 import { pathToFileURL } from 'url'
 import { paths } from './store/paths'
 import { ALLOWED_ART_HOSTS } from './art/allowedHosts'
+import { isInside } from './util/safePath'
 
 export const GT_ASSET_SCHEME = 'gt-asset'
 
@@ -41,10 +42,22 @@ export function registerAssetProtocolHandler(): void {
     }
 
     const fileName = decodeURIComponent(url.pathname.replace(/^\/+/, ''))
-    const dir = kind === 'icons' ? paths.iconsDir() : kind === 'backgrounds' ? paths.backgroundsDir() : null
-    if (!dir || !fileName || fileName.includes('..')) {
-      return new Response('Not found', { status: 404 })
-    }
-    return net.fetch(pathToFileURL(join(dir, fileName)).toString())
+    const dir =
+      kind === 'icons'
+        ? paths.iconsDir()
+        : kind === 'backgrounds'
+          ? paths.backgroundsDir()
+          : kind === 'covers'
+            ? paths.coversDir()
+            : null
+    if (!dir || !fileName) return new Response('Not found', { status: 404 })
+    // A positive containment check rather than a `..` denylist. Both stop
+    // traversal here, but isInside() is the project's one answer to "is this
+    // path where it should be" (added with the v2.1.13 import fixes), and one
+    // answer used everywhere is worth more than each call site re-deriving
+    // that join() happens not to resolve an absolute second argument.
+    const full = join(dir, fileName)
+    if (!isInside(dir, full)) return new Response('Not found', { status: 404 })
+    return net.fetch(pathToFileURL(full).toString())
   })
 }

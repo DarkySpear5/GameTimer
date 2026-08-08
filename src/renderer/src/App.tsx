@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { TitleBar } from './components/titlebar/TitleBar'
 import { GameList } from './components/gamelist/GameList'
+import { LibraryTab } from './components/library/LibraryTab'
 import { SelectedGameView } from './components/timerview/SelectedGameView'
 import { DataTab } from './components/datatab/DataTab'
 import { AboutTab } from './components/about/AboutTab'
@@ -18,7 +19,17 @@ import { loadSettings } from './state/settingsStore'
 import { startTimerTickSubscription } from './state/timerStore'
 import { useUiStore } from './state/uiStore'
 
-const TAB_KEYS = { timer: 'tab_timer', data: 'tab_data', about: 'tab_about' } as const
+// Library first and default — "what do I have" is the question someone opening
+// this app actually has; "what am I playing" only matters once a game is
+// chosen. Timer stays its own tab rather than folding into Library because
+// Gamut supports concurrent timers, so what is running now is genuinely a
+// different view from the collection.
+const TAB_KEYS = {
+  library: 'tab_library',
+  timer: 'tab_timer',
+  stats: 'tab_stats',
+  about: 'tab_about'
+} as const
 
 function App(): React.JSX.Element {
   const { t } = useTranslation()
@@ -26,6 +37,7 @@ function App(): React.JSX.Element {
   const setActiveTab = useUiStore((s) => s.setActiveTab)
   const dialog = useUiStore((s) => s.dialog)
   const dialogTarget = useUiStore((s) => s.dialogTarget)
+  const dialogTab = useUiStore((s) => s.dialogTab)
   const closeDialog = useUiStore((s) => s.closeDialog)
   const openDialog = useUiStore((s) => s.openDialog)
 
@@ -68,16 +80,19 @@ function App(): React.JSX.Element {
           </svg>
         </button>
       </div>
+      {activeTab === 'library' && <LibraryTab />}
       {activeTab === 'timer' && (
         <div className="flex flex-1 overflow-hidden">
           <GameList />
           <SelectedGameView />
         </div>
       )}
-      {activeTab === 'data' && <DataTab />}
+      {activeTab === 'stats' && <DataTab />}
       {activeTab === 'about' && <AboutTab />}
 
-      {dialog === 'modify' && dialogTarget && <ModifyDialog name={dialogTarget} onClose={closeDialog} />}
+      {dialog === 'modify' && dialogTarget && (
+        <ModifyDialog name={dialogTarget} onClose={closeDialog} initialTab={dialogTab} />
+      )}
       {dialog === 'notes' && dialogTarget && <NotesDialog name={dialogTarget} onClose={closeDialog} />}
       {dialog === 'settings' && <SettingsDialog onClose={closeDialog} />}
       {dialog === 'info' && dialogTarget && <GameInfoDialog name={dialogTarget} onClose={closeDialog} />}

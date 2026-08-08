@@ -152,7 +152,11 @@ export async function importProfile(win: BrowserWindow): Promise<Profile | null>
     // Not carried in the file format: a star is a statement about your own
     // library, not a property of the game, so an imported profile starts
     // unstarred rather than inheriting whoever exported it.
-    favorite: false
+    favorite: false,
+    // Re-fetched from steamAppId (which IS carried) rather than embedded — it
+    // would roughly double a .gtprofile's size for an image the receiving
+    // install can download itself.
+    coverFile: null
   }
 
   data.profiles[name] = profile

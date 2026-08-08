@@ -1,15 +1,14 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useProfilesStore } from '../../state/profilesStore'
-import { useSettingsStore, updateSettings } from '../../state/settingsStore'
+import { useSettingsStore } from '../../state/settingsStore'
 import { useTimerStore } from '../../state/timerStore'
 import { useUiStore, selectProfile } from '../../state/uiStore'
 import { sortAndFilterProfiles } from '../../state/selectors'
 import { formatSeconds } from '@shared/format'
-import { GENRE_OPTIONS } from '@shared/constants'
 import { ContextMenu, type ContextMenuItem } from '../common/ContextMenu'
 import { toast } from '../common/Toast'
-import type { Profile, SortMode, Status } from '@shared/types'
+import type { Profile, Status } from '@shared/types'
 
 // 240 was the width the panel used to be fixed at, and it was too tight:
 // a typical two-word game name couldn't sit beside its clock, so every row
@@ -166,35 +165,22 @@ export function GameList(): React.JSX.Element {
     [minWidth]
   )
 
-  const STATUS_OPTIONS: { value: 'All' | Status; label: string }[] = [
-    { value: 'All', label: t('filter_all') },
-    { value: 'in_progress', label: t('status_in_progress') },
-    { value: 'completed', label: t('status_completed') },
-    { value: 'dropped', label: t('status_dropped') },
-    { value: 'on_hold', label: t('status_on_hold') }
-  ]
-
   const sortMode = settings?.sortMode ?? 'name'
   const running = useTimerStore((s) => (sortMode === 'playtime' ? s.running : EMPTY_RUNNING))
 
+  /**
+   * Deliberately unfiltered, and with no controls of its own. This list exists
+   * to switch between games while one is running, not to browse a collection —
+   * that is Library's job, and Library is where the sort and the filters live.
+   *
+   * Applying Library's filters here would silently hide games from the switcher
+   * with nothing on screen to explain why, which is worse than showing all of
+   * them. The ordering is shared, so the two views never disagree about it.
+   */
   const sorted = useMemo(
-    () =>
-      settings
-        ? sortAndFilterProfiles(
-            profiles,
-            settings.sortMode,
-            settings.genreFilter,
-            settings.statusFilter,
-            running
-          )
-        : [],
-    [profiles, settings, running]
+    () => sortAndFilterProfiles(profiles, sortMode, 'All', 'All', running),
+    [profiles, sortMode, running]
   )
-
-  async function handleDuplicate(name: string): Promise<void> {
-    const copy = await window.api.profiles.duplicate(name)
-    useProfilesStore.getState().upsert(copy)
-  }
 
   async function handleResetTime(name: string): Promise<void> {
     if (!window.confirm(t('confirm_reset_time_msg', { name }))) return
@@ -224,11 +210,6 @@ export function GameList(): React.JSX.Element {
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [selected])
 
-  async function handleExport(name: string): Promise<void> {
-    const result = await window.api.importExport.exportProfile(name)
-    if (result) toast.info(t('info_exported_msg', { path: result.path }))
-  }
-
   async function handleImport(): Promise<void> {
     const profile = await window.api.importExport.importProfile()
     if (profile) {
@@ -238,58 +219,45 @@ export function GameList(): React.JSX.Element {
     }
   }
 
+  async function handleTogglePlay(name: string): Promise<void> {
+    if (useTimerStore.getState().running[name] !== undefined) await window.api.timer.pause(name)
+    else await window.api.timer.start(name)
+    useProfilesStore.getState().setAll(await window.api.profiles.list())
+  }
+
+  async function handleToggleComplete(name: string): Promise<void> {
+    const profile = useProfilesStore.getState().profiles[name]
+    if (!profile) return
+    const next: Status = profile.status === 'completed' ? 'in_progress' : 'completed'
+    useProfilesStore.getState().upsert(await window.api.profiles.setStatus(name, next))
+  }
+
+  /**
+   * Timing actions only. Everything that manages a game — edit, rate, tag, art,
+   * duplicate, export, delete — now lives in the Library tab, so this menu is
+   * about the one thing this tab is for: the clock.
+   */
   function menuItemsFor(name: string): ContextMenuItem[] {
+    const isRunning = useTimerStore.getState().running[name] !== undefined
+    const isCompleted = useProfilesStore.getState().profiles[name]?.status === 'completed'
     return [
-      { label: t('ctx_modify'), onClick: () => openDialog('modify', name) },
-      { label: t('ctx_info'), onClick: () => openDialog('info', name) },
-      { label: t('ctx_duplicate'), onClick: () => void handleDuplicate(name) },
-      { label: t('ctx_reset_time'), onClick: () => void handleResetTime(name) },
-      { label: t('ctx_notes'), onClick: () => openDialog('notes', name) },
-      { label: t('ctx_export'), onClick: () => void handleExport(name), separatorBefore: true },
-      { label: t('ctx_import'), onClick: () => void handleImport() },
-      { label: t('ctx_delete'), onClick: () => void handleDelete(name), danger: true, separatorBefore: true }
+      { label: isRunning ? t('btn_pause') : t('btn_play'), onClick: () => void handleTogglePlay(name) },
+      {
+        label: isCompleted ? t('btn_clear_completion') : t('btn_complete'),
+        onClick: () => void handleToggleComplete(name)
+      },
+      {
+        label: t('tab_modify_time'),
+        onClick: () => openDialog('modify', name, 'time'),
+        separatorBefore: true
+      },
+      { label: t('ctx_reset_time'), onClick: () => void handleResetTime(name) }
     ]
   }
 
   return (
     <div className="relative flex h-full shrink-0 flex-col bg-panel" style={{ width: effectiveWidth }}>
       <div className="px-4 pt-4 pb-1 text-xs font-medium tracking-wide text-subtext">{t('label_games')}</div>
-
-      <div className="flex flex-col gap-1.5 px-2.5 pb-2">
-        <select
-          className="w-full rounded bg-card px-2 py-1 text-xs text-text outline-none"
-          value={settings?.sortMode ?? 'name'}
-          onChange={(e) => void updateSettings({ sortMode: e.target.value as SortMode })}
-        >
-          <option value="name">{t('sort_name_az')}</option>
-          <option value="last_played">{t('sort_last_played')}</option>
-          <option value="rating">{t('sort_rating_desc')}</option>
-          <option value="genre">{t('sort_genre_az')}</option>
-        </select>
-        <select
-          className="w-full rounded bg-card px-2 py-1 text-xs text-text outline-none"
-          value={settings?.statusFilter ?? 'All'}
-          onChange={(e) => void updateSettings({ statusFilter: e.target.value as 'All' | Status })}
-        >
-          {STATUS_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </select>
-        <select
-          className="w-full rounded bg-card px-2 py-1 text-xs text-text outline-none"
-          value={settings?.genreFilter ?? 'All'}
-          onChange={(e) => void updateSettings({ genreFilter: e.target.value })}
-        >
-          <option value="All">{t('filter_all')}</option>
-          {GENRE_OPTIONS.map((g) => (
-            <option key={g} value={g}>
-              {t(g, { ns: 'genres' })}
-            </option>
-          ))}
-        </select>
-      </div>
 
       <div
         onMouseDown={startResize}

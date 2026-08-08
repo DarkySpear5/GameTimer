@@ -98,7 +98,8 @@ function normalizeLegacyProfile(name: string, raw: LegacyProfileRaw): Profile {
     openSeconds: 0,
     autoStartTimer: null,
     genresFromDetection: false,
-    favorite: false
+    favorite: false,
+    coverFile: null
   }
 }
 
@@ -120,7 +121,8 @@ function normalizeLegacySettings(raw: Record<string, unknown> | undefined): Sett
     autoFetchArt: true, // v1 has no equivalent concept — default on, same as a fresh install
     watchForGames: false,
     autoStartTimer: false,
-    dataTableScale: 1.15
+    dataTableScale: 1.15,
+    libraryView: 'grid'
   }
 }
 

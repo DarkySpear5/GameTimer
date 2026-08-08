@@ -82,6 +82,14 @@ export interface Profile {
    * one ordering that can't be derived from the other fields.
    */
   favorite: boolean
+  /**
+   * Portrait box art for the Library grid. Separate from iconFile because they
+   * are different shapes doing different jobs: iconFile is the square community
+   * icon that reads correctly at 36px in a list, and a portrait poster cropped
+   * square reads as a random slice of itself. Null is normal and handled —
+   * Steam's asset coverage is uneven and a manually added game has none.
+   */
+  coverFile: string | null
 }
 
 export interface Settings {
@@ -113,6 +121,12 @@ export interface Settings {
    * process was open", which is how Steam turns a 19-hour playthrough into 50.
    */
   autoStartTimer: boolean
+  /**
+   * How the Library browses its games. Grid is the default because cover art is
+   * how most people recognise a game faster than its name, and it is the view
+   * that makes the collection feel like a collection.
+   */
+  libraryView: 'grid' | 'list'
 }
 
 /** One running application offered in the Add Game picker. */

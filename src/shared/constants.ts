@@ -90,6 +90,17 @@ export const ICON_SIZE_OPTIONS: Record<string, number> = {
 export const ICON_MAX_DIMENSION = 256
 export const BACKGROUND_MAX_DIMENSION = 2560
 
+/**
+ * Portrait box art for the Library grid, and the one cap that exists for a
+ * memory reason rather than a quality one. The grid is the first view in this
+ * app to put art for EVERY game on screen at once, so its images are the only
+ * ones whose cost multiplies by the size of the library. A decoded 2560px
+ * background is roughly 14MB of RGBA; forty of those would be ~560MB, which is
+ * the v2.1.5 icon bug in a new place. At 480 a tile is still sharp on a HiDPI
+ * display at its real ~180px render size, and forty cost single-digit MB.
+ */
+export const COVER_MAX_DIMENSION = 480
+
 export const GENRE_OPTIONS = [
   'Action',
   'Adventure',
