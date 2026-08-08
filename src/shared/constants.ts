@@ -72,7 +72,7 @@ export const FONT_CHOICES = [
   'Comic Sans MS'
 ]
 
-export const FONT_SCALE_MIN = 1.0
+export const FONT_SCALE_MIN = 0.7
 export const FONT_SCALE_MAX = 1.5
 
 export const ICON_SIZE_OPTIONS: Record<string, number> = {
@@ -89,6 +89,17 @@ export const ICON_SIZE_OPTIONS: Record<string, number> = {
 // on-screen size so there's no visible quality loss, even on a HiDPI display.
 export const ICON_MAX_DIMENSION = 256
 export const BACKGROUND_MAX_DIMENSION = 2560
+
+/**
+ * Portrait box art for the Library grid, and the one cap that exists for a
+ * memory reason rather than a quality one. The grid is the first view in this
+ * app to put art for EVERY game on screen at once, so its images are the only
+ * ones whose cost multiplies by the size of the library. A decoded 2560px
+ * background is roughly 14MB of RGBA; forty of those would be ~560MB, which is
+ * the v2.1.5 icon bug in a new place. At 480 a tile is still sharp on a HiDPI
+ * display at its real ~180px render size, and forty cost single-digit MB.
+ */
+export const COVER_MAX_DIMENSION = 480
 
 export const GENRE_OPTIONS = [
   'Action',
@@ -166,3 +177,11 @@ export const UI_TICK_MS = 500
 export const CHECKPOINT_MS = 5000
 export const STATUS_LOG_MS = 60000
 export const BACKUP_RETENTION_DAYS = 14
+
+/**
+ * A Play→Pause cycle shorter than this is still written to the session log,
+ * but is excluded from the session count and the average. Pressing Play by
+ * mistake should not inflate "times played" or drag the average down — and
+ * silently discarding the entry instead would throw away real data.
+ */
+export const MIN_SESSION_SECONDS = 60

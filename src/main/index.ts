@@ -8,6 +8,8 @@ import { dataStore } from './store/dataStore'
 import { timerEngine } from './timer/timerEngine'
 import { registerMainWindow, showWindow, quitApp } from './appLifecycle'
 import { registerUpdaterWindow, checkForUpdatesOnLaunch } from './updater/autoUpdater'
+import { gameWatcher } from './detect/gameWatcher'
+import { USER_DATA_FOLDER, APP_USER_MODEL_ID } from '@shared/channel'
 
 let mainWindow: BrowserWindow | null = null
 
@@ -17,7 +19,10 @@ let mainWindow: BrowserWindow | null = null
 // that silently pointed existing installs at a fresh, empty folder instead
 // of their real data on the first launch after updating). Must run before
 // anything else touches paths.ts/dataStore.
-app.setPath('userData', join(app.getPath('appData'), 'gametimer'))
+//
+// USER_DATA_FOLDER also keeps the dev channel's data in a separate folder, so
+// a side-by-side dev install can never read or overwrite real save data.
+app.setPath('userData', join(app.getPath('appData'), USER_DATA_FOLDER))
 
 registerAssetSchemeAsPrivileged()
 
@@ -25,7 +30,7 @@ if (!acquireSingleInstanceLock(() => showWindow())) {
   app.quit()
 } else {
   void app.whenReady().then(async () => {
-    app.setAppUserModelId('com.darkyspear5.gametimer2')
+    app.setAppUserModelId(APP_USER_MODEL_ID)
 
     await dataStore.load()
     registerAssetProtocolHandler()
@@ -35,6 +40,8 @@ if (!acquireSingleInstanceLock(() => showWindow())) {
     registerMainWindow(mainWindow)
     registerUpdaterWindow(mainWindow)
     timerEngine.startLoop()
+    // No-op unless the user opted into background watching — see gameWatcher.shouldRun.
+    gameWatcher.sync()
 
     if (dataStore.get().settings.checkForUpdates) {
       void checkForUpdatesOnLaunch()

@@ -9,6 +9,8 @@ import { writeStatusLog } from '../statusLog/writeStatusLog'
 import { saveCappedImageBuffer } from '../util/imageResize'
 import { ICON_MAX_DIMENSION, BACKGROUND_MAX_DIMENSION } from '@shared/constants'
 import { safeImageExt } from './safeExt'
+import { safeFileNameFromTitle } from '../util/safePath'
+import { aggregateFrom, trimSessionLog } from '@shared/sessionStats'
 import type { GtProfileFile, Profile } from '@shared/types'
 
 /** Single-game export, self-contained (images embedded as base64) — wire-compatible with v1's .gtprofile format. */
@@ -27,7 +29,13 @@ export async function exportProfile(win: BrowserWindow, name: string): Promise<{
     lastPlayed: profile.lastPlayed,
     startedDate: profile.startedDate,
     notes: profile.notes,
-    rating: profile.rating
+    rating: profile.rating,
+    // Carried so an export/import round trip keeps the session history. Older
+    // builds ignore the extra keys; without them a re-import would keep the
+    // playtime but silently reset Sessions to zero.
+    sessionLog: profile.sessionLog,
+    sessionStats: profile.sessionStats,
+    steamAppId: profile.steamAppId
   }
 
   if (profile.iconFile) {
@@ -49,7 +57,7 @@ export async function exportProfile(win: BrowserWindow, name: string): Promise<{
 
   await fs.mkdir(paths.profilesDir(), { recursive: true })
   const result = await dialog.showSaveDialog(win, {
-    defaultPath: join(paths.profilesDir(), `${profile.name}.gtprofile`),
+    defaultPath: join(paths.profilesDir(), `${safeFileNameFromTitle(profile.name)}.gtprofile`),
     filters: [{ name: 'Gamut Profile', extensions: ['gtprofile'] }]
   })
   if (result.canceled || !result.filePath) return null
@@ -125,7 +133,36 @@ export async function importProfile(win: BrowserWindow): Promise<Profile | null>
     lastPlayed: imported.lastPlayed ?? null,
     startedDate: imported.startedDate ?? null,
     notes: imported.notes ?? '',
-    rating: (imported.rating ?? 0) as Profile['rating']
+    rating: (imported.rating ?? 0) as Profile['rating'],
+    // Present only in files written by v3+. A v1/v2 export legitimately has
+    // none, and starts with an empty log rather than inventing entries.
+    // An export from a build that predates the aggregate has only entries, so
+    // fold them; a newer one carries the totals for its whole history.
+    sessionStats: imported.sessionStats ?? aggregateFrom(imported.sessionLog ?? []),
+    sessionLog: trimSessionLog(imported.sessionLog ?? []),
+    // Never carried across machines — the exe lives on the exporter's disk.
+    exePath: null,
+    steamAppId: imported.steamAppId ?? null,
+    // Not carried across machines, same reasoning as exePath — it points at a
+    // launcher install on the exporter's PC.
+    launchUri: null,
+    // Machine-specific, like exePath.
+    installDir: null,
+    autoFetchArt: null,
+    // Launch counts are machine-specific — they describe processes seen on
+    // the exporting PC, not the game's history.
+    launches: 0,
+    openSeconds: 0,
+    autoStartTimer: null,
+    genresFromDetection: false,
+    // Not carried in the file format: a star is a statement about your own
+    // library, not a property of the game, so an imported profile starts
+    // unstarred rather than inheriting whoever exported it.
+    favorite: false,
+    // Re-fetched from steamAppId (which IS carried) rather than embedded — it
+    // would roughly double a .gtprofile's size for an image the receiving
+    // install can download itself.
+    coverFile: null
   }
 
   data.profiles[name] = profile

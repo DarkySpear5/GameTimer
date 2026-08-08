@@ -12,7 +12,8 @@
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
     "test": "vitest run",
     "preview": "electron-vite preview",
-    "package": "npm run build && electron-builder --win --publish never"
+    "package": "npm run build && electron-builder --win --publish never",
+    "package:dev": "cross-env GAMUT_CHANNEL=dev electron-vite build && electron-builder --win --config electron-builder.dev.yml --publish never"
   },
   "dependencies": {
     "electron-updater": "^6.8.9",
@@ -31,6 +32,7 @@
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^5.2.0",
+    "cross-env": "^7.0.3",
     "electron": "^37.0.0",
     "electron-builder": "^26.15.7",
     "electron-vite": "^5.0.0",

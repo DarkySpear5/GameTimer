@@ -11,7 +11,14 @@ interface Detected {
   totalSeconds: number
 }
 
-export function LegacyImportPrompt(): React.JSX.Element | null {
+/**
+ * `onResolved` fires once this prompt can no longer appear — whether the user
+ * imported, skipped, or there was nothing to find. First-run offers are
+ * sequenced rather than stacked, and this is how the next one knows its turn
+ * has come. The v1 import goes first because it is about data the user already
+ * has, which matters more than anything Gamut can offer to add.
+ */
+export function LegacyImportPrompt({ onResolved }: { onResolved?: () => void }): React.JSX.Element | null {
   const [detected, setDetected] = useState<Detected | null>(null)
   const [dismissed, setDismissed] = useState(false)
 
@@ -24,9 +31,15 @@ export function LegacyImportPrompt(): React.JSX.Element | null {
           profileCount: result.profileCount ?? 0,
           totalSeconds: result.totalSeconds ?? 0
         })
+      } else {
+        onResolved?.()
       }
     })()
   }, [])
+
+  useEffect(() => {
+    if (dismissed) onResolved?.()
+  }, [dismissed])
 
   if (!detected || dismissed) return null
 

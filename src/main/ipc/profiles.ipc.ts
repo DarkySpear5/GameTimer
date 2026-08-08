@@ -14,8 +14,14 @@ export function registerProfilesIpc(win: BrowserWindow): void {
   ipcMain.handle(IPC.profiles.delete, (_e, name: string) => profileService.delete(name))
   ipcMain.handle(IPC.profiles.duplicate, (_e, name: string) => profileService.duplicate(name))
   ipcMain.handle(IPC.profiles.setStatus, (_e, name, status) => profileService.setStatus(name, status))
+  ipcMain.handle(IPC.profiles.clearStatusRecord, (_e, name: string) =>
+    profileService.clearStatusRecord(name)
+  )
   ipcMain.handle(IPC.profiles.setGenres, (_e, name, genres) => profileService.setGenres(name, genres))
   ipcMain.handle(IPC.profiles.setRating, (_e, name, rating) => profileService.setRating(name, rating))
+  ipcMain.handle(IPC.profiles.setFavorite, (_e, name: string, favorite: boolean) =>
+    profileService.setFavorite(name, Boolean(favorite))
+  )
   ipcMain.handle(IPC.profiles.setNotes, (_e, name, notes) => profileService.setNotes(name, notes))
   ipcMain.handle(IPC.profiles.addRemoveTime, (_e, name, deltaSeconds, note) =>
     profileService.addRemoveTime(name, deltaSeconds, note)

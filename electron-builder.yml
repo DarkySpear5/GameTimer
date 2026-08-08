@@ -1,5 +1,7 @@
 appId: com.darkyspear5.gametimer2
-productName: Gamut
+productName: Gamut Launcher
+# The .exe on disk, without the space productName would otherwise put in it.
+executableName: GamutLauncher
 directories:
   output: release
   buildResources: build
@@ -18,7 +20,7 @@ extraResources:
 win:
   target: nsis
   icon: build/icon.ico
-  artifactName: Gamut-Setup-${version}.exe
+  artifactName: GamutLauncher-Setup-${version}.exe
 nsis:
   oneClick: false
   perMachine: false

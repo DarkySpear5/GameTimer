@@ -1,46 +1,51 @@
 import { describe, expect, it } from 'vitest'
-import { isInside, safeAssetFileName } from './safePath'
+import { isInside, safeFileNameFromTitle } from './safePath'
 
-describe('safeAssetFileName', () => {
-  it('leaves the UUID names v1 actually wrote untouched', () => {
-    expect(safeAssetFileName('3f2a9c8e-1b4d-4a7f-9c2e-8d1a5b6c7e9f.png')).toBe(
-      '3f2a9c8e-1b4d-4a7f-9c2e-8d1a5b6c7e9f.png'
+describe('safeFileNameFromTitle', () => {
+  it('leaves an ordinary game name alone', () => {
+    expect(safeFileNameFromTitle('Ratchet & Clank: Up Your Arsenal')).toBe(
+      'Ratchet & Clank Up Your Arsenal'
     )
   })
 
-  it('strips directory components instead of following them', () => {
-    expect(safeAssetFileName('../../../evil.png')).toBe('evil.png')
-    expect(safeAssetFileName('..\\..\\evil.png')).toBe('evil.png')
-    expect(safeAssetFileName('C:\\Windows\\System32\\evil.png')).toBe('evil.png')
-    expect(safeAssetFileName('/etc/passwd.png')).toBe('passwd.png')
+  it('keeps spaces, hyphens and ampersands', () => {
+    expect(safeFileNameFromTitle('Half-Life 2 & Friends')).toBe('Half-Life 2 & Friends')
   })
 
-  it('forces a safe image extension', () => {
-    expect(safeAssetFileName('payload.bat')).toBe('payload.png')
-    expect(safeAssetFileName('../../Startup/run.cmd')).toBe('run.png')
+  it('flattens path separators instead of letting them through', () => {
+    expect(safeFileNameFromTitle('..\\..\\Windows\\System32')).toBe('.. .. Windows System32')
+    expect(safeFileNameFromTitle('a/b')).toBe('a b')
   })
 
-  it('rejects names with nothing usable left', () => {
-    expect(safeAssetFileName('..')).toBeNull()
-    expect(safeAssetFileName('.')).toBeNull()
-    expect(safeAssetFileName('')).toBeNull()
-    expect(safeAssetFileName('///')).toBeNull()
-    expect(safeAssetFileName(undefined)).toBeNull()
-    expect(safeAssetFileName(null)).toBeNull()
+  it('strips characters Windows forbids', () => {
+    expect(safeFileNameFromTitle('what? <yes> "no" |maybe|*')).toBe('what yes no maybe')
+  })
+
+  it('drops trailing dots and spaces, which Windows silently eats anyway', () => {
+    expect(safeFileNameFromTitle('Portal 2.')).toBe('Portal 2')
+    expect(safeFileNameFromTitle('Portal 2   ')).toBe('Portal 2')
+  })
+
+  it('falls back rather than returning an empty filename', () => {
+    expect(safeFileNameFromTitle('***')).toBe('profile')
+    expect(safeFileNameFromTitle('   ')).toBe('profile')
   })
 })
 
 describe('isInside', () => {
-  it('accepts a real child', () => {
+  it('accepts a path within the directory', () => {
     expect(isInside('C:\\data\\icons', 'C:\\data\\icons\\a.png')).toBe(true)
   })
 
-  it('rejects an escape', () => {
-    expect(isInside('C:\\data\\icons', 'C:\\data\\icons\\..\\..\\evil.exe')).toBe(false)
-    expect(isInside('C:\\data\\icons', 'C:\\Windows\\evil.exe')).toBe(false)
+  it('accepts the directory itself', () => {
+    expect(isInside('C:\\data\\icons', 'C:\\data\\icons')).toBe(true)
   })
 
-  it('is not fooled by a sibling with a shared prefix', () => {
-    expect(isInside('C:\\data\\icons', 'C:\\data\\icons-evil\\a.png')).toBe(false)
+  it('rejects a traversal out of it', () => {
+    expect(isInside('C:\\data\\icons', 'C:\\data\\icons\\..\\..\\evil.exe')).toBe(false)
+  })
+
+  it('rejects a sibling directory that merely shares a prefix', () => {
+    expect(isInside('C:\\data\\icons', 'C:\\data\\icons-backup\\a.png')).toBe(false)
   })
 })

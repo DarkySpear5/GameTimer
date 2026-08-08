@@ -4,14 +4,15 @@ import { randomUUID } from 'crypto'
 import { dataStore } from '../store/dataStore'
 import { paths } from '../store/paths'
 import { locateLegacyDataFile } from './legacyLocate'
-import { readFirstRunState, writeFirstRunState } from './firstRun'
+import { readFirstRunState, updateFirstRunState } from './firstRun'
 import { setRunAtStartup } from '../autostart/autostart'
 import { saveCappedImage } from '../util/imageResize'
 import { isInside, safeAssetFileName } from '../util/safePath'
+import { emptyAggregate } from '@shared/sessionStats'
 import { DEFAULT_CUSTOM_COLORS, THEME_ORDER, ICON_MAX_DIMENSION, BACKGROUND_MAX_DIMENSION } from '@shared/constants'
 import type { LegacyDetectResult, Profile, Settings, Status } from '@shared/types'
 
-const VALID_STATUSES: Status[] = ['in_progress', 'completed', 'dropped', 'on_hold']
+const VALID_STATUSES: Status[] = ['not_started', 'in_progress', 'completed', 'dropped', 'on_hold']
 
 /**
  * v1's on-disk shape is snake_case and, even after v1's own load_data()
@@ -83,7 +84,24 @@ function normalizeLegacyProfile(name: string, raw: LegacyProfileRaw): Profile {
     lastPlayed: raw.last_played ?? null,
     startedDate: raw.started_date ?? null,
     notes: raw.notes ?? '',
-    rating
+    rating,
+    // v1 never recorded sessions, so an imported library starts with an
+    // empty log — its `seconds` total is real, its session count starts at 0.
+    sessionStats: emptyAggregate(),
+    sessionLog: [],
+    // v1 had no concept of the game's executable either; these are filled in
+    // if the user later links the game through the Add Game picker.
+    exePath: null,
+    steamAppId: null,
+    launchUri: null,
+    installDir: null,
+    autoFetchArt: null,
+    launches: 0,
+    openSeconds: 0,
+    autoStartTimer: null,
+    genresFromDetection: false,
+    favorite: false,
+    coverFile: null
   }
 }
 
@@ -101,7 +119,16 @@ function normalizeLegacySettings(raw: Record<string, unknown> | undefined): Sett
     sortMode: (raw?.sort_mode as Settings['sortMode']) ?? 'name',
     genreFilter: (raw?.genre_filter as string) ?? 'All',
     statusFilter: (raw?.status_filter as Settings['statusFilter']) ?? 'All',
-    language: (raw?.language as string) ?? 'en'
+    language: (raw?.language as string) ?? 'en',
+    autoFetchArt: true, // v1 has no equivalent concept — default on, same as a fresh install
+    watchForGames: false,
+    autoStartTimer: false,
+    dataTableScale: 1.15,
+    libraryView: 'grid',
+    detailLevel: 'simple',
+    extraGameFolders: [],
+    launcherFolders: {},
+    steamGridDbApiKey: ''
   }
 }
 
@@ -146,13 +173,19 @@ async function readLegacyData(dataFilePath: string): Promise<LegacyDataRaw> {
 
 export async function detectLegacyLibrary(force: boolean): Promise<LegacyDetectResult> {
   if (!force) {
+    // Tests its OWN field, not merely whether firstrun.json exists. The file is
+    // now written by two separate first-run flows, and the installed-games scan
+    // can legitimately write it first — under the old "any state at all means
+    // we already asked" check that would have silently skipped the v1 import
+    // offer, so someone upgrading from v1 would never be shown their old
+    // library and would reasonably conclude their data was gone.
     const firstRun = await readFirstRunState()
-    if (firstRun) return { found: false }
+    if (firstRun?.legacyImportState) return { found: false }
   }
 
   const path = await locateLegacyDataFile()
   if (!path) {
-    if (!force) await writeFirstRunState({ legacyImportState: 'none-found' })
+    if (!force) await updateFirstRunState({ legacyImportState: 'none-found' })
     return { found: false }
   }
 
@@ -167,7 +200,7 @@ export async function detectLegacyLibrary(force: boolean): Promise<LegacyDetectR
 }
 
 export async function skipLegacyImport(): Promise<void> {
-  await writeFirstRunState({ legacyImportState: 'skipped' })
+  await updateFirstRunState({ legacyImportState: 'skipped' })
 }
 
 export async function runLegacyImport(legacyDataFilePath: string): Promise<{ importedCount: number }> {
@@ -220,6 +253,6 @@ export async function runLegacyImport(legacyDataFilePath: string): Promise<{ imp
   setRunAtStartup(data.settings.runAtStartup)
 
   await dataStore.save()
-  await writeFirstRunState({ legacyImportState: 'imported', importedFromPath: legacyDataFilePath })
+  await updateFirstRunState({ legacyImportState: 'imported', importedFromPath: legacyDataFilePath })
   return { importedCount }
 }

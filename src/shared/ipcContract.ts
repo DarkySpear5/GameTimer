@@ -1,5 +1,11 @@
 import type {
   AppData,
+  ArtOptions,
+  DetectedApp,
+  GameSource,
+  InstalledGame,
+  GameIdentity,
+  GameSearchHit,
   GtProfileFile,
   LegacyDetectResult,
   Profile,
@@ -21,8 +27,12 @@ export const IPC = {
     delete: 'profiles:delete',
     duplicate: 'profiles:duplicate',
     setStatus: 'profiles:setStatus',
+    clearStatusRecord: 'profiles:clearStatusRecord',
+    refreshArt: 'profiles:refreshArt',
+    setAutoFetchArt: 'profiles:setAutoFetchArt',
     setGenres: 'profiles:setGenres',
     setRating: 'profiles:setRating',
+    setFavorite: 'profiles:setFavorite',
     setNotes: 'profiles:setNotes',
     addRemoveTime: 'profiles:addRemoveTime',
     resetTime: 'profiles:resetTime',
@@ -75,6 +85,28 @@ export const IPC = {
   },
   fonts: {
     list: 'fonts:list'
+  },
+  detect: {
+    listRunning: 'detect:listRunning',
+    identify: 'detect:identify',
+    search: 'detect:search',
+    createGame: 'detect:createGame',
+    launch: 'detect:launch',
+    setAutoStartTimer: 'detect:setAutoStartTimer',
+    classify: 'detect:classify',
+    artOptions: 'detect:artOptions',
+    setArtFromUrl: 'detect:setArtFromUrl',
+    listInstalled: 'detect:listInstalled',
+    importInstalled: 'detect:importInstalled',
+    installedScanPending: 'detect:installedScanPending',
+    skipInstalledScan: 'detect:skipInstalledScan',
+    addGameFolder: 'detect:addGameFolder',
+    removeGameFolder: 'detect:removeGameFolder',
+    listGameFolders: 'detect:listGameFolders',
+    setLauncherFolder: 'detect:setLauncherFolder',
+    listLauncherFolders: 'detect:listLauncherFolders',
+    link: 'detect:link',
+    unlink: 'detect:unlink'
   }
 } as const
 
@@ -95,8 +127,15 @@ export interface GameTimerApi {
     delete(name: string): Promise<void>
     duplicate(name: string): Promise<Profile>
     setStatus(name: string, status: Status): Promise<Profile>
+    /** Irreversibly clears the completion/dropped snapshot. Confirm with the user before calling. */
+    clearStatusRecord(name: string): Promise<Profile>
+    /** Re-downloads cover and background for a game that already knows its appid. */
+    refreshArt(name: string): Promise<Profile>
+    /** null = follow the global setting. */
+    setAutoFetchArt(name: string, value: boolean | null): Promise<Profile>
     setGenres(name: string, genres: string[]): Promise<Profile>
     setRating(name: string, rating: 0 | 1 | 2 | 3 | 4 | 5): Promise<Profile>
+    setFavorite(name: string, favorite: boolean): Promise<Profile>
     setNotes(name: string, notes: string): Promise<Profile>
     addRemoveTime(name: string, deltaSeconds: number, note?: string): Promise<Profile>
     resetTime(name: string): Promise<Profile>
@@ -152,6 +191,44 @@ export interface GameTimerApi {
   fonts: {
     /** Curated fonts merged with every font installed on this PC (incl. third-party), deduped and sorted. */
     list(): Promise<string[]>
+  }
+  detect: {
+    /** Running applications with a visible window, likely games first. Read-only. */
+    listRunning(): Promise<DetectedApp[]>
+    /** Resolves an executable to a game. Check `confident` before applying the result. */
+    identify(exePath: string, windowTitle: string): Promise<GameIdentity>
+    /** Keyless fuzzy search of Steam's catalogue, for correcting a wrong guess. */
+    search(query: string): Promise<GameSearchHit[]>
+    /** Creates the profile, links the exe/appid, and fetches art if enabled. */
+    createGame(name: string, exePath: string | null, steamAppId: number | null): Promise<Profile>
+    /** Starts the game via steam://rungameid when an appid is known, else its .exe. Counts the launch. */
+    launch(name: string): Promise<{ launched: boolean }>
+    /** null = follow the global setting. */
+    setAutoStartTimer(name: string, value: boolean | null): Promise<Profile>
+    /** Which of these executables Steam's catalogue confirms are games. Promotion only — a 'no' never hides anything. */
+    classify(exePaths: string[]): Promise<string[]>
+    /** Every candidate icon/background for a game. URLs only — nothing is downloaded until one is chosen. */
+    artOptions(name: string, steamAppId: number | null): Promise<ArtOptions>
+    /** Downloads the chosen image and makes it this game's icon or background. */
+    setArtFromUrl(name: string, kind: 'icon' | 'background', url: string): Promise<Profile>
+    /** Attaches an .exe to an existing game so it can be detected and launched. */
+    link(name: string, exePath: string, steamAppId: number | null): Promise<Profile>
+    unlink(name: string): Promise<Profile>
+    /** Every game installed through Steam, each flagged with whether the library already has it. Read-only. */
+    listInstalled(): Promise<InstalledGame[]>
+    /** Creates a profile per chosen id, at zero playtime. Already-present games are skipped. */
+    importInstalled(ids: string[]): Promise<{ importedCount: number }>
+    /** Opens a directory chooser and remembers the folder. Returns it, or null if cancelled. */
+    addGameFolder(): Promise<string | null>
+    removeGameFolder(folder: string): Promise<void>
+    listGameFolders(): Promise<string[]>
+    /** Opens a chooser for one launcher's install folder, or clears it. Returns the new map. */
+    setLauncherFolder(source: GameSource, clear?: boolean): Promise<Partial<Record<GameSource, string>>>
+    listLauncherFolders(): Promise<Partial<Record<GameSource, string>>>
+    /** Whether the one-time "add your installed games" offer still needs to be made. */
+    installedScanPending(): Promise<boolean>
+    /** Records that the offer was declined, so it is not made again. */
+    skipInstalledScan(): Promise<void>
   }
 }
 

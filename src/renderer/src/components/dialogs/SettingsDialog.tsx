@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Modal } from '../common/Modal'
 import { EyedropperButton } from '../common/EyedropperButton'
 import { useSettingsStore, updateSettings, updateSettingsOptimistic } from '../../state/settingsStore'
+import { LauncherSettings } from './LauncherSettings'
 import {
   THEMES,
   THEME_ORDER,
@@ -15,7 +16,7 @@ import {
 } from '@shared/constants'
 import type { Settings, ThemeColors, ThemeName } from '@shared/types'
 
-type Tab = 'general' | 'appearance' | 'ui' | 'language'
+type Tab = 'general' | 'games' | 'launchers' | 'appearance' | 'language'
 
 const ROLE_KEYS: Record<keyof ThemeColors, string> = {
   bg: 'role_background',
@@ -35,8 +36,14 @@ export function SettingsDialog({ onClose }: { onClose: () => void }): React.JSX.
 
   const TABS: { id: Tab; label: string }[] = [
     { id: 'general', label: t('tab_general') },
+    // Everything about detecting and decorating games in one place — these
+    // were scattered across General before and read as unrelated switches.
+
+    // Detection sources get their own tab: they are about where games COME
+    // FROM, which is a different question from how they behave once added.
+    { id: 'launchers', label: t('tab_launchers') },
+    { id: 'games', label: t('tab_games') },
     { id: 'appearance', label: t('tab_appearance') },
-    { id: 'ui', label: t('tab_ui') },
     { id: 'language', label: t('tab_language') }
   ]
 
@@ -76,9 +83,59 @@ export function SettingsDialog({ onClose }: { onClose: () => void }): React.JSX.
         </div>
       )}
 
-      {tab === 'appearance' && <AppearanceTab settings={settings} />}
+      {tab === 'games' && (
+        <div className="flex flex-col gap-3">
+          {/*
+           * The default for every game that hasn't set its own preference —
+           * turning this off stops art being fetched for games added from now
+           * on, and for any game still following the global setting.
+           */}
+          <ToggleRow
+            label={t('label_auto_art')}
+            checked={settings.autoFetchArt}
+            onChange={(v) => void updateSettings({ autoFetchArt: v })}
+          />
+          <div>
+            <ToggleRow
+              label={t('label_watch_games')}
+              checked={settings.watchForGames}
+              onChange={(v) => void updateSettings({ watchForGames: v })}
+            />
+            {/*
+             * "Watch for games in the background" said what the code does, not
+             * what the user gets. The label now names the outcome and the hint
+             * explains the mechanism and what depends on it.
+             */}
+            <div className="mt-1 text-xs text-subtext">{t('label_watch_games_hint')}</div>
+          </div>
+          {/*
+           * Off by default and that is a product decision, not caution:
+           * auto-tracking measures "the process was open", which is how Steam
+           * turns a 19-hour playthrough into 50.
+           */}
+          <ToggleRow
+            label={t('label_auto_start')}
+            checked={settings.autoStartTimer}
+            onChange={(v) => void updateSettings({ autoStartTimer: v })}
+          />
 
-      {tab === 'ui' && <UiTab settings={settings} />}
+        </div>
+      )}
+
+      {/* Where games are found, and how to correct it — see LauncherSettings. */}
+      {tab === 'launchers' && <LauncherSettings />}
+
+      {tab === 'appearance' && (
+        <div className="flex flex-col gap-6">
+          <AppearanceTab settings={settings} />
+          {/* The old separate "UI" tab — same controls, one level down, since
+              theme and text size are the same question to a user. */}
+          <div className="border-t border-card pt-5">
+            <div className="mb-3 text-xs font-medium tracking-wide text-subtext">{t('tab_ui')}</div>
+            <UiTab settings={settings} />
+          </div>
+        </div>
+      )}
 
       {tab === 'language' && (
         <div className="grid grid-cols-2 gap-1.5">
@@ -109,11 +166,12 @@ export function SettingsDialog({ onClose }: { onClose: () => void }): React.JSX.
 function UiTab({
   settings
 }: {
-  settings: Pick<Settings, 'fontFamily' | 'fontScale' | 'iconSize'>
+  settings: Pick<Settings, 'fontFamily' | 'fontScale' | 'iconSize' | 'dataTableScale'>
 }): React.JSX.Element {
   const { t } = useTranslation()
   const [allFonts, setAllFonts] = useState<string[]>(FONT_CHOICES)
   const [query, setQuery] = useState('')
+  const [fontOpen, setFontOpen] = useState(false)
 
   useEffect(() => {
     void window.api.fonts.list().then(setAllFonts)
@@ -141,29 +199,67 @@ function UiTab({
           className="w-full"
         />
       </div>
-      <div>
+      {/*
+       * G2: a dropdown rather than a permanently-open list. Several hundred
+       * installed fonts took over the whole Appearance tab; collapsed, the tab
+       * is readable and the list only appears when you are choosing. The search
+       * box stays — it is the only practical way through that many names — and
+       * lives INSIDE the dropdown so it disappears with it.
+       */}
+      <div className="relative">
         <label className="mb-1 block text-xs text-subtext">{t('label_font')}</label>
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder={t('placeholder_search_fonts')}
-          className="mb-1.5 w-full rounded bg-card px-2.5 py-1.5 text-sm text-text outline-none ring-1 ring-transparent focus:ring-accent"
-        />
-        <div className="max-h-40 overflow-y-auto rounded bg-card">
-          {filtered.map((f) => (
-            <button
-              key={f}
-              onClick={() => void updateSettings({ fontFamily: f })}
-              style={{ fontFamily: `"${f}"` }}
-              className={`block w-full px-2.5 py-1.5 text-left text-sm ${
-                settings.fontFamily === f ? 'bg-accent text-bg' : 'text-text hover:bg-panel'
-              }`}
-            >
-              {f}
-            </button>
-          ))}
-          {filtered.length === 0 && <div className="px-2.5 py-2 text-xs text-subtext">—</div>}
-        </div>
+        <button
+          onClick={() => setFontOpen((v) => !v)}
+          style={{ fontFamily: `"${settings.fontFamily}"` }}
+          className="flex w-full items-center justify-between rounded bg-card px-2.5 py-1.5 text-left text-sm text-text"
+        >
+          <span className="truncate">{settings.fontFamily}</span>
+          <span className="ml-2 shrink-0 text-xs text-subtext">▾</span>
+        </button>
+
+        {fontOpen && (
+          <div className="absolute z-20 mt-1 w-full rounded bg-card shadow-2xl">
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={t('placeholder_search_fonts')}
+              autoFocus
+              className="w-full rounded-t bg-panel px-2.5 py-1.5 text-sm text-text outline-none"
+            />
+            <div className="max-h-52 overflow-y-auto">
+              {filtered.map((f) => (
+                <button
+                  key={f}
+                  onClick={() => {
+                    void updateSettings({ fontFamily: f })
+                    setFontOpen(false)
+                    setQuery('')
+                  }}
+                  style={{ fontFamily: `"${f}"` }}
+                  className={`block w-full px-2.5 py-1.5 text-left text-sm ${
+                    settings.fontFamily === f ? 'bg-accent text-bg' : 'text-text hover:bg-panel'
+                  }`}
+                >
+                  {f}
+                </button>
+              ))}
+              {filtered.length === 0 && <div className="px-2.5 py-2 text-xs text-subtext">—</div>}
+            </div>
+          </div>
+        )}
+      </div>
+      <div>
+        <label className="mb-1 block text-xs text-subtext">{t('label_table_size')}</label>
+        <select
+          value={settings.dataTableScale}
+          onChange={(e) => void updateSettings({ dataTableScale: parseFloat(e.target.value) })}
+          className="w-full rounded bg-card px-2.5 py-1.5 text-sm text-text outline-none"
+        >
+          <option value={1}>{t('size_small')}</option>
+          <option value={1.15}>{t('size_medium')}</option>
+          <option value={1.35}>{t('size_large')}</option>
+          <option value={1.6}>{t('size_xl')}</option>
+        </select>
       </div>
       <div>
         <label className="mb-1 block text-xs text-subtext">{t('label_icon_size')}</label>

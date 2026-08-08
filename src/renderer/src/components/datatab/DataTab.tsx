@@ -1,9 +1,14 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useProfilesStore } from '../../state/profilesStore'
+import { useSettingsStore, updateSettings } from '../../state/settingsStore'
 import { useUiStore, type DataSort, type DataSortKey } from '../../state/uiStore'
+import { ContextMenu } from '../common/ContextMenu'
 import { formatSeconds } from '@shared/format'
 import type { Profile, Status } from '@shared/types'
+
+/** Columns the Simple view hides, so it can't stay sorted by one of them. */
+const ADVANCED_ONLY_SORT_KEYS = new Set<DataSortKey>(['startedDate', 'completedOn'])
 
 /**
  * Which way a column sorts on its FIRST click. Ascending is only the useful
@@ -55,10 +60,18 @@ export function DataTab(): React.JSX.Element {
   const profiles = useProfilesStore((s) => s.profiles)
   const sort = useUiStore((s) => s.dataSort)
   const setDataSort = useUiStore((s) => s.setDataSort)
+  const openDialog = useUiStore((s) => s.openDialog)
+  const scale = useSettingsStore((s) => s.settings?.dataTableScale ?? 1.15)
+  const advanced = useSettingsStore((s) => s.settings?.detailLevel === 'advanced')
+  // Its own menu rather than the sidebar's shared one: the actions that make
+  // sense on a table row are a subset, and reusing that state would fight the
+  // sidebar's selection.
+  const [menu, setMenu] = useState<{ x: number; y: number; name: string } | null>(null)
 
   const STATUS_LABELS = useMemo<Record<Status, string>>(
     () => ({
-      in_progress: t('status_in_progress'),
+      not_started: t('status_not_started'),
+    in_progress: t('status_in_progress'),
       completed: t('status_completed'),
       dropped: t('status_dropped'),
       on_hold: t('status_on_hold')
@@ -66,11 +79,24 @@ export function DataTab(): React.JSX.Element {
     [t]
   )
 
+  // Switching to Simple can leave the table ordered by a column that is no
+  // longer on screen, which reads as no order at all. The stored preference is
+  // deliberately left alone — going back to Advanced restores the sort the user
+  // actually chose — only what is *displayed* falls back.
+  const effectiveSort = useMemo(
+    () => (!advanced && ADVANCED_ONLY_SORT_KEYS.has(sort.key) ? { key: 'name' as const, dir: 'asc' as const } : sort),
+    [advanced, sort]
+  )
+
   const list = useMemo(() => {
-    const flip = sort.dir === 'asc' ? 1 : -1
-    return Object.values(profiles).sort((a, b) => {
-      const av = sortValue(a, sort.key, STATUS_LABELS[a.status])
-      const bv = sortValue(b, sort.key, STATUS_LABELS[b.status])
+    // F1: a Not Started game has no playtime, no dates and no rating — every
+    // column would be a dash, so it is noise in a table about what you played.
+    const flip = effectiveSort.dir === 'asc' ? 1 : -1
+    return Object.values(profiles)
+      .filter((p) => p.status !== 'not_started')
+      .sort((a, b) => {
+      const av = sortValue(a, effectiveSort.key, STATUS_LABELS[a.status])
+      const bv = sortValue(b, effectiveSort.key, STATUS_LABELS[b.status])
       if (av === null || bv === null) {
         if (av === bv) return a.name.localeCompare(b.name)
         return av === null ? 1 : -1
@@ -82,7 +108,7 @@ export function DataTab(): React.JSX.Element {
       // order the profiles happened to be stored in.
       return cmp !== 0 ? cmp * flip : a.name.localeCompare(b.name)
     })
-  }, [profiles, sort, STATUS_LABELS])
+  }, [profiles, effectiveSort, STATUS_LABELS])
 
   function handleSort(key: DataSortKey): void {
     setDataSort(
@@ -96,8 +122,30 @@ export function DataTab(): React.JSX.Element {
   const completedCount = list.filter((p) => p.status === 'completed').length
 
   return (
-    <div className="flex-1 overflow-y-auto px-6 py-5">
-      <div className="mb-5 text-lg font-semibold text-text">{t('stats_title')}</div>
+    <div className="flex-1 overflow-y-auto">
+      {/*
+       * The zoom lives on this inner wrapper, NOT the scroll container, and
+       * the context menu below sits deliberately outside it. CSS zoom scales
+       * its descendants' coordinate system — including position:fixed — so a
+       * menu placed at a click's viewport Y while inside a zoomed element
+       * renders 15% further down the page than the cursor.
+       */}
+      <div className="px-6 py-5" style={{ zoom: scale }}>
+      {/*
+       * The detail switch lives here rather than in Settings, because what it
+       * changes is on screen while you press it. The label names the level you
+       * are switching TO — press "Advanced" to get more columns, and the button
+       * then reads "Simple" to go back.
+       */}
+      <div className="mb-5 flex items-center justify-between gap-3">
+        <div className="text-lg font-semibold text-text">{t('stats_title')}</div>
+        <button
+          onClick={() => void updateSettings({ detailLevel: advanced ? 'simple' : 'advanced' })}
+          className="rounded bg-card px-3 py-1.5 text-xs text-text transition-opacity hover:opacity-80"
+        >
+          {t(advanced ? 'detail_simple' : 'detail_advanced')}
+        </button>
+      </div>
       <div className="mb-5 flex gap-4">
         <StatCard label={t('stat_total_time')} value={formatSeconds(totalSeconds)} />
         <StatCard label={t('stat_games_tracked')} value={String(list.length)} />
@@ -107,27 +155,51 @@ export function DataTab(): React.JSX.Element {
         <table className="w-full text-left text-sm">
           <thead>
             <tr className="border-b border-card text-xs text-subtext">
-              <SortHeader label={t('col_game')} sortKey="name" sort={sort} onSort={handleSort} />
-              <SortHeader label={t('col_time_played')} sortKey="seconds" sort={sort} onSort={handleSort} />
-              <SortHeader label={t('col_status')} sortKey="status" sort={sort} onSort={handleSort} />
-              <SortHeader label={t('col_started')} sortKey="startedDate" sort={sort} onSort={handleSort} />
-              <SortHeader label={t('col_completed_on')} sortKey="completedOn" sort={sort} onSort={handleSort} />
+              <SortHeader label={t('col_game')} sortKey="name" sort={effectiveSort} onSort={handleSort} />
+              <SortHeader label={t('col_time_played')} sortKey="seconds" sort={effectiveSort} onSort={handleSort} />
+              <SortHeader label={t('col_status')} sortKey="status" sort={effectiveSort} onSort={handleSort} />
+              {/*
+               * Started and Completed On are the two date columns, and they are
+               * exactly what made this table read as a wall of dates. Advanced
+               * only. Time to Beat stays in Simple because it is the answer to
+               * "how long did this take me", which is the question the table is
+               * for — and its old name, "Time Completed", is why it needed one
+               * of those dates beside it to be understood at all.
+               */}
+              {advanced && (
+                <SortHeader label={t('col_started')} sortKey="startedDate" sort={effectiveSort} onSort={handleSort} />
+              )}
+              {advanced && (
+                <SortHeader
+                  label={t('col_completed_on')}
+                  sortKey="completedOn"
+                  sort={effectiveSort}
+                  onSort={handleSort}
+                />
+              )}
               <SortHeader
-                label={t('col_completed_time')}
+                label={t('col_time_to_beat')}
                 sortKey="completedTime"
-                sort={sort}
+                sort={effectiveSort}
                 onSort={handleSort}
               />
-              <SortHeader label={t('col_rating')} sortKey="rating" sort={sort} onSort={handleSort} />
+              <SortHeader label={t('col_rating')} sortKey="rating" sort={effectiveSort} onSort={handleSort} />
               {/* Genres stays plain — a game carries several at once, so there's no one value to order rows by. */}
-              <th className="px-3 py-2 font-medium">{t('col_genres')}</th>
+              {advanced && <th className="px-3 py-2 font-medium">{t('col_genres')}</th>}
             </tr>
           </thead>
           <tbody>
             {list.map((p, i) => {
               const isCompleted = p.status === 'completed'
               return (
-                <tr key={p.name} className={i % 2 === 0 ? 'bg-panel' : 'bg-card/40'}>
+                <tr
+                  key={p.name}
+                  onContextMenu={(e) => {
+                    e.preventDefault()
+                    setMenu({ x: e.clientX, y: e.clientY, name: p.name })
+                  }}
+                  className={`cursor-context-menu ${i % 2 === 0 ? 'bg-panel' : 'bg-card/40'}`}
+                >
                   <td className="px-3 py-2 text-text">
                     <div className="flex items-center gap-2">
                       {p.iconFile ? (
@@ -152,19 +224,25 @@ export function DataTab(): React.JSX.Element {
                    */}
                   <td className="px-3 py-2 whitespace-nowrap text-text">{formatSeconds(p.seconds)}</td>
                   <td className="px-3 py-2 whitespace-nowrap text-text">{STATUS_LABELS[p.status]}</td>
-                  <td className="px-3 py-2 whitespace-nowrap text-subtext">{p.startedDate ?? '—'}</td>
-                  <td className="px-3 py-2 whitespace-nowrap text-subtext">
-                    {isCompleted ? (p.statusAt ?? '—') : '—'}
-                  </td>
+                  {advanced && (
+                    <td className="px-3 py-2 whitespace-nowrap text-subtext">{p.startedDate ?? '—'}</td>
+                  )}
+                  {advanced && (
+                    <td className="px-3 py-2 whitespace-nowrap text-subtext">
+                      {isCompleted ? (p.statusAt ?? '—') : '—'}
+                    </td>
+                  )}
                   <td className="px-3 py-2 whitespace-nowrap text-subtext">
                     {isCompleted && p.statusSeconds != null ? formatSeconds(p.statusSeconds) : '—'}
                   </td>
                   <td className="px-3 py-2 whitespace-nowrap text-gold">
                     {p.rating > 0 ? '★'.repeat(p.rating) : '—'}
                   </td>
-                  <td className="px-3 py-2 text-subtext">
-                    {p.genres.map((g) => t(g, { ns: 'genres' })).join(', ')}
-                  </td>
+                  {advanced && (
+                    <td className="px-3 py-2 text-subtext">
+                      {p.genres.map((g) => t(g, { ns: 'genres' })).join(', ')}
+                    </td>
+                  )}
                 </tr>
               )
             })}
@@ -172,6 +250,23 @@ export function DataTab(): React.JSX.Element {
         </table>
         {list.length === 0 && <div className="p-6 text-center text-sm text-subtext">{t('empty_no_games')}</div>}
       </div>
+
+      {/* Right-clicking is invisible until someone tries it, and nobody tries it. */}
+      {list.length > 0 && <div className="mt-2 text-xs text-subtext">{t('hint_right_click')}</div>}
+      </div>
+
+      {menu && (
+        <ContextMenu
+          x={menu.x}
+          y={menu.y}
+          onClose={() => setMenu(null)}
+          items={[
+            { label: t('ctx_modify'), onClick: () => openDialog('modify', menu.name) },
+            { label: t('ctx_info'), onClick: () => openDialog('info', menu.name) },
+            { label: t('ctx_notes'), onClick: () => openDialog('notes', menu.name) }
+          ]}
+        />
+      )}
     </div>
   )
 }

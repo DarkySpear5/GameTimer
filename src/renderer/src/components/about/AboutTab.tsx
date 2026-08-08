@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { APP_DISPLAY_NAME } from '@shared/channel'
 
 const GITHUB_URL = 'https://github.com/DarkySpear5/Gamut'
 
@@ -39,7 +40,7 @@ export function AboutTab(): React.JSX.Element {
 
   return (
     <div className="flex-1 overflow-y-auto px-6 py-5 text-sm text-text">
-      <div className="mb-1 text-xl font-semibold">Gamut</div>
+      <div className="mb-1 text-xl font-semibold">{APP_DISPLAY_NAME}</div>
       <div className="mb-5 text-subtext">
         v{version} — {t('about_tagline')}
       </div>
@@ -58,6 +59,14 @@ export function AboutTab(): React.JSX.Element {
           </li>
         ))}
       </ul>
+      {/*
+       * H1: where the cover art comes from. Worth stating plainly — these are
+       * other people's storefronts and databases, and a tracker that quietly
+       * pulls their images should say so.
+       */}
+      <div className="mt-5 mb-2 font-semibold">{t('about_art_header')}</div>
+      <div className="text-subtext">{t('about_art_credits')}</div>
+
       <div className="mt-5 mb-2 font-semibold">{t('about_contact_header')}</div>
       <div className="flex flex-col gap-1.5">
         <div>

@@ -2,6 +2,7 @@ import { Tray, Menu, nativeImage } from 'electron'
 import { resolveAsset } from '../util/env'
 import { dataStore } from '../store/dataStore'
 import { timerEngine } from '../timer/timerEngine'
+import { APP_DISPLAY_NAME } from '@shared/channel'
 
 interface TrayCallbacks {
   onShow: () => void
@@ -57,10 +58,10 @@ class TrayService {
     if (runningCount > 1) statusText = `Tracking ${runningCount} games`
     else if (selectedIsRunning) statusText = 'Tracking time…'
     else statusText = 'Paused'
-    this.tray.setToolTip(`Gamut — ${selected ?? 'No profile selected'} (${statusText})`)
+    this.tray.setToolTip(`${APP_DISPLAY_NAME} — ${selected ?? 'No profile selected'} (${statusText})`)
 
     const menu = Menu.buildFromTemplate([
-      { label: 'Show Gamut', click: () => this.callbacks?.onShow() },
+      { label: `Show ${APP_DISPLAY_NAME}`, click: () => this.callbacks?.onShow() },
       {
         label: selectedIsRunning ? 'Pause' : 'Play',
         enabled: !!selected,

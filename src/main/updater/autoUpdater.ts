@@ -1,7 +1,19 @@
 import { app, BrowserWindow } from 'electron'
 import { autoUpdater } from 'electron-updater'
 import { IPC } from '@shared/ipcContract'
+import { IS_DEV_CHANNEL } from '@shared/channel'
 import type { UpdateInfo, UpdateProgress } from '@shared/types'
+
+/**
+ * The dev channel never updates itself. Releases are published under the same
+ * GitHub repo as the public build, so an enabled updater would happily offer a
+ * dev install the public installer — a different app with a different appId,
+ * which NSIS would install alongside rather than over, leaving the user with a
+ * confusing third copy. Dev builds are installed by hand, on purpose.
+ */
+function updatesDisabled(): boolean {
+  return IS_DEV_CHANNEL || !app.isPackaged
+}
 
 let mainWindow: BrowserWindow | null = null
 let configured = false
@@ -48,7 +60,7 @@ export function registerUpdaterWindow(win: BrowserWindow): void {
 
 /** Best-effort — never throws, never shows anything if there's nothing to report. */
 export async function checkForUpdatesOnLaunch(): Promise<void> {
-  if (!app.isPackaged) return // electron-updater no-ops in dev anyway; skip the log noise
+  if (updatesDisabled()) return // electron-updater no-ops unpackaged anyway; skip the log noise
   try {
     await autoUpdater.checkForUpdates()
   } catch {
@@ -57,7 +69,7 @@ export async function checkForUpdatesOnLaunch(): Promise<void> {
 }
 
 export async function checkForUpdatesNow(): Promise<{ checked: boolean }> {
-  if (!app.isPackaged) return { checked: false }
+  if (updatesDisabled()) return { checked: false }
   try {
     await autoUpdater.checkForUpdates()
     return { checked: true }

@@ -12,6 +12,11 @@ export default defineConfig({
   resolve: {
     alias: { '@shared': resolve(__dirname, 'src/shared') }
   },
+  define: {
+    // src/shared/channel.ts reads this build-time define; anything that
+    // transitively imports it would throw ReferenceError without it.
+    __GAMUT_CHANNEL__: '"stable"'
+  },
   test: {
     include: ['src/**/*.test.ts'],
     environment: 'node'

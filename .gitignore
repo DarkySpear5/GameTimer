@@ -22,5 +22,14 @@ profiles/
 node_modules/
 out/
 release/
+release-dev/
+.verify-tmp/
 *.tsbuildinfo
 .vite/
+.verify-library-tmp/
+.verify-shots/
+.verify-installed-tmp/
+.verify-detail-tmp/
+.measure-tmp/
+.verify-art-tmp/
+.verify-sources-tmp/

@@ -1,14 +1,17 @@
 import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { TitleBar } from './components/titlebar/TitleBar'
-import { GameList } from './components/gamelist/GameList'
-import { SelectedGameView } from './components/timerview/SelectedGameView'
+import { LibraryTab } from './components/library/LibraryTab'
 import { DataTab } from './components/datatab/DataTab'
 import { AboutTab } from './components/about/AboutTab'
 import { ModifyDialog } from './components/dialogs/ModifyDialog'
 import { NotesDialog } from './components/dialogs/NotesDialog'
 import { SettingsDialog } from './components/dialogs/SettingsDialog'
-import { LegacyImportPrompt } from './components/dialogs/LegacyImportPrompt'
+import { GameInfoDialog } from './components/dialogs/GameInfoDialog'
+import { AddGameDialog } from './components/dialogs/AddGameDialog'
+import { FirstRunPrompts } from './components/dialogs/FirstRunPrompts'
+import { InstalledGamesDialog } from './components/dialogs/InstalledGamesDialog'
+import { AdjustTimeDialog } from './components/dialogs/AdjustTimeDialog'
 import { UpdatePrompt } from './components/dialogs/UpdatePrompt'
 import { ToastHost } from './components/common/Toast'
 import { useProfilesStore } from './state/profilesStore'
@@ -16,7 +19,14 @@ import { loadSettings } from './state/settingsStore'
 import { startTimerTickSubscription } from './state/timerStore'
 import { useUiStore } from './state/uiStore'
 
-const TAB_KEYS = { timer: 'tab_timer', data: 'tab_data', about: 'tab_about' } as const
+// The Timer tab is gone. It existed to answer "what am I playing", but a game's
+// Library detail page already shows its clock, its Play/Pause and its Launch —
+// so the tab was a second route to one job, and the app is smaller without it.
+const TAB_KEYS = {
+  library: 'tab_library',
+  stats: 'tab_stats',
+  about: 'tab_about'
+} as const
 
 function App(): React.JSX.Element {
   const { t } = useTranslation()
@@ -66,20 +76,22 @@ function App(): React.JSX.Element {
           </svg>
         </button>
       </div>
-      {activeTab === 'timer' && (
-        <div className="flex flex-1 overflow-hidden">
-          <GameList />
-          <SelectedGameView />
-        </div>
-      )}
-      {activeTab === 'data' && <DataTab />}
+      {activeTab === 'library' && <LibraryTab />}
+      {activeTab === 'stats' && <DataTab />}
       {activeTab === 'about' && <AboutTab />}
 
-      {dialog === 'modify' && dialogTarget && <ModifyDialog name={dialogTarget} onClose={closeDialog} />}
+      {dialog === 'modify' && dialogTarget && (
+        <ModifyDialog name={dialogTarget} onClose={closeDialog} />
+      )}
       {dialog === 'notes' && dialogTarget && <NotesDialog name={dialogTarget} onClose={closeDialog} />}
       {dialog === 'settings' && <SettingsDialog onClose={closeDialog} />}
+      {dialog === 'info' && dialogTarget && <GameInfoDialog name={dialogTarget} onClose={closeDialog} />}
+      {dialog === 'add' && <AddGameDialog onClose={closeDialog} />}
 
-      <LegacyImportPrompt />
+      {dialog === 'time' && dialogTarget && <AdjustTimeDialog name={dialogTarget} onClose={closeDialog} />}
+      {dialog === 'installed' && <InstalledGamesDialog onClose={closeDialog} />}
+
+      <FirstRunPrompts />
       <UpdatePrompt />
       <ToastHost />
     </div>
