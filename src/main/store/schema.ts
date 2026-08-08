@@ -27,6 +27,12 @@ const RatingSchema = z
   .union([z.literal(0), z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5)])
   .catch(0)
 
+const SessionEntrySchema = z.object({
+  startedAt: z.number().catch(0),
+  seconds: z.number().catch(0),
+  short: z.literal(true).optional()
+})
+
 const ProfileSchema = z
   .object({
     name: z.string().catch(''),
@@ -41,7 +47,10 @@ const ProfileSchema = z
     lastPlayed: z.number().nullable().catch(null),
     startedDate: z.string().nullable().catch(null),
     notes: z.string().catch(''),
-    rating: RatingSchema
+    rating: RatingSchema,
+    // .catch([]) rather than validation: same contract as every other field
+    // here — a partial or corrupt file loses the bad field, never the library.
+    sessionLog: z.array(SessionEntrySchema).catch([])
   })
 
 const ThemeNameSchema = z

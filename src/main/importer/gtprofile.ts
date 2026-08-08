@@ -124,7 +124,10 @@ export async function importProfile(win: BrowserWindow): Promise<Profile | null>
     lastPlayed: imported.lastPlayed ?? null,
     startedDate: imported.startedDate ?? null,
     notes: imported.notes ?? '',
-    rating: (imported.rating ?? 0) as Profile['rating']
+    rating: (imported.rating ?? 0) as Profile['rating'],
+    // The .gtprofile format carries no session history, so an import starts
+    // its log fresh rather than inventing entries to match `seconds`.
+    sessionLog: []
   }
 
   data.profiles[name] = profile

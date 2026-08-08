@@ -24,7 +24,8 @@ function freshProfile(name: string): Profile {
     lastPlayed: null,
     startedDate: null,
     notes: '',
-    rating: 0
+    rating: 0,
+    sessionLog: []
   }
 }
 
@@ -144,7 +145,12 @@ export const profileService = {
       lastPlayed: original.lastPlayed,
       startedDate: original.startedDate,
       notes: original.notes,
-      rating: original.rating
+      rating: original.rating,
+      // Copied, not reset: duplicate() clones seconds and the completion
+      // snapshot too, so an empty log here would make the copy claim hours
+      // of playtime across zero sessions. Spread so the two profiles never
+      // share one array.
+      sessionLog: [...original.sessionLog]
     }
     data.profiles[newName] = copy
     await dataStore.safeSave()

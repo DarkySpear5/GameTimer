@@ -82,7 +82,10 @@ function normalizeLegacyProfile(name: string, raw: LegacyProfileRaw): Profile {
     lastPlayed: raw.last_played ?? null,
     startedDate: raw.started_date ?? null,
     notes: raw.notes ?? '',
-    rating
+    rating,
+    // v1 never recorded sessions, so an imported library starts with an
+    // empty log — its `seconds` total is real, its session count starts at 0.
+    sessionLog: []
   }
 }
 

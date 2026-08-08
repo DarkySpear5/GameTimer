@@ -1,3 +1,5 @@
+import type { SessionEntry } from './sessionStats'
+
 export type Status = 'in_progress' | 'completed' | 'dropped' | 'on_hold'
 
 export type SortMode = 'name' | 'last_played' | 'rating' | 'genre'
@@ -27,6 +29,13 @@ export interface Profile {
   startedDate: string | null
   notes: string
   rating: 0 | 1 | 2 | 3 | 4 | 5
+  /**
+   * Every Play→Pause cycle, oldest first, kept forever. Counts and averages
+   * are derived from this (see summarizeSessions) rather than stored, so they
+   * can never drift out of sync with it. Absent in v2 save files — the schema
+   * defaults it to [].
+   */
+  sessionLog: SessionEntry[]
 }
 
 export interface Settings {
