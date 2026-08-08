@@ -157,6 +157,7 @@
   "note_choose_language": "选择显示语言。点击“保存”后立即生效。",
   "note_font_timer": "计时器数字为保持对齐将始终使用等宽字体。\n点击“保存”后立即生效。",
   "note_genres_fetched": "类型来自 Steam / GOG",
+  "note_idle_explained": "游戏在运行但计时器未启动的时间。每隔几秒检测一次，因此在很短的一次游玩中，这个差值大多来自检测间隔而非真正的挂机。",
   "note_select_genres": "点击以选择任意数量的类型。",
   "note_startup_exe_only": "仅在编译后的 .exe 中生效，.py 脚本中不生效",
   "note_tray_behavior": "启用后，关闭窗口（X）会将其隐藏到系统托盘\n而不是退出。要完全退出，请使用托盘图标右键菜单中的“退出”。",

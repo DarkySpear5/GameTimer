@@ -157,6 +157,7 @@
   "note_choose_language": "Choisissez votre langue d'affichage. S'applique instantanément en cliquant sur Enregistrer.",
   "note_font_timer": "Les chiffres du chronomètre restent à chasse fixe pour l'alignement.\nS'applique instantanément en cliquant sur Enregistrer.",
   "note_genres_fetched": "Genres issus de Steam / GOG",
+  "note_idle_explained": "Temps pendant lequel le jeu tournait sans que le chrono soit actif. Vérifié toutes les quelques secondes : sur une session très courte, l'essentiel de cet écart vient de cette vérification.",
   "note_select_genres": "Cliquez pour sélectionner autant de genres que vous voulez.",
   "note_startup_exe_only": "Ne fonctionne que depuis le .exe compilé, pas depuis le script .py",
   "note_tray_behavior": "Une fois activé, fermer la fenêtre (X) la réduit dans la zone de notification\nau lieu de quitter. Utilisez 'Quitter' dans le menu clic droit de l'icône pour quitter complètement.",

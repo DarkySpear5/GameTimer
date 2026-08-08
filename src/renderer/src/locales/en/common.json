@@ -157,6 +157,7 @@
   "note_choose_language": "Choose your display language. Applies instantly when you hit Save.",
   "note_font_timer": "Timer digits stay monospaced for alignment.\nApplies instantly when you hit Save.",
   "note_genres_fetched": "Genres came from Steam / GOG",
+  "note_idle_explained": "Time the game was running while the timer was not. Checked every few seconds, so on a very short session most of this is that check rather than real idle time.",
   "note_select_genres": "Click to select any number of genres.",
   "note_startup_exe_only": "Only works from the built .exe, not the .py script",
   "note_tray_behavior": "When enabled, closing the window (X) hides it to the tray\ninstead of quitting. Use 'Quit' in the tray's right-click menu to exit fully.",

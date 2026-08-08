@@ -157,6 +157,7 @@
   "note_choose_language": "Wähle deine Anzeigesprache. Wird sofort beim Klick auf Speichern übernommen.",
   "note_font_timer": "Die Timer-Ziffern bleiben zur Ausrichtung in einer Festbreitenschrift.\nWird sofort beim Klick auf Speichern übernommen.",
   "note_genres_fetched": "Genres von Steam / GOG übernommen",
+  "note_idle_explained": "Zeit, in der das Spiel lief, der Timer aber nicht. Wird nur alle paar Sekunden geprüft — bei einer sehr kurzen Sitzung stammt der Großteil dieser Differenz aus dieser Prüfung.",
   "note_select_genres": "Klicke, um beliebig viele Genres auszuwählen.",
   "note_startup_exe_only": "Funktioniert nur über die gebaute .exe, nicht über das .py-Skript",
   "note_tray_behavior": "Wenn aktiviert, wird das Fenster beim Schließen (X) nur in den Infobereich\nverschoben statt beendet. Verwende 'Beenden' im Rechtsklickmenü des Symbols, um die App vollständig zu schließen.",

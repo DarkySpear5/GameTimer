@@ -157,6 +157,7 @@
   "note_choose_language": "Scegli la lingua di visualizzazione. Si applica immediatamente premendo Salva.",
   "note_font_timer": "Le cifre del cronometro restano a larghezza fissa per l'allineamento.\nSi applica immediatamente premendo Salva.",
   "note_genres_fetched": "Generi presi da Steam / GOG",
+  "note_idle_explained": "Tempo in cui il gioco era aperto senza che il timer fosse attivo. Viene controllato ogni pochi secondi, quindi in una sessione molto breve la maggior parte di questa differenza deriva dal controllo.",
   "note_select_genres": "Clicca per selezionare tutti i generi che vuoi.",
   "note_startup_exe_only": "Funziona solo dall'.exe compilato, non dallo script .py",
   "note_tray_behavior": "Se abilitato, chiudere la finestra (X) la nasconde nell'area di notifica\ninvece di uscire. Usa 'Esci' nel menu del tasto destro dell'icona per uscire completamente.",

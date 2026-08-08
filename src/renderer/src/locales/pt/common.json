@@ -157,6 +157,7 @@
   "note_choose_language": "Escolha seu idioma de exibição. Aplica-se instantaneamente ao clicar em Salvar.",
   "note_font_timer": "Os dígitos do cronômetro permanecem em fonte monoespaçada para alinhamento.\nAplica-se instantaneamente ao clicar em Salvar.",
   "note_genres_fetched": "Géneros obtidos da Steam / GOG",
+  "note_idle_explained": "Tempo em que o jogo esteve aberto sem o cronómetro ativo. É verificado a cada poucos segundos, pelo que numa sessão muito curta a maior parte desta diferença vem dessa verificação.",
   "note_select_genres": "Clique para selecionar quantos gêneros quiser.",
   "note_startup_exe_only": "Só funciona a partir do .exe compilado, não do script .py",
   "note_tray_behavior": "Quando ativado, fechar a janela (X) a esconde na bandeja\nem vez de encerrar o app. Use 'Sair' no menu de botão direito do ícone para encerrar completamente.",

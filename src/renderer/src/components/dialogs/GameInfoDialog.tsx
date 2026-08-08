@@ -88,15 +88,25 @@ export function GameInfoDialog({
        * is where the other 31 went".
        */}
       {profile.openSeconds > 0 && (
-        <dl className="mt-4 space-y-2 border-t border-card pt-4 text-sm">
-          <Row label={t('stat_open')} value={formatSeconds(profile.openSeconds)} />
-          <Row
-            label={t('stat_idle')}
-            value={`${formatSeconds(Math.max(0, profile.openSeconds - profile.seconds))} (${Math.round(
-              (Math.max(0, profile.openSeconds - profile.seconds) / profile.openSeconds) * 100
-            )}%)`}
-          />
-        </dl>
+        <div className="mt-4 border-t border-card pt-4">
+          <dl className="space-y-2 text-sm">
+            <Row label={t('stat_open')} value={formatSeconds(profile.openSeconds)} />
+            <Row
+              label={t('stat_idle')}
+              value={`${formatSeconds(Math.max(0, profile.openSeconds - profile.seconds))} (${Math.round(
+                (Math.max(0, profile.openSeconds - profile.seconds) / profile.openSeconds) * 100
+              )}%)`}
+            />
+          </dl>
+          {/*
+           * The first reaction to this block is "what is that, and how did it
+           * happen?" — so it says so, rather than leaving two unexplained
+           * durations to be reverse-engineered. Also names the caveat: the
+           * watcher only samples every few seconds, so on a very short session
+           * most of the gap is that sampling rather than real idle time.
+           */}
+          <div className="mt-2 text-xs leading-snug text-subtext">{t('note_idle_explained')}</div>
+        </div>
       )}
 
       {hasRecord && (
