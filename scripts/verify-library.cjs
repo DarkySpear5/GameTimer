@@ -52,8 +52,10 @@ function game(name, seconds, extra = {}) {
 
 ;(async () => {
   fs.rmSync(SCRATCH, { recursive: true, force: true })
-  fs.rmSync(SHOTS, { recursive: true, force: true })
   fs.mkdirSync(ROOT, { recursive: true })
+  // Deliberately NOT wiped: the other verify scripts write into the same
+  // folder, and running the suites in sequence used to leave only this one's
+  // screenshots behind.
   fs.mkdirSync(SHOTS, { recursive: true })
   // Both first-run offers marked as already made — this script is about the
   // Library, and either prompt would sit over it intercepting clicks. The
