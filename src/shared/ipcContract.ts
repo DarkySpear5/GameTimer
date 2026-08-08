@@ -86,7 +86,10 @@ export const IPC = {
     listRunning: 'detect:listRunning',
     identify: 'detect:identify',
     search: 'detect:search',
-    createGame: 'detect:createGame'
+    createGame: 'detect:createGame',
+    launch: 'detect:launch',
+    setAutoStartTimer: 'detect:setAutoStartTimer',
+    classify: 'detect:classify'
   }
 } as const
 
@@ -180,6 +183,12 @@ export interface GameTimerApi {
     search(query: string): Promise<GameSearchHit[]>
     /** Creates the profile, links the exe/appid, and fetches art if enabled. */
     createGame(name: string, exePath: string | null, steamAppId: number | null): Promise<Profile>
+    /** Starts the game via steam://rungameid when an appid is known, else its .exe. Counts the launch. */
+    launch(name: string): Promise<{ launched: boolean }>
+    /** null = follow the global setting. */
+    setAutoStartTimer(name: string, value: boolean | null): Promise<Profile>
+    /** Which of these executables Steam's catalogue confirms are games. Promotion only — a 'no' never hides anything. */
+    classify(exePaths: string[]): Promise<string[]>
   }
 }
 

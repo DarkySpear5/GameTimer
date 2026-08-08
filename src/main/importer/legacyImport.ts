@@ -90,7 +90,10 @@ function normalizeLegacyProfile(name: string, raw: LegacyProfileRaw): Profile {
     // if the user later links the game through the Add Game picker.
     exePath: null,
     steamAppId: null,
-    autoFetchArt: null
+    autoFetchArt: null,
+    launches: 0,
+    openSeconds: 0,
+    autoStartTimer: null
   }
 }
 
@@ -109,7 +112,9 @@ function normalizeLegacySettings(raw: Record<string, unknown> | undefined): Sett
     genreFilter: (raw?.genre_filter as string) ?? 'All',
     statusFilter: (raw?.status_filter as Settings['statusFilter']) ?? 'All',
     language: (raw?.language as string) ?? 'en',
-    autoFetchArt: true // v1 has no equivalent concept — default on, same as a fresh install
+    autoFetchArt: true, // v1 has no equivalent concept — default on, same as a fresh install
+    watchForGames: false,
+    autoStartTimer: false
   }
 }
 

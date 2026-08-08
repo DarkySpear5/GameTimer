@@ -8,6 +8,7 @@ import { dataStore } from './store/dataStore'
 import { timerEngine } from './timer/timerEngine'
 import { registerMainWindow, showWindow, quitApp } from './appLifecycle'
 import { registerUpdaterWindow, checkForUpdatesOnLaunch } from './updater/autoUpdater'
+import { gameWatcher } from './detect/gameWatcher'
 import { USER_DATA_FOLDER, APP_USER_MODEL_ID } from '@shared/channel'
 
 let mainWindow: BrowserWindow | null = null
@@ -39,6 +40,8 @@ if (!acquireSingleInstanceLock(() => showWindow())) {
     registerMainWindow(mainWindow)
     registerUpdaterWindow(mainWindow)
     timerEngine.startLoop()
+    // No-op unless the user opted into background watching — see gameWatcher.shouldRun.
+    gameWatcher.sync()
 
     if (dataStore.get().settings.checkForUpdates) {
       void checkForUpdatesOnLaunch()

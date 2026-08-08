@@ -250,6 +250,9 @@ function AppearanceTab({ profile }: { profile: Profile }): React.JSX.Element {
     useProfilesStore.getState().upsert(updated)
   }
 
+  async function setAutoStart(value: boolean | null): Promise<void> {
+    useProfilesStore.getState().upsert(await window.api.detect.setAutoStartTimer(profile.name, value))
+  }
   async function setAutoArt(value: boolean | null): Promise<void> {
     useProfilesStore.getState().upsert(await window.api.profiles.setAutoFetchArt(profile.name, value))
   }
@@ -292,6 +295,31 @@ function AppearanceTab({ profile }: { profile: Profile }): React.JSX.Element {
           >
             {t('btn_refresh_art')}
           </button>
+        </div>
+      )}
+
+      {(profile.steamAppId != null || profile.exePath) && (
+        <div>
+          <label className="mb-1 block text-xs text-subtext">{t('label_auto_start')}</label>
+          <div className="flex gap-1.5">
+            {(
+              [
+                [null, t('label_auto_art_follow')],
+                [true, t('label_auto_art_on')],
+                [false, t('label_auto_art_off')]
+              ] as [boolean | null, string][]
+            ).map(([value, label]) => (
+              <button
+                key={String(value)}
+                onClick={() => void setAutoStart(value)}
+                className={`flex-1 rounded px-2 py-1.5 text-xs transition-colors ${
+                  profile.autoStartTimer === value ? 'bg-accent text-bg' : 'bg-card text-text hover:bg-card/70'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
       )}
 

@@ -42,6 +42,20 @@ export interface Profile {
   steamAppId: number | null
   /** null = follow the global setting. Explicit true/false overrides it for this game only. */
   autoFetchArt: boolean | null
+  /**
+   * Times the game's process actually started. Deliberately a different number
+   * from the session count: a launch you never pressed Play for is a launch
+   * with no session, and the gap between the two is the interesting part.
+   */
+  launches: number
+  /**
+   * Total seconds the game process was open. Only known for launches Gamut saw
+   * — it is NOT playtime and must never be presented as such. See the "Played
+   * vs Game was open" rule in the design spec.
+   */
+  openSeconds: number
+  /** null = follow the global setting. */
+  autoStartTimer: boolean | null
 }
 
 export interface Settings {
@@ -59,6 +73,18 @@ export interface Settings {
   language: string
   /** Default for games whose own autoFetchArt is null. */
   autoFetchArt: boolean
+  /**
+   * Poll for known game executables in the background. Off by default — it is
+   * the only thing here with an ongoing cost, and launching from Gamut gives
+   * exact counts without it.
+   */
+  watchForGames: boolean
+  /**
+   * Start the timer by itself when a game launches. Off by default, and that
+   * default is a product decision, not caution: auto-tracking measures "the
+   * process was open", which is how Steam turns a 19-hour playthrough into 50.
+   */
+  autoStartTimer: boolean
 }
 
 /** One running application offered in the Add Game picker. */

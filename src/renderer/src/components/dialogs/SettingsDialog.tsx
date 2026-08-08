@@ -83,6 +83,21 @@ export function SettingsDialog({ onClose }: { onClose: () => void }): React.JSX.
             checked={settings.autoFetchArt}
             onChange={(v) => void updateSettings({ autoFetchArt: v })}
           />
+          <ToggleRow
+            label={t('label_watch_games')}
+            checked={settings.watchForGames}
+            onChange={(v) => void updateSettings({ watchForGames: v })}
+          />
+          {/*
+           * Off by default and that is a product decision, not caution:
+           * auto-tracking measures "the process was open", which is how Steam
+           * turns a 19-hour playthrough into 50.
+           */}
+          <ToggleRow
+            label={t('label_auto_start')}
+            checked={settings.autoStartTimer}
+            onChange={(v) => void updateSettings({ autoStartTimer: v })}
+          />
         </div>
       )}
 

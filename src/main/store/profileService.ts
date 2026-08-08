@@ -29,7 +29,10 @@ function freshProfile(name: string): Profile {
     sessionLog: [],
     exePath: null,
     steamAppId: null,
-    autoFetchArt: null
+    autoFetchArt: null,
+    launches: 0,
+    openSeconds: 0,
+    autoStartTimer: null
   }
 }
 
@@ -159,7 +162,11 @@ export const profileService = {
       // preference — only the name differs.
       exePath: original.exePath,
       steamAppId: original.steamAppId,
-      autoFetchArt: original.autoFetchArt
+      autoFetchArt: original.autoFetchArt,
+      // Counters are the copy's own from zero: it has never been launched.
+      launches: 0,
+      openSeconds: 0,
+      autoStartTimer: original.autoStartTimer
     }
     data.profiles[newName] = copy
     await dataStore.safeSave()
@@ -234,6 +241,14 @@ export const profileService = {
       profile.bgImage = art.bgImage
       profile.bgColor = null
     }
+    await dataStore.safeSave()
+    return profile
+  },
+
+  /** null = follow the global setting; true/false override it for this game. */
+  async setAutoStartTimer(name: string, value: boolean | null): Promise<Profile> {
+    const profile = requireProfile(name)
+    profile.autoStartTimer = value
     await dataStore.safeSave()
     return profile
   },

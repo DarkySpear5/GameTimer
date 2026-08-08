@@ -89,6 +89,19 @@ export function SelectedGameView(): React.JSX.Element {
           </div>
         )}
         <div className="font-mono text-5xl font-bold tabular-nums text-text">{formatSeconds(seconds)}</div>
+        {/*
+         * Only for games Gamut can actually start. Launching here rather than
+         * from Steam is what makes the launch count exact without any
+         * background polling.
+         */}
+        {(profile.steamAppId != null || profile.exePath) && (
+          <button
+            onClick={() => void window.api.detect.launch(profile!.name)}
+            className="rounded-lg bg-card px-6 py-2 text-sm font-medium text-text transition-opacity hover:opacity-80"
+          >
+            {t('btn_launch_game')}
+          </button>
+        )}
         <div className="mt-2 flex gap-3">
           <button
             onClick={() => void togglePlay()}

@@ -100,7 +100,11 @@ const api: GameTimerApi = {
     identify: (exePath, windowTitle) => ipcRenderer.invoke(IPC.detect.identify, exePath, windowTitle),
     search: (query) => ipcRenderer.invoke(IPC.detect.search, query),
     createGame: (name, exePath, steamAppId) =>
-      ipcRenderer.invoke(IPC.detect.createGame, name, exePath, steamAppId)
+      ipcRenderer.invoke(IPC.detect.createGame, name, exePath, steamAppId),
+    launch: (name) => ipcRenderer.invoke(IPC.detect.launch, name),
+    setAutoStartTimer: (name, value) =>
+      ipcRenderer.invoke(IPC.detect.setAutoStartTimer, name, value),
+    classify: (exePaths) => ipcRenderer.invoke(IPC.detect.classify, exePaths)
   }
 }
 

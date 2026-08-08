@@ -62,6 +62,7 @@ export function GameInfoDialog({
           label={t('stat_longest_session')}
           value={summary.sessions > 0 ? formatSeconds(summary.longestSeconds) : '—'}
         />
+        <Row label={t('stat_launches')} value={String(profile.launches)} />
         <Row label={t('stat_first_played')} value={formatDate(summary.firstPlayedAt)} />
         <Row label={t('stat_last_played')} value={formatDate(summary.lastPlayedAt)} />
         {isCompleted && <Row label={t('col_completed_on')} value={profile.statusAt ?? '—'} />}
@@ -72,6 +73,24 @@ export function GameInfoDialog({
           />
         )}
       </dl>
+
+      {/*
+       * Only ever shown here, only ever below Played, and always beside the
+       * idle figure that explains the gap. Without that line a reader sees two
+       * competing playtimes; with it they see "Steam would have said 50 — here
+       * is where the other 31 went".
+       */}
+      {profile.openSeconds > 0 && (
+        <dl className="mt-4 space-y-2 border-t border-card pt-4 text-sm">
+          <Row label={t('stat_open')} value={formatSeconds(profile.openSeconds)} />
+          <Row
+            label={t('stat_idle')}
+            value={`${formatSeconds(Math.max(0, profile.openSeconds - profile.seconds))} (${Math.round(
+              (Math.max(0, profile.openSeconds - profile.seconds) / profile.openSeconds) * 100
+            )}%)`}
+          />
+        </dl>
+      )}
 
       {hasRecord && (
         <button

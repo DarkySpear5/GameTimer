@@ -55,7 +55,10 @@ const ProfileSchema = z
     steamAppId: z.number().nullable().catch(null),
     // Tri-state on purpose: null means "follow the global setting", so
     // flipping the cogwheel moves every game the user hasn't overridden.
-    autoFetchArt: z.boolean().nullable().catch(null)
+    autoFetchArt: z.boolean().nullable().catch(null),
+    launches: z.number().catch(0),
+    openSeconds: z.number().catch(0),
+    autoStartTimer: z.boolean().nullable().catch(null)
   })
 
 const ThemeNameSchema = z
@@ -77,7 +80,9 @@ const SettingsSchema = z.object({
     .union([z.literal('All'), z.enum(['in_progress', 'completed', 'dropped', 'on_hold'])])
     .catch('All'),
   language: z.string().catch('en'),
-  autoFetchArt: z.boolean().catch(true)
+  autoFetchArt: z.boolean().catch(true),
+  watchForGames: z.boolean().catch(false),
+  autoStartTimer: z.boolean().catch(false)
 })
 
 const AppDataSchema = z.object({

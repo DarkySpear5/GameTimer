@@ -136,7 +136,12 @@ export async function importProfile(win: BrowserWindow): Promise<Profile | null>
     // Never carried across machines — the exe lives on the exporter's disk.
     exePath: null,
     steamAppId: imported.steamAppId ?? null,
-    autoFetchArt: null
+    autoFetchArt: null,
+    // Launch counts are machine-specific — they describe processes seen on
+    // the exporting PC, not the game's history.
+    launches: 0,
+    openSeconds: 0,
+    autoStartTimer: null
   }
 
   data.profiles[name] = profile
