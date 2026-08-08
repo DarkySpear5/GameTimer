@@ -395,7 +395,24 @@ plus 77 Vitest unit tests.
    published to that feed; `electron-builder.dev.yml` has no publish block.
 8. **Old releases (v2.1.9 and below) record `target_commitish: v2`**, a branch
    that no longer exists. Cosmetic only — electron-updater resolves by tag.
-9. **`firstrun.json` existing *at all* is what suppresses the v1 import prompt.**
+9. **Never leave a verification script running across a `package`/`package:dev`.**
+   Happened for real on 2026-08-08. A backgrounded run of two verify scripts was
+   still going when `npm run package:dev` rebuilt `out/` — which strips the §7
+   `GAMUT_TEST_APPDATA` patch. From that moment the still-running script's
+   launches ignored their isolated folder and drove the **user's real
+   `%APPDATA%\gametimer-dev` library** instead, and left four orphaned
+   `electron.exe` processes holding the single-instance lock, so the packaged
+   app silently quit on every later launch attempt (which looks exactly like a
+   startup crash — it is not).
+   - No data was lost: none of the scripts press Play, so no playtime moved.
+     A Settings toggle the script clicked did persist.
+   - Before packaging, confirm nothing is still driving the app
+     (`Get-Process | Where ProcessName -match 'electron|Gamut'`), and after any
+     packaged-app launch failure check for orphans **before** assuming a crash.
+   - The packaged dev build's processes are named `Gamut Dev.exe`; a script-run
+     one is `electron.exe` pointing at `node_modules/electron/dist`. That path
+     is how you tell them apart.
+10. **`firstrun.json` existing *at all* is what suppresses the v1 import prompt.**
    `detectLegacyLibrary()` (`src/main/importer/legacyImport.ts:165`) does
    `if (firstRun) return { found: false }` — it never inspects the contents. So
    the §9.4 auto-detect prompt **must not** write that file before the legacy
