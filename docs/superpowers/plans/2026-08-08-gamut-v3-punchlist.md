@@ -69,7 +69,7 @@ Status key: `[ ]` not started · `[~]` in progress · `[x]` done
 ## G. Settings
 
 - [x] **G1. Tab order: General → Launchers → Games → Appearance → Language.**
-- [ ] **G2. Font picker becomes a dropdown** (keep the search box inside it).
+- [x] **G2. Font picker becomes a dropdown** (keep the search box inside it).
 - [x] **G3. "Data table size" → "Stats table size".**
 - [x] **G4. Font size range 0.7x – 1.5x.**
 - [x] **G5. "Watch for games in the background" is meaningless to a reader** —

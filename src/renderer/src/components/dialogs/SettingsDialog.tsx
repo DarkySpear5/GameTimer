@@ -171,6 +171,7 @@ function UiTab({
   const { t } = useTranslation()
   const [allFonts, setAllFonts] = useState<string[]>(FONT_CHOICES)
   const [query, setQuery] = useState('')
+  const [fontOpen, setFontOpen] = useState(false)
 
   useEffect(() => {
     void window.api.fonts.list().then(setAllFonts)
@@ -198,29 +199,54 @@ function UiTab({
           className="w-full"
         />
       </div>
-      <div>
+      {/*
+       * G2: a dropdown rather than a permanently-open list. Several hundred
+       * installed fonts took over the whole Appearance tab; collapsed, the tab
+       * is readable and the list only appears when you are choosing. The search
+       * box stays — it is the only practical way through that many names — and
+       * lives INSIDE the dropdown so it disappears with it.
+       */}
+      <div className="relative">
         <label className="mb-1 block text-xs text-subtext">{t('label_font')}</label>
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder={t('placeholder_search_fonts')}
-          className="mb-1.5 w-full rounded bg-card px-2.5 py-1.5 text-sm text-text outline-none ring-1 ring-transparent focus:ring-accent"
-        />
-        <div className="max-h-40 overflow-y-auto rounded bg-card">
-          {filtered.map((f) => (
-            <button
-              key={f}
-              onClick={() => void updateSettings({ fontFamily: f })}
-              style={{ fontFamily: `"${f}"` }}
-              className={`block w-full px-2.5 py-1.5 text-left text-sm ${
-                settings.fontFamily === f ? 'bg-accent text-bg' : 'text-text hover:bg-panel'
-              }`}
-            >
-              {f}
-            </button>
-          ))}
-          {filtered.length === 0 && <div className="px-2.5 py-2 text-xs text-subtext">—</div>}
-        </div>
+        <button
+          onClick={() => setFontOpen((v) => !v)}
+          style={{ fontFamily: `"${settings.fontFamily}"` }}
+          className="flex w-full items-center justify-between rounded bg-card px-2.5 py-1.5 text-left text-sm text-text"
+        >
+          <span className="truncate">{settings.fontFamily}</span>
+          <span className="ml-2 shrink-0 text-xs text-subtext">▾</span>
+        </button>
+
+        {fontOpen && (
+          <div className="absolute z-20 mt-1 w-full rounded bg-card shadow-2xl">
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={t('placeholder_search_fonts')}
+              autoFocus
+              className="w-full rounded-t bg-panel px-2.5 py-1.5 text-sm text-text outline-none"
+            />
+            <div className="max-h-52 overflow-y-auto">
+              {filtered.map((f) => (
+                <button
+                  key={f}
+                  onClick={() => {
+                    void updateSettings({ fontFamily: f })
+                    setFontOpen(false)
+                    setQuery('')
+                  }}
+                  style={{ fontFamily: `"${f}"` }}
+                  className={`block w-full px-2.5 py-1.5 text-left text-sm ${
+                    settings.fontFamily === f ? 'bg-accent text-bg' : 'text-text hover:bg-panel'
+                  }`}
+                >
+                  {f}
+                </button>
+              ))}
+              {filtered.length === 0 && <div className="px-2.5 py-2 text-xs text-subtext">—</div>}
+            </div>
+          </div>
+        )}
       </div>
       <div>
         <label className="mb-1 block text-xs text-subtext">{t('label_table_size')}</label>
