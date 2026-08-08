@@ -1,12 +1,11 @@
-import { useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Modal } from '../common/Modal'
-import { EyedropperButton } from '../common/EyedropperButton'
 import { useProfilesStore } from '../../state/profilesStore'
 import { toast } from '../common/Toast'
 import { GENRE_OPTIONS } from '@shared/constants'
 import { formatSeconds } from '@shared/format'
-import type { Profile, Status } from '@shared/types'
+import type { ArtOptions, Profile, Status } from '@shared/types'
 
 type Tab = 'general' | 'time' | 'appearance' | 'genres'
 
@@ -145,6 +144,9 @@ function GeneralTab({ profile, onClose }: { profile: Profile; onClose: () => voi
 
 function TimeTab({ profile }: { profile: Profile }): React.JSX.Element {
   const { t } = useTranslation()
+  async function setAutoStart(value: boolean | null): Promise<void> {
+    useProfilesStore.getState().upsert(await window.api.detect.setAutoStartTimer(profile.name, value))
+  }
   const [direction, setDirection] = useState<'add' | 'remove'>('add')
   const [hours, setHours] = useState('0')
   const [minutes, setMinutes] = useState('0')
@@ -168,6 +170,31 @@ function TimeTab({ profile }: { profile: Profile }): React.JSX.Element {
 
   return (
     <div className="flex flex-col gap-4">
+      {/* A timer setting, so it lives with the timer rather than with the art. */}
+      {(profile.steamAppId != null || profile.exePath) && (
+        <div className="border-b border-card pb-4">
+          <label className="mb-1 block text-xs text-subtext">{t('label_auto_start')}</label>
+          <div className="flex gap-1.5">
+            {(
+              [
+                [null, t('label_auto_art_follow')],
+                [true, t('label_auto_art_on')],
+                [false, t('label_auto_art_off')]
+              ] as [boolean | null, string][]
+            ).map(([value, label]) => (
+              <button
+                key={String(value)}
+                onClick={() => void setAutoStart(value)}
+                className={`flex-1 rounded px-2 py-1.5 text-xs transition-colors ${
+                  profile.autoStartTimer === value ? 'bg-accent text-bg' : 'bg-card text-text hover:bg-card/70'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
       <div className="flex gap-1.5">
         <button
           onClick={() => setDirection('add')}
@@ -213,7 +240,7 @@ function TimeTab({ profile }: { profile: Profile }): React.JSX.Element {
         onClick={() => void apply()}
         className="self-start rounded bg-accent px-4 py-1.5 text-sm font-medium text-bg hover:opacity-90"
       >
-        {t('btn_save')}
+        {t('btn_apply')}
       </button>
     </div>
   )
@@ -221,9 +248,6 @@ function TimeTab({ profile }: { profile: Profile }): React.JSX.Element {
 
 function AppearanceTab({ profile }: { profile: Profile }): React.JSX.Element {
   const { t } = useTranslation()
-  const [localBgColor, setLocalBgColor] = useState(profile.bgColor ?? '#26263a')
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
   async function chooseIcon(): Promise<void> {
     const updated = await window.api.profiles.setIcon(profile.name)
     if (updated) useProfilesStore.getState().upsert(updated)
@@ -232,27 +256,28 @@ function AppearanceTab({ profile }: { profile: Profile }): React.JSX.Element {
     const updated = await window.api.profiles.setBackground(profile.name, 'image', '')
     if (updated) useProfilesStore.getState().upsert(updated)
   }
-  function chooseBackgroundColor(color: string): void {
-    // The OS color picker's drag surface fires onChange many times per
-    // second — update the swatch instantly, but only commit (and hit disk)
-    // once movement pauses, same reasoning as Settings' font-scale slider.
-    setLocalBgColor(color)
-    if (debounceRef.current) clearTimeout(debounceRef.current)
-    debounceRef.current = setTimeout(() => {
-      void window.api.profiles.setBackground(profile.name, 'color', color).then((updated) => {
-        if (updated) useProfilesStore.getState().upsert(updated)
-      })
-    }, 250)
-  }
-  async function resetBackground(): Promise<void> {
-    const updated = await window.api.profiles.clearBackground(profile.name)
-    setLocalBgColor(updated.bgColor ?? '#26263a')
-    useProfilesStore.getState().upsert(updated)
+
+  // Every candidate image for this game, fetched once when the tab opens.
+  // URLs only — nothing is downloaded until one is actually clicked.
+  const [art, setArt] = useState<ArtOptions | null>(null)
+  const [applying, setApplying] = useState(false)
+
+  useEffect(() => {
+    if (profile.steamAppId == null && !profile.exePath) return
+    void window.api.detect.artOptions(profile.name, profile.steamAppId).then(setArt)
+  }, [profile.name, profile.steamAppId, profile.exePath])
+
+  async function pickArt(kind: 'icon' | 'background', url: string): Promise<void> {
+    setApplying(true)
+    try {
+      useProfilesStore.getState().upsert(await window.api.detect.setArtFromUrl(profile.name, kind, url))
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : String(err))
+    } finally {
+      setApplying(false)
+    }
   }
 
-  async function setAutoStart(value: boolean | null): Promise<void> {
-    useProfilesStore.getState().upsert(await window.api.detect.setAutoStartTimer(profile.name, value))
-  }
   async function setAutoArt(value: boolean | null): Promise<void> {
     useProfilesStore.getState().upsert(await window.api.profiles.setAutoFetchArt(profile.name, value))
   }
@@ -298,28 +323,27 @@ function AppearanceTab({ profile }: { profile: Profile }): React.JSX.Element {
         </div>
       )}
 
-      {(profile.steamAppId != null || profile.exePath) && (
-        <div>
-          <label className="mb-1 block text-xs text-subtext">{t('label_auto_start')}</label>
-          <div className="flex gap-1.5">
-            {(
-              [
-                [null, t('label_auto_art_follow')],
-                [true, t('label_auto_art_on')],
-                [false, t('label_auto_art_off')]
-              ] as [boolean | null, string][]
-            ).map(([value, label]) => (
-              <button
-                key={String(value)}
-                onClick={() => void setAutoStart(value)}
-                className={`flex-1 rounded px-2 py-1.5 text-xs transition-colors ${
-                  profile.autoStartTimer === value ? 'bg-accent text-bg' : 'bg-card text-text hover:bg-card/70'
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
+      {art && (art.icons.length > 0 || art.backgrounds.length > 0) && (
+        <div className="flex flex-col gap-3">
+          {/*
+           * The automatic pick is a default, not an answer — key art is taste,
+           * and offering only the one the fetcher ranked first left "it chose
+           * one I dislike" with no remedy. Everything found is shown; only the
+           * image actually clicked gets downloaded.
+           */}
+          <ArtStrip
+            label={t('label_icon')}
+            options={art.icons}
+            disabled={applying}
+            onPick={(u) => void pickArt('icon', u)}
+            tall
+          />
+          <ArtStrip
+            label={t('label_background')}
+            options={art.backgrounds}
+            disabled={applying}
+            onPick={(u) => void pickArt('background', u)}
+          />
         </div>
       )}
 
@@ -345,28 +369,12 @@ function AppearanceTab({ profile }: { profile: Profile }): React.JSX.Element {
 
       <div>
         <label className="mb-1 block text-xs text-subtext">{t('label_background')}</label>
-        <div className="flex flex-wrap items-center gap-2">
-          <input
-            type="color"
-            title={t('dlg_choose_bg_color_title')}
-            value={localBgColor}
-            onChange={(e) => chooseBackgroundColor(e.target.value)}
-            className="h-8 w-10 cursor-pointer rounded bg-card"
-          />
-          <EyedropperButton onPick={chooseBackgroundColor} />
-          <button
-            onClick={() => void chooseBackgroundImage()}
-            className="rounded bg-card px-3 py-1.5 text-sm text-text hover:bg-card/70"
-          >
-            {t('btn_choose_image')}
-          </button>
-          <button
-            onClick={() => void resetBackground()}
-            className="rounded bg-card px-3 py-1.5 text-sm text-text hover:bg-card/70"
-          >
-            {t('btn_reset_default')}
-          </button>
-        </div>
+        <button
+          onClick={() => void chooseBackgroundImage()}
+          className="rounded bg-card px-3 py-1.5 text-sm text-text hover:bg-card/70"
+        >
+          {t('btn_choose_image')}
+        </button>
       </div>
     </div>
   )
@@ -433,6 +441,53 @@ function GenresTab({ profile }: { profile: Profile }): React.JSX.Element {
           {t('btn_assign')}
         </button>
       )}
+    </div>
+  )
+}
+
+/**
+ * A horizontally scrolling row of candidate images. Kept scrollable rather
+ * than wrapped: a game can return sixteen screenshots, and a grid of those
+ * would push everything else in the tab off screen.
+ */
+function ArtStrip({
+  label,
+  options,
+  disabled,
+  onPick,
+  tall
+}: {
+  label: string
+  options: { url: string; thumb: string }[]
+  disabled: boolean
+  onPick: (url: string) => void
+  tall?: boolean
+}): React.JSX.Element | null {
+  if (options.length === 0) return null
+  return (
+    <div>
+      <label className="mb-1 block text-xs text-subtext">{label}</label>
+      <div className="flex gap-2 overflow-x-auto pb-1">
+        {options.map((o) => (
+          <button
+            key={o.url}
+            disabled={disabled}
+            onClick={() => onPick(o.url)}
+            className={`shrink-0 overflow-hidden rounded ring-1 ring-transparent transition hover:ring-accent disabled:opacity-50 ${
+              tall ? 'h-14' : 'h-14 w-24'
+            }`}
+          >
+            {/* Proxied through main — the renderer's CSP forbids remote images,
+                and that restriction is worth keeping. */}
+            <img
+              src={`gt-asset://remote/${encodeURIComponent(o.thumb)}`}
+              className="h-full w-full object-cover"
+              alt=""
+              loading="lazy"
+            />
+          </button>
+        ))}
+      </div>
     </div>
   )
 }

@@ -7,7 +7,7 @@ import { timerEngine } from '../timer/timerEngine'
 import { writeStatusLog } from '../statusLog/writeStatusLog'
 import { todayDateString } from '../util/date'
 import { saveCappedImage } from '../util/imageResize'
-import { enrichGame } from '../art/enrich'
+import { enrichGame, storeArtFromUrl } from '../art/enrich'
 import { ICON_MAX_DIMENSION, BACKGROUND_MAX_DIMENSION } from '@shared/constants'
 import type { Profile, Status } from '@shared/types'
 
@@ -252,6 +252,27 @@ export const profileService = {
     if (found.genres.length > 0 && profile.genres.length === 0) {
       profile.genres = found.genres
       profile.genresFromDetection = true
+    }
+    await dataStore.safeSave()
+    return profile
+  },
+
+  /**
+   * Applies a specific image the user picked from the art picker. Goes through
+   * the same download-validate-cap path as an automatic fetch, so a chosen
+   * image is stored identically to a fetched or manually browsed one.
+   */
+  async setArtFromUrl(name: string, kind: 'icon' | 'background', url: string): Promise<Profile> {
+    const profile = requireProfile(name)
+    const saved = await storeArtFromUrl(url, kind)
+    if (!saved) return profile
+    if (kind === 'icon') {
+      await deleteFileIfExists(profile.iconFile, paths.iconsDir())
+      profile.iconFile = saved
+    } else {
+      await deleteFileIfExists(profile.bgImage, paths.backgroundsDir())
+      profile.bgImage = saved
+      profile.bgColor = null
     }
     await dataStore.safeSave()
     return profile

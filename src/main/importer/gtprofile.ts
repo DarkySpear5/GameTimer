@@ -8,6 +8,7 @@ import { timerEngine } from '../timer/timerEngine'
 import { writeStatusLog } from '../statusLog/writeStatusLog'
 import { saveCappedImageBuffer } from '../util/imageResize'
 import { ICON_MAX_DIMENSION, BACKGROUND_MAX_DIMENSION } from '@shared/constants'
+import { safeImageExt } from './safeExt'
 import type { GtProfileFile, Profile } from '@shared/types'
 
 /** Single-game export, self-contained (images embedded as base64) — wire-compatible with v1's .gtprofile format. */
@@ -90,7 +91,7 @@ export async function importProfile(win: BrowserWindow): Promise<Profile | null>
   if (imported.iconB64) {
     try {
       await fs.mkdir(paths.iconsDir(), { recursive: true })
-      iconFile = `${randomUUID()}${imported.iconExt || '.png'}`
+      iconFile = `${randomUUID()}${safeImageExt(imported.iconExt)}`
       await saveCappedImageBuffer(
         Buffer.from(imported.iconB64, 'base64'),
         join(paths.iconsDir(), iconFile),
@@ -105,7 +106,7 @@ export async function importProfile(win: BrowserWindow): Promise<Profile | null>
   if (imported.bgImageB64) {
     try {
       await fs.mkdir(paths.backgroundsDir(), { recursive: true })
-      bgImageFile = `${randomUUID()}${imported.bgImageExt || '.png'}`
+      bgImageFile = `${randomUUID()}${safeImageExt(imported.bgImageExt)}`
       await saveCappedImageBuffer(
         Buffer.from(imported.bgImageB64, 'base64'),
         join(paths.backgroundsDir(), bgImageFile),

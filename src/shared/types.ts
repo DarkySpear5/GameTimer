@@ -116,6 +116,19 @@ export interface GameSearchHit {
   iconUrl?: string
 }
 
+/** One candidate image the user can pick for a game. */
+export interface ArtOption {
+  /** Full-size image, downloaded only if chosen. */
+  url: string
+  /** Smaller version for the picker grid — often the same URL. */
+  thumb: string
+}
+
+export interface ArtOptions {
+  icons: ArtOption[]
+  backgrounds: ArtOption[]
+}
+
 export interface GameIdentity {
   name: string
   steamAppId: number | null

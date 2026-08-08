@@ -6,6 +6,7 @@ import { searchSteamApps } from '../art/steamArt'
 import { profileService } from '../store/profileService'
 import { launchGame } from '../launch/gameLauncher'
 import { classifyGames } from '../detect/classify'
+import { getArtOptions } from '../art/artOptions'
 
 /**
  * Detection itself is strictly read-only — it enumerates processes and reads
@@ -23,6 +24,14 @@ export function registerDetectIpc(): void {
     IPC.detect.createGame,
     (_e, name: string, exePath: string | null, steamAppId: number | null) =>
       profileService.createDetected(name, exePath, steamAppId)
+  )
+  ipcMain.handle(IPC.detect.artOptions, (_e, name: string, steamAppId: number | null) =>
+    getArtOptions(name, steamAppId)
+  )
+  ipcMain.handle(
+    IPC.detect.setArtFromUrl,
+    (_e, name: string, kind: 'icon' | 'background', url: string) =>
+      profileService.setArtFromUrl(name, kind, url)
   )
   ipcMain.handle(IPC.detect.classify, (_e, exePaths: string[]) => classifyGames(exePaths))
   ipcMain.handle(IPC.detect.launch, (_e, name: string) => launchGame(name))

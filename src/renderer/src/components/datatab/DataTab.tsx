@@ -206,8 +206,8 @@ export function DataTab(): React.JSX.Element {
           y={menu.y}
           onClose={() => setMenu(null)}
           items={[
-            { label: t('ctx_info'), onClick: () => openDialog('info', menu.name) },
             { label: t('ctx_modify'), onClick: () => openDialog('modify', menu.name) },
+            { label: t('ctx_info'), onClick: () => openDialog('info', menu.name) },
             { label: t('ctx_notes'), onClick: () => openDialog('notes', menu.name) }
           ]}
         />

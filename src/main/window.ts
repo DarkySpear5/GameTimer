@@ -32,8 +32,19 @@ export function createMainWindow(): BrowserWindow {
 
   // Anything the renderer tries to navigate to externally (e.g. an About-tab
   // link) opens in the OS browser instead of inside the app window.
+  //
+  // Restricted to http/https rather than passing the URL straight through:
+  // shell.openExternal hands anything it is given to the OS handler for that
+  // scheme, so file:, ms-msdt: and friends would be launched too. Nothing in
+  // the renderer can produce such a URL today — every link is hardcoded — but
+  // this is the one place where that would stop being true quietly.
   win.webContents.setWindowOpenHandler((details) => {
-    void shell.openExternal(details.url)
+    try {
+      const { protocol } = new URL(details.url)
+      if (protocol === 'https:' || protocol === 'http:') void shell.openExternal(details.url)
+    } catch {
+      // not a URL at all — ignore it
+    }
     return { action: 'deny' }
   })
 

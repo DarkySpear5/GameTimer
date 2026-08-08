@@ -1,5 +1,6 @@
 import type {
   AppData,
+  ArtOptions,
   DetectedApp,
   GameIdentity,
   GameSearchHit,
@@ -89,7 +90,9 @@ export const IPC = {
     createGame: 'detect:createGame',
     launch: 'detect:launch',
     setAutoStartTimer: 'detect:setAutoStartTimer',
-    classify: 'detect:classify'
+    classify: 'detect:classify',
+    artOptions: 'detect:artOptions',
+    setArtFromUrl: 'detect:setArtFromUrl'
   }
 } as const
 
@@ -189,6 +192,10 @@ export interface GameTimerApi {
     setAutoStartTimer(name: string, value: boolean | null): Promise<Profile>
     /** Which of these executables Steam's catalogue confirms are games. Promotion only — a 'no' never hides anything. */
     classify(exePaths: string[]): Promise<string[]>
+    /** Every candidate icon/background for a game. URLs only — nothing is downloaded until one is chosen. */
+    artOptions(name: string, steamAppId: number | null): Promise<ArtOptions>
+    /** Downloads the chosen image and makes it this game's icon or background. */
+    setArtFromUrl(name: string, kind: 'icon' | 'background', url: string): Promise<Profile>
   }
 }
 

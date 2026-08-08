@@ -81,3 +81,16 @@ export async function enrichGame(name: string, steamAppId: number | null): Promi
     source: 'gog'
   }
 }
+
+/**
+ * Downloads one specific image the user chose and stores it like any other
+ * art. Separate from enrichGame because picking is an explicit act — no
+ * fallbacks, no second-guessing: if that image cannot be used, nothing changes.
+ */
+export async function storeArtFromUrl(url: string, kind: 'icon' | 'background'): Promise<string | null> {
+  const buf = await downloadUsable(url, kind === 'icon' ? 32 : 200)
+  if (!buf) return null
+  return kind === 'icon'
+    ? store(buf, paths.iconsDir(), ICON_MAX_DIMENSION)
+    : store(buf, paths.backgroundsDir(), BACKGROUND_MAX_DIMENSION)
+}
