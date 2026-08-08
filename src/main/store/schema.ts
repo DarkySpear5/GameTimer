@@ -33,6 +33,16 @@ const SessionEntrySchema = z.object({
   short: z.literal(true).optional()
 })
 
+const SessionAggregateSchema = z
+  .object({
+    count: z.number().catch(0),
+    totalSeconds: z.number().catch(0),
+    longestSeconds: z.number().catch(0),
+    firstPlayedAt: z.number().nullable().catch(null),
+    lastPlayedAt: z.number().nullable().catch(null)
+  })
+  .catch({ count: 0, totalSeconds: 0, longestSeconds: 0, firstPlayedAt: null, lastPlayedAt: null })
+
 const ProfileSchema = z
   .object({
     name: z.string().catch(''),
@@ -50,6 +60,7 @@ const ProfileSchema = z
     rating: RatingSchema,
     // .catch([]) rather than validation: same contract as every other field
     // here — a partial or corrupt file loses the bad field, never the library.
+    sessionStats: SessionAggregateSchema,
     sessionLog: z.array(SessionEntrySchema).catch([]),
     exePath: z.string().nullable().catch(null),
     steamAppId: z.number().nullable().catch(null),

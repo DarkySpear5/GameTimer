@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { makeSessionEntry, summarizeSessions } from './sessionStats'
+import {
+  MAX_SESSION_LOG,
+  addSession,
+  aggregateFrom,
+  emptyAggregate,
+  makeSessionEntry,
+  summaryFrom,
+  trimSessionLog
+} from './sessionStats'
 
 const HOUR = 3_600_000
 
@@ -21,9 +29,47 @@ describe('makeSessionEntry', () => {
   })
 })
 
-describe('summarizeSessions', () => {
-  it('returns zeroes for an empty log', () => {
-    expect(summarizeSessions([])).toEqual({
+describe('addSession', () => {
+  it('accumulates count, total and longest', () => {
+    let a = emptyAggregate()
+    a = addSession(a, { startedAt: HOUR, seconds: 100 })
+    a = addSession(a, { startedAt: 2 * HOUR, seconds: 300 })
+    expect(a).toEqual({
+      count: 2,
+      totalSeconds: 400,
+      longestSeconds: 300,
+      firstPlayedAt: HOUR,
+      lastPlayedAt: 2 * HOUR
+    })
+  })
+
+  it('excludes short sessions from the counted figures but not from first/last', () => {
+    const a = addSession(emptyAggregate(), { startedAt: HOUR, seconds: 20, short: true })
+    expect(a.count).toBe(0)
+    expect(a.totalSeconds).toBe(0)
+    expect(a.longestSeconds).toBe(0)
+    expect(a.firstPlayedAt).toBe(HOUR)
+    expect(a.lastPlayedAt).toBe(HOUR)
+  })
+
+  it('tracks first/last regardless of the order sessions arrive in', () => {
+    let a = emptyAggregate()
+    a = addSession(a, { startedAt: 3 * HOUR, seconds: 100 })
+    a = addSession(a, { startedAt: 1 * HOUR, seconds: 100 })
+    expect(a.firstPlayedAt).toBe(1 * HOUR)
+    expect(a.lastPlayedAt).toBe(3 * HOUR)
+  })
+
+  it('does not mutate the aggregate it was given', () => {
+    const a = emptyAggregate()
+    addSession(a, { startedAt: HOUR, seconds: 100 })
+    expect(a).toEqual(emptyAggregate())
+  })
+})
+
+describe('summaryFrom', () => {
+  it('reports zeroes for a game never played', () => {
+    expect(summaryFrom(emptyAggregate())).toEqual({
       sessions: 0,
       averageSeconds: 0,
       longestSeconds: 0,
@@ -32,38 +78,48 @@ describe('summarizeSessions', () => {
     })
   })
 
-  it('counts and averages only real sessions', () => {
-    const log = [
+  it('averages only real sessions', () => {
+    const a = aggregateFrom([
       { startedAt: HOUR, seconds: 100 },
       { startedAt: 2 * HOUR, seconds: 300 },
-      { startedAt: 3 * HOUR, seconds: 20, short: true as const }
-    ]
-    const s = summarizeSessions(log)
-    expect(s.sessions).toBe(2)
-    expect(s.averageSeconds).toBe(200)
-    expect(s.longestSeconds).toBe(300)
-  })
-
-  it('reports zero average rather than dividing by zero when every session was short', () => {
-    const s = summarizeSessions([{ startedAt: HOUR, seconds: 5, short: true as const }])
-    expect(s.sessions).toBe(0)
-    expect(s.averageSeconds).toBe(0)
-    expect(s.longestSeconds).toBe(0)
-  })
-
-  it('still reports first/last played from short sessions', () => {
-    const s = summarizeSessions([{ startedAt: HOUR, seconds: 5, short: true as const }])
-    expect(s.firstPlayedAt).toBe(HOUR)
-    expect(s.lastPlayedAt).toBe(HOUR)
-  })
-
-  it('finds first and last regardless of log order', () => {
-    const s = summarizeSessions([
-      { startedAt: 3 * HOUR, seconds: 100 },
-      { startedAt: 1 * HOUR, seconds: 100 },
-      { startedAt: 2 * HOUR, seconds: 100 }
+      { startedAt: 3 * HOUR, seconds: 20, short: true }
     ])
-    expect(s.firstPlayedAt).toBe(1 * HOUR)
-    expect(s.lastPlayedAt).toBe(3 * HOUR)
+    expect(summaryFrom(a)).toMatchObject({ sessions: 2, averageSeconds: 200, longestSeconds: 300 })
+  })
+
+  it('reports zero average rather than dividing by zero', () => {
+    const a = aggregateFrom([{ startedAt: HOUR, seconds: 5, short: true }])
+    expect(summaryFrom(a).averageSeconds).toBe(0)
+  })
+})
+
+describe('trimSessionLog with aggregateFrom', () => {
+  it('keeps every figure exact after the log has been trimmed away', () => {
+    // The whole point of the split: 5000 sessions, only 200 entries retained,
+    // and every displayed figure still describes all 5000.
+    const log = Array.from({ length: 5000 }, (_, i) => ({ startedAt: HOUR * i, seconds: 60 + i }))
+    const agg = aggregateFrom(log)
+    const trimmed = trimSessionLog(log)
+
+    expect(trimmed).toHaveLength(MAX_SESSION_LOG)
+    expect(summaryFrom(agg)).toMatchObject({
+      sessions: 5000,
+      longestSeconds: 60 + 4999,
+      firstPlayedAt: 0,
+      lastPlayedAt: HOUR * 4999
+    })
+    // Recomputing from the trimmed log alone would claim only 200 sessions.
+    expect(summaryFrom(aggregateFrom(trimmed)).sessions).toBe(MAX_SESSION_LOG)
+  })
+
+  it('leaves a short log untouched', () => {
+    const log = [{ startedAt: HOUR, seconds: 100 }]
+    expect(trimSessionLog(log)).toBe(log)
+  })
+
+  it('keeps the most recent entries, not the oldest', () => {
+    const log = Array.from({ length: MAX_SESSION_LOG + 5 }, (_, i) => ({ startedAt: i, seconds: 100 }))
+    const trimmed = trimSessionLog(log)
+    expect(trimmed[trimmed.length - 1].startedAt).toBe(MAX_SESSION_LOG + 4)
   })
 })

@@ -8,6 +8,7 @@ import { writeStatusLog } from '../statusLog/writeStatusLog'
 import { todayDateString } from '../util/date'
 import { saveCappedImage } from '../util/imageResize'
 import { enrichGame, storeArtFromUrl } from '../art/enrich'
+import { emptyAggregate } from '@shared/sessionStats'
 import { ICON_MAX_DIMENSION, BACKGROUND_MAX_DIMENSION } from '@shared/constants'
 import type { Profile, Status } from '@shared/types'
 
@@ -26,6 +27,7 @@ function freshProfile(name: string): Profile {
     startedDate: null,
     notes: '',
     rating: 0,
+    sessionStats: emptyAggregate(),
     sessionLog: [],
     exePath: null,
     steamAppId: null,
@@ -158,6 +160,7 @@ export const profileService = {
       // snapshot too, so an empty log here would make the copy claim hours
       // of playtime across zero sessions. Spread so the two profiles never
       // share one array.
+      sessionStats: { ...original.sessionStats },
       sessionLog: [...original.sessionLog],
       // The copy points at the same game, so it keeps the link and the art
       // preference — only the name differs.

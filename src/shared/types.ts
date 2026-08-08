@@ -1,4 +1,4 @@
-import type { SessionEntry } from './sessionStats'
+import type { SessionAggregate, SessionEntry } from './sessionStats'
 
 export type Status = 'in_progress' | 'completed' | 'dropped' | 'on_hold'
 
@@ -30,10 +30,15 @@ export interface Profile {
   notes: string
   rating: 0 | 1 | 2 | 3 | 4 | 5
   /**
-   * Every Play→Pause cycle, oldest first, kept forever. Counts and averages
-   * are derived from this (see summarizeSessions) rather than stored, so they
-   * can never drift out of sync with it. Absent in v2 save files — the schema
-   * defaults it to [].
+   * Running totals over every session ever played. This — not sessionLog — is
+   * what every displayed figure is derived from, so the numbers stay exact for
+   * the lifetime of the game while the log stays bounded.
+   */
+  sessionStats: SessionAggregate
+  /**
+   * The most recent sessions only (MAX_SESSION_LOG). Retained for a future
+   * play-history graph; nothing shown today reads it. Absent in v2 save files —
+   * the schema defaults it to [].
    */
   sessionLog: SessionEntry[]
   /** Full path of the .exe this game was detected from, or null if added manually. */
@@ -175,6 +180,7 @@ export interface GtProfileFile {
    * silently resetting the count to zero while keeping the playtime.
    */
   sessionLog?: SessionEntry[]
+  sessionStats?: SessionAggregate
   steamAppId?: number | null
   iconB64?: string
   iconExt?: string

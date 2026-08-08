@@ -3,6 +3,7 @@ import { dialog } from 'electron'
 import type { AppData } from '@shared/types'
 import { paths } from './paths'
 import { freshAppData, parseAppData } from './schema'
+import { migrateSessionAggregates } from './migrateSessions'
 
 /**
  * In-memory singleton mirroring v1's single `self.data` dict — every other
@@ -24,6 +25,10 @@ class DataStore {
     try {
       const raw = await fs.readFile(paths.dataFile(), 'utf-8')
       this.data = parseAppData(JSON.parse(raw))
+      // Folds any pre-aggregate session history into its totals and bounds the
+      // log. Persisted immediately so the conversion happens once, not on
+      // every launch.
+      if (migrateSessionAggregates(this.data)) void this.save()
     } catch {
       this.data = freshAppData()
     }

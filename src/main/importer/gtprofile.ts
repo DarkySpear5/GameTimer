@@ -9,6 +9,7 @@ import { writeStatusLog } from '../statusLog/writeStatusLog'
 import { saveCappedImageBuffer } from '../util/imageResize'
 import { ICON_MAX_DIMENSION, BACKGROUND_MAX_DIMENSION } from '@shared/constants'
 import { safeImageExt } from './safeExt'
+import { aggregateFrom, trimSessionLog } from '@shared/sessionStats'
 import type { GtProfileFile, Profile } from '@shared/types'
 
 /** Single-game export, self-contained (images embedded as base64) — wire-compatible with v1's .gtprofile format. */
@@ -32,6 +33,7 @@ export async function exportProfile(win: BrowserWindow, name: string): Promise<{
     // builds ignore the extra keys; without them a re-import would keep the
     // playtime but silently reset Sessions to zero.
     sessionLog: profile.sessionLog,
+    sessionStats: profile.sessionStats,
     steamAppId: profile.steamAppId
   }
 
@@ -133,7 +135,10 @@ export async function importProfile(win: BrowserWindow): Promise<Profile | null>
     rating: (imported.rating ?? 0) as Profile['rating'],
     // Present only in files written by v3+. A v1/v2 export legitimately has
     // none, and starts with an empty log rather than inventing entries.
-    sessionLog: imported.sessionLog ?? [],
+    // An export from a build that predates the aggregate has only entries, so
+    // fold them; a newer one carries the totals for its whole history.
+    sessionStats: imported.sessionStats ?? aggregateFrom(imported.sessionLog ?? []),
+    sessionLog: trimSessionLog(imported.sessionLog ?? []),
     // Never carried across machines — the exe lives on the exporter's disk.
     exePath: null,
     steamAppId: imported.steamAppId ?? null,

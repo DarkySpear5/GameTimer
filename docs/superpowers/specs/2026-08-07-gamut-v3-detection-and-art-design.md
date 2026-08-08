@@ -219,7 +219,8 @@ upgrade with zero risk — `seconds` and `statusSeconds` remain tracked time.
 
 | Field | Type | Notes |
 |---|---|---|
-| `sessionLog` | `{ startedAt: number, seconds: number, short?: true }[]` | Every session, kept forever. `short` marks sub-60s sessions excluded from counts and averages. |
+| `sessionStats` | `{ count, totalSeconds, longestSeconds, firstPlayedAt, lastPlayedAt }` | Running totals over every session ever. What the UI reads. Exact forever, constant size. |
+| `sessionLog` | `{ startedAt: number, seconds: number, short?: true }[]` | The most recent 200 sessions only. `short` marks sub-60s ones, excluded from counts and averages. |
 | `launches` | number | +1 on a confirmed launch |
 | `openSeconds` | number | Total process-open time, when known |
 | `exePath` | string \| null | Set by the Add Game picker |
@@ -233,11 +234,27 @@ so no displayed figure can ever contradict the log it claims to summarize — a
 stored `sessions` counter would be a second source of truth free to drift from
 the entries beside it.
 
-`sessionLog` is unbounded by decision. At roughly 50 bytes per entry, three
-sessions a day for five years across a whole library stays under ~300 KB, and
-the save file is already loaded wholly into memory. Capping it would silently
-turn "average session" into "average of recent sessions" and would make a
-lifetime history graph impossible to add later.
+**REVISED 2026-08-08 after measuring it.** `sessionLog` was originally
+unbounded, on the reasoning that capping it would turn "average session" into
+"average of recent sessions". The estimate of ~300 KB was about the JSON text;
+the real cost is the in-memory object graph and the checkpoint that rewrites
+the file. Measured at 40 games with two years of history each — 80,000 entries:
+
+| | Unbounded log | Aggregate + 200 entries |
+|---|---|---|
+| Save file | 3.29 MB | **0.68 MB** |
+| Main process | 131 MB | **109 MB** |
+
+and the 5-second checkpoint was re-serialising the whole multi-megabyte file
+while any timer ran.
+
+The reasoning was also wrong. Every figure displayed — count, average, longest,
+first, last — is an aggregate; none needs the individual entries. So each
+profile now carries a `sessionStats` aggregate, updated on every Play→Pause,
+which keeps all of them **exact for the lifetime of the game**, and the log is
+bounded to the most recent `MAX_SESSION_LOG` (200) entries purely so a future
+history graph has something to draw. Existing saves are folded into their
+aggregate once, on load, before the log is trimmed.
 
 Both `autoFetchArt` and `autoStartTimer` are **tri-state** (`true` / `false` /
 `null`). `null` means "follow the global default", so a user who flips the

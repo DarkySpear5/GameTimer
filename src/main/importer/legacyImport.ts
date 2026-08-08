@@ -8,6 +8,7 @@ import { readFirstRunState, writeFirstRunState } from './firstRun'
 import { setRunAtStartup } from '../autostart/autostart'
 import { saveCappedImage } from '../util/imageResize'
 import { isInside, safeAssetFileName } from '../util/safePath'
+import { emptyAggregate } from '@shared/sessionStats'
 import { DEFAULT_CUSTOM_COLORS, THEME_ORDER, ICON_MAX_DIMENSION, BACKGROUND_MAX_DIMENSION } from '@shared/constants'
 import type { LegacyDetectResult, Profile, Settings, Status } from '@shared/types'
 
@@ -86,6 +87,7 @@ function normalizeLegacyProfile(name: string, raw: LegacyProfileRaw): Profile {
     rating,
     // v1 never recorded sessions, so an imported library starts with an
     // empty log — its `seconds` total is real, its session count starts at 0.
+    sessionStats: emptyAggregate(),
     sessionLog: [],
     // v1 had no concept of the game's executable either; these are filled in
     // if the user later links the game through the Add Game picker.

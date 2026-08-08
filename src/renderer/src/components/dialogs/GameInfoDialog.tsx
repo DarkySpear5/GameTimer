@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Modal } from '../common/Modal'
 import { useProfilesStore } from '../../state/profilesStore'
-import { summarizeSessions } from '@shared/sessionStats'
+import { summaryFrom } from '@shared/sessionStats'
 import { formatSeconds } from '@shared/format'
 import { toast } from '../common/Toast'
 
@@ -20,7 +20,12 @@ export function GameInfoDialog({
 }): React.JSX.Element | null {
   const { t } = useTranslation()
   const profile = useProfilesStore((s) => s.profiles[name])
-  const summary = useMemo(() => summarizeSessions(profile?.sessionLog ?? []), [profile?.sessionLog])
+  // Read from the running aggregate, not the log — the log is a bounded
+  // tail, so recomputing from it would under-report a long-played game.
+  const summary = useMemo(
+    () => summaryFrom(profile?.sessionStats ?? { count: 0, totalSeconds: 0, longestSeconds: 0, firstPlayedAt: null, lastPlayedAt: null }),
+    [profile?.sessionStats]
+  )
 
   if (!profile) return null
 

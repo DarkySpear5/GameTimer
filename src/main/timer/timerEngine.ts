@@ -3,7 +3,7 @@ import { writeStatusLog } from '../statusLog/writeStatusLog'
 import { backupService } from '../backup/backupService'
 import { todayDateString } from '../util/date'
 import { UI_TICK_MS, CHECKPOINT_MS, STATUS_LOG_MS } from '@shared/constants'
-import { makeSessionEntry } from '@shared/sessionStats'
+import { addSession, makeSessionEntry, trimSessionLog } from '@shared/sessionStats'
 import type { TimerTickPayload } from '@shared/ipcContract'
 
 type TickListener = (payload: TimerTickPayload) => void
@@ -72,7 +72,12 @@ class TimerEngine {
       if (profile) {
         profile.seconds += (Date.now() - tickStart) / 1000
         if (sessionStart !== undefined) {
-          profile.sessionLog.push(makeSessionEntry(sessionStart, Date.now()))
+          const entry = makeSessionEntry(sessionStart, Date.now())
+          // The aggregate is the source of truth and is updated first; the log
+          // is a bounded tail kept only for a future history graph.
+          profile.sessionStats = addSession(profile.sessionStats, entry)
+          profile.sessionLog.push(entry)
+          profile.sessionLog = trimSessionLog(profile.sessionLog)
         }
       }
       void dataStore.save()

@@ -11,15 +11,51 @@ export interface SessionEntry {
   short?: true
 }
 
+/**
+ * Running totals over EVERY session a game has ever had, kept exact forever
+ * in constant space.
+ *
+ * The session log used to be the source of truth and was kept unbounded, on
+ * the reasoning that capping it would turn "average session" into "average of
+ * recent sessions". Measurement showed what that actually cost: 40 games with
+ * two years of history each is 80,000 entries, +47MB of process memory, and a
+ * 3.3MB save file that the 5-second checkpoint re-serialises in full while any
+ * timer is running.
+ *
+ * It also showed the reasoning was wrong. Every figure Gamut displays — count,
+ * average, longest, first, last — is an aggregate. None of them needs the
+ * individual entries. Keeping the totals here makes all of them exact for the
+ * lifetime of the game while the log itself can safely be bounded.
+ */
+export interface SessionAggregate {
+  /** Real sessions only; short ones are excluded, matching what's displayed. */
+  count: number
+  /** Sum of real sessions, so the average never has to be recomputed from entries. */
+  totalSeconds: number
+  longestSeconds: number
+  /** From every session including short ones — you did open it, briefly. */
+  firstPlayedAt: number | null
+  lastPlayedAt: number | null
+}
+
+/**
+ * How many individual sessions are retained per game. Nothing displayed today
+ * reads these — they exist so a future play-history graph has something to
+ * draw. The aggregate above is what keeps the numbers honest.
+ */
+export const MAX_SESSION_LOG = 200
+
 export interface SessionSummary {
-  /** Real sessions only — short ones are excluded. */
   sessions: number
   /** Mean of real sessions. 0 when there are none, never NaN. */
   averageSeconds: number
   longestSeconds: number
-  /** From the whole log including short sessions — you did open it, briefly. */
   firstPlayedAt: number | null
   lastPlayedAt: number | null
+}
+
+export function emptyAggregate(): SessionAggregate {
+  return { count: 0, totalSeconds: 0, longestSeconds: 0, firstPlayedAt: null, lastPlayedAt: null }
 }
 
 export function makeSessionEntry(startedAt: number, endedAt: number): SessionEntry {
@@ -29,33 +65,40 @@ export function makeSessionEntry(startedAt: number, endedAt: number): SessionEnt
   return seconds < MIN_SESSION_SECONDS ? { startedAt, seconds, short: true } : { startedAt, seconds }
 }
 
-/**
- * Averages come from the log itself, never from `profile.seconds / count` —
- * `seconds` can be edited directly (addRemoveTime) or zeroed (resetTime), so
- * deriving from it would produce an average that contradicts the sessions
- * actually listed.
- */
-export function summarizeSessions(log: SessionEntry[]): SessionSummary {
-  let sessions = 0
-  let totalSeconds = 0
-  let longestSeconds = 0
-  let firstPlayedAt: number | null = null
-  let lastPlayedAt: number | null = null
-
-  for (const entry of log) {
-    if (firstPlayedAt === null || entry.startedAt < firstPlayedAt) firstPlayedAt = entry.startedAt
-    if (lastPlayedAt === null || entry.startedAt > lastPlayedAt) lastPlayedAt = entry.startedAt
-    if (entry.short) continue
-    sessions++
-    totalSeconds += entry.seconds
-    if (entry.seconds > longestSeconds) longestSeconds = entry.seconds
+/** Folds one session into the running totals. Pure — returns a new aggregate. */
+export function addSession(agg: SessionAggregate, entry: SessionEntry): SessionAggregate {
+  const next: SessionAggregate = {
+    ...agg,
+    firstPlayedAt:
+      agg.firstPlayedAt === null ? entry.startedAt : Math.min(agg.firstPlayedAt, entry.startedAt),
+    lastPlayedAt: agg.lastPlayedAt === null ? entry.startedAt : Math.max(agg.lastPlayedAt, entry.startedAt)
   }
-
+  if (entry.short) return next
   return {
-    sessions,
-    averageSeconds: sessions === 0 ? 0 : Math.round(totalSeconds / sessions),
-    longestSeconds,
-    firstPlayedAt,
-    lastPlayedAt
+    ...next,
+    count: agg.count + 1,
+    totalSeconds: agg.totalSeconds + entry.seconds,
+    longestSeconds: Math.max(agg.longestSeconds, entry.seconds)
+  }
+}
+
+/** Builds an aggregate from a whole log — used once, to migrate existing saves. */
+export function aggregateFrom(log: SessionEntry[]): SessionAggregate {
+  return log.reduce(addSession, emptyAggregate())
+}
+
+/** Keeps only the most recent entries; the aggregate already holds the rest. */
+export function trimSessionLog(log: SessionEntry[]): SessionEntry[] {
+  return log.length <= MAX_SESSION_LOG ? log : log.slice(log.length - MAX_SESSION_LOG)
+}
+
+/** What the UI shows. Derived, so it can never disagree with the aggregate. */
+export function summaryFrom(agg: SessionAggregate): SessionSummary {
+  return {
+    sessions: agg.count,
+    averageSeconds: agg.count === 0 ? 0 : Math.round(agg.totalSeconds / agg.count),
+    longestSeconds: agg.longestSeconds,
+    firstPlayedAt: agg.firstPlayedAt,
+    lastPlayedAt: agg.lastPlayedAt
   }
 }
