@@ -15,11 +15,15 @@ declare const __GAMUT_CHANNEL__: string
 export const IS_DEV_CHANNEL = __GAMUT_CHANNEL__ === 'dev'
 
 /**
- * Shown in the title bar, the tray tooltip and the About tab. The two installs
- * are otherwise pixel-identical, so this is the only thing telling you which
- * one you are looking at.
+ * The product's name, shown in the title bar, the tray tooltip and the About
+ * tab. The two installs are otherwise pixel-identical, so this is the only
+ * thing telling you which one you are looking at.
+ *
+ * Deliberately NOT used inside sentences. Running prose keeps the short form —
+ * "Launch Gamut when Windows starts" reads, "Launch Gamut Launcher when Windows
+ * starts" does not. Those strings live in the locale files and say "Gamut".
  */
-export const APP_DISPLAY_NAME = IS_DEV_CHANNEL ? 'Gamut Dev' : 'Gamut'
+export const APP_DISPLAY_NAME = IS_DEV_CHANNEL ? 'Gamut Launcher Dev' : 'Gamut Launcher'
 
 /**
  * Folder under %APPDATA% holding the save file, icons, backgrounds and backups.

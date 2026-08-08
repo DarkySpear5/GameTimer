@@ -9,7 +9,8 @@
 # Save data is kept apart separately, at runtime, by USER_DATA_FOLDER in
 # src/shared/channel.ts — the installer config cannot do that part.
 appId: com.darkyspear5.gametimer2.dev
-productName: Gamut Dev
+productName: Gamut Launcher Dev
+executableName: GamutLauncherDev
 directories:
   output: release-dev
   buildResources: build
@@ -28,7 +29,7 @@ extraResources:
 win:
   target: nsis
   icon: build/icon.ico
-  artifactName: GamutDev-Setup-${version}.exe
+  artifactName: GamutLauncherDev-Setup-${version}.exe
 nsis:
   oneClick: false
   perMachine: false
