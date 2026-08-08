@@ -13,6 +13,7 @@ const api: GameTimerApi = {
     delete: (name) => ipcRenderer.invoke(IPC.profiles.delete, name),
     duplicate: (name) => ipcRenderer.invoke(IPC.profiles.duplicate, name),
     setStatus: (name, status) => ipcRenderer.invoke(IPC.profiles.setStatus, name, status),
+    clearStatusRecord: (name) => ipcRenderer.invoke(IPC.profiles.clearStatusRecord, name),
     setGenres: (name, genres) => ipcRenderer.invoke(IPC.profiles.setGenres, name, genres),
     setRating: (name, rating) => ipcRenderer.invoke(IPC.profiles.setRating, name, rating),
     setNotes: (name, notes) => ipcRenderer.invoke(IPC.profiles.setNotes, name, notes),

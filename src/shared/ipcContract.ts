@@ -21,6 +21,7 @@ export const IPC = {
     delete: 'profiles:delete',
     duplicate: 'profiles:duplicate',
     setStatus: 'profiles:setStatus',
+    clearStatusRecord: 'profiles:clearStatusRecord',
     setGenres: 'profiles:setGenres',
     setRating: 'profiles:setRating',
     setNotes: 'profiles:setNotes',
@@ -95,6 +96,8 @@ export interface GameTimerApi {
     delete(name: string): Promise<void>
     duplicate(name: string): Promise<Profile>
     setStatus(name: string, status: Status): Promise<Profile>
+    /** Irreversibly clears the completion/dropped snapshot. Confirm with the user before calling. */
+    clearStatusRecord(name: string): Promise<Profile>
     setGenres(name: string, genres: string[]): Promise<Profile>
     setRating(name: string, rating: 0 | 1 | 2 | 3 | 4 | 5): Promise<Profile>
     setNotes(name: string, notes: string): Promise<Profile>

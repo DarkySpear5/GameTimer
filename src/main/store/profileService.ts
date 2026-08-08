@@ -183,6 +183,21 @@ export const profileService = {
     return profile
   },
 
+  /**
+   * The ONLY thing that destroys a completion snapshot. Everything else —
+   * un-completing, reviving a dropped game, playing more — deliberately
+   * preserves it (see the comment in setStatus). The caller is responsible
+   * for confirming first; this is the irreversible half.
+   */
+  async clearStatusRecord(name: string): Promise<Profile> {
+    const profile = requireProfile(name)
+    profile.statusAt = null
+    profile.statusSeconds = null
+    await dataStore.safeSave()
+    void writeStatusLog()
+    return profile
+  },
+
   async setGenres(name: string, genres: string[]): Promise<Profile> {
     const profile = requireProfile(name)
     profile.genres = genres
