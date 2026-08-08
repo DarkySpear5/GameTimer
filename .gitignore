@@ -1,4 +1,4 @@
-# --- v1 (Python/Tkinter, main branch) ---
+# --- v1 (Python/Tkinter, v1 branch) ---
 # PyInstaller build artifacts
 build/GameTimer/
 dist/
@@ -18,7 +18,7 @@ icons/
 backgrounds/
 profiles/
 
-# --- v2 (Electron/TypeScript, v2 branch) ---
+# --- Gamut (Electron/TypeScript, main + dev branches) ---
 node_modules/
 out/
 release/

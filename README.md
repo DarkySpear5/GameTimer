@@ -21,12 +21,13 @@ Run the installer, click through, done — no admin rights needed. Installs to y
 - Optional system tray icon (a green play badge appears while anything's tracking, plain otherwise), launch-at-startup, daily rolling backups of your tracked time
 - Everything is stored locally — no account, no internet required except to check for app updates
 
-## Editions
+## Branches
 
-- **`v2` branch (this one)** — the current, actively developed Electron edition. Modern UI, auto-updates, all the features above.
-- **`main` branch** — the original lightweight Python/Tkinter edition (v1.9.1), frozen but still available for anyone who'd rather not have the Electron/Chromium footprint.
+- **`main`** — Gamut itself, the Electron edition. This is what the releases and the in-app updater ship from.
+- **`dev`** — work in progress on the next version. Unstable by design; nothing here is released until it lands on `main`.
+- **`v1`** — the original lightweight Python/Tkinter edition (v1.9.1), frozen but still available for anyone who'd rather not have the Electron/Chromium footprint.
 
-## Building from source (v2)
+## Building from source
 
 ```bash
 npm install
