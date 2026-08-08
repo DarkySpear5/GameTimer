@@ -596,13 +596,45 @@ number — importing Steam's playtime would put the number Gamut exists to
 correct into the field Gamut promises is honest. The prompt should say the games
 start at zero.
 
-**Non-Steam launchers are a separate, unverified question.** Epic, GOG Galaxy
-and Xbox each keep their own install registry, and **none of it has been
-measured on this machine.** §5.3 is the cautionary tale: the obvious source
-(`.exe` ProductName) was wrong a third of the time and only measurement showed
-it. So: **ship Steam-only first**, then measure the others before promising
-them. Do not write speculative parsers for launcher formats you have not opened
-on this PC.
+**Non-Steam launchers were a separate, unverified question — RESOLVED
+2026-08-08, and the rule held up.** All seven are now supported: Steam, Epic,
+GOG, Xbox, Battle.net, EA, Nexon, plus user-chosen folders. Each parser was
+written only after opening the real thing on this machine, and every launcher
+produced at least one finding that documentation would have got wrong:
+
+| Launcher | What measurement changed |
+|---|---|
+| Epic | 3 of 4 manifests were Unreal Engine tooling. They share `CatalogNamespace: "ue"` — and the engine HAS a `LaunchExecutable`, so the namespace is the discriminator, not the executable. |
+| GOG | `exe` is stored **absolute**, not relative to `path` (Forager). Both forms exist in the wild, so the join is conditional. |
+| Battle.net | Games carry their product code in `UninstallString` as `--uid=heroes` — that is where a `battlenet://` URI comes from, and it beats guessing per-game registry keys. |
+| Nexon | The `HKCU\Software\Nexon\<Game>` keys are **settings**, not installs (Mabinogi's is 100 graphics options, no path; an uninstalled game still leaves one). The real root is `<drive>:\Nexon\Library\<game>`. |
+| Xbox | Installs per-drive as `<drive>:\XboxGames`, so every letter is checked rather than assuming C:. `WindowsApps` is ACL-protected and deliberately untouched. |
+
+**§9.4b LAUNCH THROUGH THE LAUNCHER, not the executable.** The Steam rule in
+§5.5 generalises: a Nexon game started from its own `.exe` never gets past the
+launcher's authentication. Profiles carry `launchUri` and `gameLauncher` tries
+Steam appid → launcher URI → raw exe.
+
+Vindictus resolves to `nxl://launch/10300`, and **that id exists in its Start
+Menu shortcut and nowhere else on disk** — not in Nexon's config, registry, or
+install folder (searched). Hence `detect/shortcuts.ts`, which reads `.lnk`
+files through `WScript.Shell`. Only allowlisted schemes reach `openExternal`.
+
+**Two performance bugs, both found by measuring rather than reasoning:**
+1. `findGameExe`'s early exit used `return`, which unwinds one frame — the
+   parent loop carried on walking every sibling folder after the answer had
+   been found. A full scan took **minutes**. With a proper stop flag: **1.8s**
+   for 16 games across 5 sources.
+2. Both uninstall hives were read once per publisher — four full reads for two
+   publishers. Read once per scan now.
+
+**Still unverified against a real game:** Xbox and EA. Both launchers are
+installed here with no games in them, so those two scanners have never returned
+a row. They return nothing on such a machine, which is the correct answer, but
+the first person to install a game through either is the real test.
+
+`scripts/verify-sources.cjs` is the measurement tool — run it after installing
+a game through a new launcher to confirm that launcher is read correctly.
 
 ### 9.5 Simple / Advanced detail toggle
 
