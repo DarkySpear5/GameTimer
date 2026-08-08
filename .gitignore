@@ -23,5 +23,6 @@ node_modules/
 out/
 release/
 release-dev/
+.verify-tmp/
 *.tsbuildinfo
 .vite/

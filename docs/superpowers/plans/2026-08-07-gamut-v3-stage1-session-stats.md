@@ -1083,18 +1083,25 @@ Expected: `ALL CHECKS PASSED`, 9 checks.
 
 - [ ] **Step 4: Confirm the test can actually fail**
 
-A verification that passes against broken code is worthless. Temporarily break it:
+A verification that passes against broken code is worthless. Temporarily break it.
+
+**`git stash` will NOT work here** — Task 3 is already committed, so there is
+nothing uncommitted to stash and the suite would silently run against the fixed
+code and "pass". Check the file out from the commit before Task 3 instead:
 
 ```bash
-git stash push src/main/timer/timerEngine.ts
+git checkout <task-2-commit> -- src/main/timer/timerEngine.ts
+grep -c sessionStarts src/main/timer/timerEngine.ts   # must print 0
 npm run build && node -e "const fs=require('fs');const f='out/main/index.js';let s=fs.readFileSync(f,'utf8');s=s.replace('electron.app.getPath(\"appData\")','(process.env.GAMUT_TEST_APPDATA || electron.app.getPath(\"appData\"))');fs.writeFileSync(f,s);"
 node scripts/verify-stage1.cjs
 ```
 
-Expected: FAIL on "one entry written to the log". Then restore:
+Expected: FAIL on "one entry written to the log" (expected 1, got 0). Then restore
+and confirm it came back:
 
 ```bash
-git stash pop
+git checkout HEAD -- src/main/timer/timerEngine.ts
+grep -c sessionStarts src/main/timer/timerEngine.ts   # must print 8
 ```
 
 - [ ] **Step 5: Rebuild clean and confirm no test hook shipped**
