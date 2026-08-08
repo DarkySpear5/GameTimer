@@ -93,6 +93,7 @@ function normalizeLegacyProfile(name: string, raw: LegacyProfileRaw): Profile {
     // if the user later links the game through the Add Game picker.
     exePath: null,
     steamAppId: null,
+    launchUri: null,
     autoFetchArt: null,
     launches: 0,
     openSeconds: 0,
@@ -123,7 +124,9 @@ function normalizeLegacySettings(raw: Record<string, unknown> | undefined): Sett
     autoStartTimer: false,
     dataTableScale: 1.15,
     libraryView: 'grid',
-    detailLevel: 'simple'
+    detailLevel: 'simple',
+    extraGameFolders: [],
+    launcherFolders: {}
   }
 }
 

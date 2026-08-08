@@ -52,6 +52,12 @@ export interface Profile {
   exePath: string | null
   /** Resolved once, then cached — used for art and for launching via steam://rungameid. */
   steamAppId: number | null
+  /**
+   * The launcher's own URI for starting this game (nxl://, battlenet://, …).
+   * Preferred over exePath: a Nexon game run straight from its .exe never gets
+   * through the launcher's authentication.
+   */
+  launchUri: string | null
   /** null = follow the global setting. Explicit true/false overrides it for this game only. */
   autoFetchArt: boolean | null
   /**
@@ -137,6 +143,18 @@ export interface Settings {
    * meeting the app for the first time should not have to interpret them.
    */
   detailLevel: 'simple' | 'advanced'
+  /**
+   * Extra folders the installed-games scan looks in, each treated as a parent
+   * of one-folder-per-game. Covers a launcher installed on another drive and
+   * games that belong to no launcher at all.
+   */
+  extraGameFolders: string[]
+  /**
+   * Per-launcher install folder override, keyed by GameSource. Scanned in
+   * addition to the automatic detection, so setting one never turns the
+   * working detection off.
+   */
+  launcherFolders: Partial<Record<GameSource, string>>
 }
 
 /** One running application offered in the Add Game picker. */
@@ -151,10 +169,34 @@ export interface DetectedApp {
   likelyGame: boolean
 }
 
-/** One game found installed on this PC, offered by the installed-games scan. */
-export interface InstalledGame {
-  appId: number
+/** Where an installed game was found. `folder` is a directory the user pointed at. */
+export type GameSource = 'steam' | 'epic' | 'gog' | 'xbox' | 'battlenet' | 'ea' | 'nexon' | 'folder'
+
+/** One game found on this PC by a launcher scan, before the user confirms it. */
+export interface FoundGame {
+  /** Unique across a scan — `<source>:<launcher's own id>`. */
+  id: string
   name: string
+  source: GameSource
+  /** Null when the source records a name but no install (see the Nexon note in installedSources.ts). */
+  exePath: string | null
+  steamAppId: number | null
+  /**
+   * How the launcher itself starts this game, e.g. nxl://launch/10300. Preferred
+   * over the raw executable wherever it exists — some games authenticate through
+   * their launcher and simply fail when their .exe is run directly.
+   */
+  launchUri: string | null
+  /**
+   * False when the evidence is a name rather than an install. Those are still
+   * offered — they are real games the user plays — but not pre-ticked, because
+   * the source cannot say whether the game is still installed.
+   */
+  confident: boolean
+}
+
+/** A FoundGame as offered in the picker, once checked against the library. */
+export interface InstalledGame extends FoundGame {
   /** Already in the library — shown, but pre-unticked and labelled. */
   alreadyAdded: boolean
 }

@@ -2,6 +2,7 @@ import type {
   AppData,
   ArtOptions,
   DetectedApp,
+  GameSource,
   InstalledGame,
   GameIdentity,
   GameSearchHit,
@@ -99,6 +100,11 @@ export const IPC = {
     importInstalled: 'detect:importInstalled',
     installedScanPending: 'detect:installedScanPending',
     skipInstalledScan: 'detect:skipInstalledScan',
+    addGameFolder: 'detect:addGameFolder',
+    removeGameFolder: 'detect:removeGameFolder',
+    listGameFolders: 'detect:listGameFolders',
+    setLauncherFolder: 'detect:setLauncherFolder',
+    listLauncherFolders: 'detect:listLauncherFolders',
     link: 'detect:link',
     unlink: 'detect:unlink'
   }
@@ -210,8 +216,15 @@ export interface GameTimerApi {
     unlink(name: string): Promise<Profile>
     /** Every game installed through Steam, each flagged with whether the library already has it. Read-only. */
     listInstalled(): Promise<InstalledGame[]>
-    /** Creates a profile per chosen appid, at zero playtime. Already-present games are skipped. */
-    importInstalled(appIds: number[]): Promise<{ importedCount: number }>
+    /** Creates a profile per chosen id, at zero playtime. Already-present games are skipped. */
+    importInstalled(ids: string[]): Promise<{ importedCount: number }>
+    /** Opens a directory chooser and remembers the folder. Returns it, or null if cancelled. */
+    addGameFolder(): Promise<string | null>
+    removeGameFolder(folder: string): Promise<void>
+    listGameFolders(): Promise<string[]>
+    /** Opens a chooser for one launcher's install folder, or clears it. Returns the new map. */
+    setLauncherFolder(source: GameSource, clear?: boolean): Promise<Partial<Record<GameSource, string>>>
+    listLauncherFolders(): Promise<Partial<Record<GameSource, string>>>
     /** Whether the one-time "add your installed games" offer still needs to be made. */
     installedScanPending(): Promise<boolean>
     /** Records that the offer was declined, so it is not made again. */

@@ -114,7 +114,12 @@ const api: GameTimerApi = {
     listInstalled: () => ipcRenderer.invoke(IPC.detect.listInstalled),
     importInstalled: (appIds) => ipcRenderer.invoke(IPC.detect.importInstalled, appIds),
     installedScanPending: () => ipcRenderer.invoke(IPC.detect.installedScanPending),
-    skipInstalledScan: () => ipcRenderer.invoke(IPC.detect.skipInstalledScan)
+    skipInstalledScan: () => ipcRenderer.invoke(IPC.detect.skipInstalledScan),
+    addGameFolder: () => ipcRenderer.invoke(IPC.detect.addGameFolder),
+    removeGameFolder: (folder) => ipcRenderer.invoke(IPC.detect.removeGameFolder, folder),
+    listGameFolders: () => ipcRenderer.invoke(IPC.detect.listGameFolders),
+    setLauncherFolder: (source, clear) => ipcRenderer.invoke(IPC.detect.setLauncherFolder, source, clear),
+    listLauncherFolders: () => ipcRenderer.invoke(IPC.detect.listLauncherFolders)
   }
 }
 

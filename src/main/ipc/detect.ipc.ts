@@ -1,4 +1,5 @@
-import { ipcMain } from 'electron'
+import { ipcMain, dialog } from 'electron'
+import { dataStore } from '../store/dataStore'
 import { IPC } from '@shared/ipcContract'
 import { listRunningApps } from '../detect/processList'
 import { identify } from '../detect/identify'
@@ -39,17 +40,65 @@ export function registerDetectIpc(): void {
     profileService.linkExecutable(name, exePath, steamAppId)
   )
   ipcMain.handle(IPC.detect.unlink, (_e, name: string) => profileService.unlinkExecutable(name))
-  ipcMain.handle(IPC.detect.listInstalled, () => listInstalledGames())
-  ipcMain.handle(IPC.detect.importInstalled, async (_e, appIds: unknown) => {
-    // The renderer supplies this list, so it is filtered to real numbers here
+  ipcMain.handle(IPC.detect.listInstalled, () => {
+    const s = dataStore.get().settings
+    return listInstalledGames(s.extraGameFolders, s.launcherFolders)
+  })
+  ipcMain.handle(IPC.detect.importInstalled, async (_e, ids: unknown) => {
+    // The renderer supplies this list, so it is filtered to real strings here
     // rather than trusted — importInstalledGames only ever matches these
-    // against appids the disk scan already produced, but validating at the
-    // boundary is where it belongs.
-    const ids = Array.isArray(appIds) ? appIds.filter((id): id is number => Number.isInteger(id)) : []
-    const result = await importInstalledGames(ids)
+    // against ids the scan itself produced, but validating at the boundary is
+    // where it belongs.
+    const wanted = Array.isArray(ids) ? ids.filter((id): id is string => typeof id === 'string') : []
+    const s = dataStore.get().settings
+    const result = await importInstalledGames(wanted, s.extraGameFolders, s.launcherFolders)
     await updateFirstRunState({ installedScanState: 'imported' })
     return result
   })
+  /**
+   * Adds a folder to scan. The path comes from Electron's own directory
+   * chooser, never from the renderer, so there is nothing here to validate —
+   * the user picked it themselves.
+   */
+  ipcMain.handle(IPC.detect.addGameFolder, async () => {
+    const result = await dialog.showOpenDialog({ properties: ['openDirectory'] })
+    if (result.canceled || !result.filePaths[0]) return null
+    const folder = result.filePaths[0]
+    const settings = dataStore.get().settings
+    if (!settings.extraGameFolders.some((f) => f.toLowerCase() === folder.toLowerCase())) {
+      settings.extraGameFolders = [...settings.extraGameFolders, folder]
+      await dataStore.safeSave()
+    }
+    return folder
+  })
+  ipcMain.handle(IPC.detect.removeGameFolder, async (_e, folder: string) => {
+    const settings = dataStore.get().settings
+    settings.extraGameFolders = settings.extraGameFolders.filter(
+      (f) => f.toLowerCase() !== String(folder).toLowerCase()
+    )
+    await dataStore.safeSave()
+  })
+  ipcMain.handle(IPC.detect.listGameFolders, () => dataStore.get().settings.extraGameFolders)
+  /**
+   * Points one launcher at a folder. Passing null clears it and returns to
+   * automatic detection — which is why clearing has to be possible: a wrong
+   * folder must never be a dead end.
+   */
+  ipcMain.handle(IPC.detect.setLauncherFolder, async (_e, source: string, clear?: boolean) => {
+    const settings = dataStore.get().settings
+    const next = { ...settings.launcherFolders }
+    if (clear) {
+      delete next[source as keyof typeof next]
+    } else {
+      const result = await dialog.showOpenDialog({ properties: ['openDirectory'] })
+      if (result.canceled || !result.filePaths[0]) return settings.launcherFolders
+      next[source as keyof typeof next] = result.filePaths[0]
+    }
+    settings.launcherFolders = next
+    await dataStore.safeSave()
+    return next
+  })
+  ipcMain.handle(IPC.detect.listLauncherFolders, () => dataStore.get().settings.launcherFolders)
   ipcMain.handle(IPC.detect.installedScanPending, async () => {
     const state = await readFirstRunState()
     return !state?.installedScanState

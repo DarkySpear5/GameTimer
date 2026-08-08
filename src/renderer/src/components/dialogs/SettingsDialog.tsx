@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Modal } from '../common/Modal'
 import { EyedropperButton } from '../common/EyedropperButton'
 import { useSettingsStore, updateSettings, updateSettingsOptimistic } from '../../state/settingsStore'
-import { useUiStore } from '../../state/uiStore'
+import { LauncherSettings } from './LauncherSettings'
 import {
   THEMES,
   THEME_ORDER,
@@ -16,7 +16,7 @@ import {
 } from '@shared/constants'
 import type { Settings, ThemeColors, ThemeName } from '@shared/types'
 
-type Tab = 'general' | 'games' | 'appearance' | 'language'
+type Tab = 'general' | 'games' | 'launchers' | 'appearance' | 'language'
 
 const ROLE_KEYS: Record<keyof ThemeColors, string> = {
   bg: 'role_background',
@@ -39,6 +39,9 @@ export function SettingsDialog({ onClose }: { onClose: () => void }): React.JSX.
     // Everything about detecting and decorating games in one place — these
     // were scattered across General before and read as unrelated switches.
     { id: 'games', label: t('tab_games') },
+    // Detection sources get their own tab: they are about where games COME
+    // FROM, which is a different question from how they behave once added.
+    { id: 'launchers', label: t('tab_launchers') },
     { id: 'appearance', label: t('tab_appearance') },
     { id: 'language', label: t('tab_language') }
   ]
@@ -134,22 +137,11 @@ export function SettingsDialog({ onClose }: { onClose: () => void }): React.JSX.
             <div className="mt-1 text-xs text-subtext">{t('label_detail_level_hint')}</div>
           </div>
 
-          {/*
-           * The permanent home of the first-run offer. Its existence is what
-           * makes that one-time prompt safe to decline — "not now" costs
-           * nothing when the door stays open.
-           */}
-          <div className="mt-2 flex flex-col gap-1.5 border-t border-card/60 pt-4">
-            <button
-              onClick={() => useUiStore.getState().openDialog('installed')}
-              className="self-start rounded bg-card px-3 py-1.5 text-sm text-text hover:bg-card/70"
-            >
-              {t('installed_scan_button')}
-            </button>
-            <span className="text-xs text-subtext">{t('installed_scan_hint')}</span>
-          </div>
         </div>
       )}
+
+      {/* Where games are found, and how to correct it — see LauncherSettings. */}
+      {tab === 'launchers' && <LauncherSettings />}
 
       {tab === 'appearance' && (
         <div className="flex flex-col gap-6">

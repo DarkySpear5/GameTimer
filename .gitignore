@@ -32,3 +32,4 @@ release-dev/
 .verify-detail-tmp/
 .measure-tmp/
 .verify-art-tmp/
+.verify-sources-tmp/

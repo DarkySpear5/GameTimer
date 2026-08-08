@@ -34,6 +34,7 @@ function profile(name: string, overrides: Partial<Profile> = {}): Profile {
     genresFromDetection: false,
     favorite: false,
     coverFile: null,
+    launchUri: null,
     ...overrides
   }
 }

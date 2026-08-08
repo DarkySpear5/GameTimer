@@ -72,7 +72,8 @@ const ProfileSchema = z
     autoStartTimer: z.boolean().nullable().catch(null),
     genresFromDetection: z.boolean().catch(false),
     favorite: z.boolean().catch(false),
-    coverFile: z.string().nullable().catch(null)
+    coverFile: z.string().nullable().catch(null),
+    launchUri: z.string().nullable().catch(null)
   })
 
 const ThemeNameSchema = z
@@ -107,7 +108,13 @@ const SettingsSchema = z.object({
   libraryView: z.enum(['grid', 'list']).catch('grid'),
   // Simple by default so a first-time user gets the uncluttered version
   // without having to discover a setting to get it.
-  detailLevel: z.enum(['simple', 'advanced']).catch('simple')
+  detailLevel: z.enum(['simple', 'advanced']).catch('simple'),
+  // Folders the user pointed at for the installed-games scan — for games kept
+  // outside a launcher's default location, or outside a launcher entirely.
+  extraGameFolders: z.array(z.string()).catch([]),
+  // Per-launcher install folder, for a launcher whose games live somewhere the
+  // automatic detection doesn't look. Scanned IN ADDITION to it, never instead.
+  launcherFolders: z.record(z.string(), z.string()).catch({})
 })
 
 const AppDataSchema = z.object({
