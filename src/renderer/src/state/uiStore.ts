@@ -6,14 +6,16 @@ import { create } from 'zustand'
  * answers "what am I playing", which only matters once a game is chosen.
  */
 export type MainTab = 'library' | 'timer' | 'stats' | 'about'
-export type DialogKind = 'modify' | 'notes' | 'settings' | 'info' | 'add' | 'installed' | null
-
-/**
- * Which tab the Modify dialog opens on. Declared here rather than in the
- * component so a caller can request one without importing the dialog — the
- * Timer tab's timing-only menu uses it to open straight to Time.
- */
-export type ModifyTab = 'general' | 'time' | 'appearance' | 'genres'
+export type DialogKind =
+  | 'modify'
+  | 'notes'
+  | 'settings'
+  | 'info'
+  | 'add'
+  | 'installed'
+  /** Add/Remove time alone — the Timer tab's one editing action. See AdjustTimeDialog. */
+  | 'time'
+  | null
 
 /** Which Data-tab column the table is ordered by. Genres is deliberately absent — a set of tags has no meaningful order. */
 export type DataSortKey =
@@ -50,8 +52,7 @@ interface UiState {
   setActiveTab: (tab: MainTab) => void
   setSelected: (name: string | null) => void
   setLibraryFocus: (name: string | null) => void
-  dialogTab: ModifyTab
-  openDialog: (dialog: Exclude<DialogKind, null>, target?: string | null, tab?: ModifyTab) => void
+  openDialog: (dialog: Exclude<DialogKind, null>, target?: string | null) => void
   closeDialog: () => void
   openContextMenu: (x: number, y: number, target: string | null) => void
   closeContextMenu: () => void
@@ -69,10 +70,8 @@ export const useUiStore = create<UiState>((set) => ({
   setActiveTab: (tab) => set({ activeTab: tab }),
   setSelected: (name) => set({ selected: name }),
   setLibraryFocus: (name) => set({ libraryFocus: name }),
-  dialogTab: 'general',
-  openDialog: (dialog, target = null, tab = 'general') =>
-    set({ dialog, dialogTarget: target, dialogTab: tab }),
-  closeDialog: () => set({ dialog: null, dialogTarget: null, dialogTab: 'general' }),
+  openDialog: (dialog, target = null) => set({ dialog, dialogTarget: target }),
+  closeDialog: () => set({ dialog: null, dialogTarget: null }),
   openContextMenu: (x, y, target) => set({ contextMenu: { x, y, target } }),
   closeContextMenu: () => set({ contextMenu: null }),
   setDataSort: (sort) => set({ dataSort: sort })

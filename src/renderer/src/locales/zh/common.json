@@ -87,6 +87,7 @@
   "default_imported_game_name": "已导入的游戏",
   "detail_advanced": "详细",
   "detail_simple": "简洁",
+  "dialog_adjust_time": "调整时间 — {{name}}",
   "dlg_add_game_prompt": "游戏名称：",
   "dlg_add_game_title": "添加游戏",
   "dlg_add_time_desc": "记录你在别处游玩的时间，或移除时间以纠正错误 — 将直接应用到这款游戏的累计记录中。",

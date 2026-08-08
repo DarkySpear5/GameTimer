@@ -593,9 +593,14 @@ One setting governing both the Stats table and the More Info window. **Simple is
 the default** so a first-time user gets the clean version without discovering
 anything.
 
-Segmented `Simple | Advanced` control in **Settings → Appearance**, beside Data
-table size. New setting `detailLevel: 'simple' | 'advanced'` with zod
-`.catch('simple')`.
+Segmented `Simple | Advanced` control in **Settings → Games**. New setting
+`detailLevel: 'simple' | 'advanced'` with zod `.catch('simple')`.
+
+> This section originally said **Appearance**, beside Data table size, and it
+> was built there. **The user moved it to Games on 2026-08-08** — it decides
+> *what information about your games* is shown, not how the app looks, and
+> Appearance is theme, font and sizes. Data table size stays in Appearance,
+> because that genuinely is a size.
 
 **Stats table**
 - Simple: Game · Time Played · Status · Time to Beat · Rating

@@ -87,6 +87,7 @@
   "default_imported_game_name": "가져온 게임",
   "detail_advanced": "고급",
   "detail_simple": "간단",
+  "dialog_adjust_time": "시간 조정 — {{name}}",
   "dlg_add_game_prompt": "게임 이름:",
   "dlg_add_game_title": "게임 추가",
   "dlg_add_time_desc": "다른 곳에서 플레이한 시간을 기록하거나, 실수를 바로잡기 위해 시간을 제거하세요 — 이 게임의 누적 기록에 직접 적용됩니다.",

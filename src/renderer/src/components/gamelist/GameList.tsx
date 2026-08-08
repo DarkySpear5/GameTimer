@@ -248,7 +248,7 @@ export function GameList(): React.JSX.Element {
       },
       {
         label: t('tab_modify_time'),
-        onClick: () => openDialog('modify', name, 'time'),
+        onClick: () => openDialog('time', name),
         separatorBefore: true
       },
       { label: t('ctx_reset_time'), onClick: () => void handleResetTime(name) }

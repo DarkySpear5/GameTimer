@@ -108,7 +108,7 @@ function check(label, actual, expected) {
   console.log('\n=== switching to Advanced brings all of it back ===')
   await win.locator('button[aria-label="Settings"]').click()
   await win.waitForTimeout(400)
-  await win.locator('button:has-text("Appearance")').first().click()
+  await win.locator('button:has-text("Games")').first().click()
   await win.waitForTimeout(300)
   await win.locator('button:has-text("Advanced")').first().click()
   await win.waitForTimeout(500)

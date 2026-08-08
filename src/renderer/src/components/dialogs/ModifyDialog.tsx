@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Modal } from '../common/Modal'
 import { useProfilesStore } from '../../state/profilesStore'
-import type { ModifyTab } from '../../state/uiStore'
 import { toast } from '../common/Toast'
 import { RunningAppPicker } from './RunningAppPicker'
 
@@ -14,24 +13,12 @@ import { GENRE_OPTIONS } from '@shared/constants'
 import { formatSeconds } from '@shared/format'
 import type { ArtOptions, Profile, Status } from '@shared/types'
 
-type Tab = ModifyTab
+type Tab = 'general' | 'time' | 'appearance' | 'genres'
 
-export function ModifyDialog({
-  name,
-  onClose,
-  initialTab = 'general'
-}: {
-  name: string
-  onClose: () => void
-  // The Timer tab's right-click menu is timing-only by design, and Add/Remove
-  // time already lives on this dialog's Time tab. Opening straight to it keeps
-  // that one action reachable from Timer without duplicating the editor or
-  // dropping the user into a management screen they didn't ask for.
-  initialTab?: Tab
-}): React.JSX.Element | null {
+export function ModifyDialog({ name, onClose }: { name: string; onClose: () => void }): React.JSX.Element | null {
   const { t } = useTranslation()
   const profile = useProfilesStore((s) => s.profiles[name])
-  const [tab, setTab] = useState<Tab>(initialTab)
+  const [tab, setTab] = useState<Tab>('general')
 
   if (!profile) return null
 
@@ -215,7 +202,12 @@ function GeneralTab({ profile, onClose }: { profile: Profile; onClose: () => voi
   )
 }
 
-function TimeTab({ profile }: { profile: Profile }): React.JSX.Element {
+/**
+ * Exported so the Timer tab can offer Add/Remove time on its own, without
+ * opening the whole editor. Same component in both places, so the two can
+ * never drift apart.
+ */
+export function TimeTab({ profile }: { profile: Profile }): React.JSX.Element {
   const { t } = useTranslation()
   async function setAutoStart(value: boolean | null): Promise<void> {
     useProfilesStore.getState().upsert(await window.api.detect.setAutoStartTimer(profile.name, value))

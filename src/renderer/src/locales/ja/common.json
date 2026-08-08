@@ -87,6 +87,7 @@
   "default_imported_game_name": "インポートされたゲーム",
   "detail_advanced": "詳細",
   "detail_simple": "シンプル",
+  "dialog_adjust_time": "時間を調整 — {{name}}",
   "dlg_add_game_prompt": "ゲーム名：",
   "dlg_add_game_title": "ゲームを追加",
   "dlg_add_time_desc": "他の場所でプレイした時間を記録するか、間違いを修正するために時間を削除します — このゲームの記録済み合計時間に直接反映されます。",

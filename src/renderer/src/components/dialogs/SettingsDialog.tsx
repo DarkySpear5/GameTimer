@@ -108,6 +108,33 @@ export function SettingsDialog({ onClose }: { onClose: () => void }): React.JSX.
           />
 
           {/*
+           * One switch for both the Stats table and the More info window. Two
+           * separate toggles would make "show me more" something you have to
+           * find twice, and nobody thinks of those two screens as unrelated.
+           *
+           * Lives under Games rather than Appearance because it decides WHAT
+           * information about your games is shown, not how the app looks —
+           * Appearance keeps theme, font and sizes.
+           */}
+          <div className="mt-2 border-t border-card/60 pt-4">
+            <label className="mb-1 block text-xs text-subtext">{t('label_detail_level')}</label>
+            <div className="flex overflow-hidden rounded bg-card">
+              {(['simple', 'advanced'] as const).map((level) => (
+                <button
+                  key={level}
+                  onClick={() => void updateSettings({ detailLevel: level })}
+                  className={`flex-1 px-3 py-1.5 text-sm transition-colors ${
+                    settings.detailLevel === level ? 'bg-accent text-bg' : 'text-subtext hover:text-text'
+                  }`}
+                >
+                  {t(level === 'simple' ? 'detail_simple' : 'detail_advanced')}
+                </button>
+              ))}
+            </div>
+            <div className="mt-1 text-xs text-subtext">{t('label_detail_level_hint')}</div>
+          </div>
+
+          {/*
            * The permanent home of the first-run offer. Its existence is what
            * makes that one-time prompt safe to decline — "not now" costs
            * nothing when the door stays open.
@@ -165,7 +192,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }): React.JSX.
 function UiTab({
   settings
 }: {
-  settings: Pick<Settings, 'fontFamily' | 'fontScale' | 'iconSize' | 'dataTableScale' | 'detailLevel'>
+  settings: Pick<Settings, 'fontFamily' | 'fontScale' | 'iconSize' | 'dataTableScale'>
 }): React.JSX.Element {
   const { t } = useTranslation()
   const [allFonts, setAllFonts] = useState<string[]>(FONT_CHOICES)
@@ -220,28 +247,6 @@ function UiTab({
           ))}
           {filtered.length === 0 && <div className="px-2.5 py-2 text-xs text-subtext">—</div>}
         </div>
-      </div>
-      {/*
-       * One switch for both the Stats table and the More Info window. Two
-       * separate toggles would make "show me more" something the user has to
-       * find twice, and nobody thinks of those two screens as unrelated.
-       */}
-      <div>
-        <label className="mb-1 block text-xs text-subtext">{t('label_detail_level')}</label>
-        <div className="flex overflow-hidden rounded bg-card">
-          {(['simple', 'advanced'] as const).map((level) => (
-            <button
-              key={level}
-              onClick={() => void updateSettings({ detailLevel: level })}
-              className={`flex-1 px-3 py-1.5 text-sm transition-colors ${
-                settings.detailLevel === level ? 'bg-accent text-bg' : 'text-subtext hover:text-text'
-              }`}
-            >
-              {t(level === 'simple' ? 'detail_simple' : 'detail_advanced')}
-            </button>
-          ))}
-        </div>
-        <div className="mt-1 text-xs text-subtext">{t('label_detail_level_hint')}</div>
       </div>
       <div>
         <label className="mb-1 block text-xs text-subtext">{t('label_table_size')}</label>

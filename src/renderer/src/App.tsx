@@ -13,6 +13,7 @@ import { GameInfoDialog } from './components/dialogs/GameInfoDialog'
 import { AddGameDialog } from './components/dialogs/AddGameDialog'
 import { FirstRunPrompts } from './components/dialogs/FirstRunPrompts'
 import { InstalledGamesDialog } from './components/dialogs/InstalledGamesDialog'
+import { AdjustTimeDialog } from './components/dialogs/AdjustTimeDialog'
 import { UpdatePrompt } from './components/dialogs/UpdatePrompt'
 import { ToastHost } from './components/common/Toast'
 import { useProfilesStore } from './state/profilesStore'
@@ -38,7 +39,6 @@ function App(): React.JSX.Element {
   const setActiveTab = useUiStore((s) => s.setActiveTab)
   const dialog = useUiStore((s) => s.dialog)
   const dialogTarget = useUiStore((s) => s.dialogTarget)
-  const dialogTab = useUiStore((s) => s.dialogTab)
   const closeDialog = useUiStore((s) => s.closeDialog)
   const openDialog = useUiStore((s) => s.openDialog)
 
@@ -92,13 +92,14 @@ function App(): React.JSX.Element {
       {activeTab === 'about' && <AboutTab />}
 
       {dialog === 'modify' && dialogTarget && (
-        <ModifyDialog name={dialogTarget} onClose={closeDialog} initialTab={dialogTab} />
+        <ModifyDialog name={dialogTarget} onClose={closeDialog} />
       )}
       {dialog === 'notes' && dialogTarget && <NotesDialog name={dialogTarget} onClose={closeDialog} />}
       {dialog === 'settings' && <SettingsDialog onClose={closeDialog} />}
       {dialog === 'info' && dialogTarget && <GameInfoDialog name={dialogTarget} onClose={closeDialog} />}
       {dialog === 'add' && <AddGameDialog onClose={closeDialog} />}
 
+      {dialog === 'time' && dialogTarget && <AdjustTimeDialog name={dialogTarget} onClose={closeDialog} />}
       {dialog === 'installed' && <InstalledGamesDialog onClose={closeDialog} />}
 
       <FirstRunPrompts />

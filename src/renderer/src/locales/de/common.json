@@ -87,6 +87,7 @@
   "default_imported_game_name": "Importiertes Spiel",
   "detail_advanced": "Erweitert",
   "detail_simple": "Einfach",
+  "dialog_adjust_time": "Zeit anpassen — {{name}}",
   "dlg_add_game_prompt": "Spielname:",
   "dlg_add_game_title": "Spiel hinzufügen",
   "dlg_add_time_desc": "Erfasse anderswo gespielte Zeit oder entferne Zeit, um einen Fehler zu korrigieren — wird direkt auf die erfasste Gesamtzeit dieses Spiels angewendet.",

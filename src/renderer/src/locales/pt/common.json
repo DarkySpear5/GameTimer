@@ -87,6 +87,7 @@
   "default_imported_game_name": "Jogo importado",
   "detail_advanced": "Avançado",
   "detail_simple": "Simples",
+  "dialog_adjust_time": "Ajustar tempo — {{name}}",
   "dlg_add_game_prompt": "Nome do jogo:",
   "dlg_add_game_title": "Adicionar jogo",
   "dlg_add_time_desc": "Registre o tempo jogado em outro lugar, ou remova tempo para corrigir um erro — aplicado diretamente ao total registrado deste jogo.",
