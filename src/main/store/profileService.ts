@@ -157,12 +157,18 @@ export const profileService = {
       timerEngine.pause(name)
     }
     const profile = requireProfile(name)
-    if (status === 'in_progress') {
-      profile.status = 'in_progress'
-      profile.statusAt = null
-      profile.statusSeconds = null
-    } else {
-      profile.status = status
+    profile.status = status
+    // Going back to In Progress deliberately leaves statusAt/statusSeconds
+    // alone. They used to be nulled here, which meant one stray click on the
+    // Complete button of an already-completed game permanently destroyed both
+    // the date it was finished on and the playtime it was finished at — no
+    // confirmation, no undo, and the numbers are unrecoverable because nothing
+    // else records them. Nothing renders them while a game is In Progress (the
+    // Data tab, the Modify dialog and the status log all gate on status), so
+    // keeping them is invisible until the next real status change overwrites
+    // them. That makes an accidental un-complete/re-complete round trip
+    // lossless instead of destructive.
+    if (status !== 'in_progress') {
       profile.statusAt = todayDateString()
       profile.statusSeconds = profile.seconds
     }
