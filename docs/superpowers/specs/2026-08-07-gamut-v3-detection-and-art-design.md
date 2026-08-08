@@ -73,20 +73,80 @@ no-account constraint as a default.
 
 ## Identifying a game
 
-A fallback chain, most reliable signal first. The first one that produces a
-match wins.
+There are two distinct paths, and they have different confidence levels. This
+distinction drives the UI, so it is not an implementation detail.
 
-| # | Signal | Yields |
+### Path A — Steam-installed: exact, silent
+
+If the `.exe` path contains `steamapps\common\<folder>`, find the
+`appmanifest_*.acf` in that library whose `installdir` equals `<folder>`. It
+yields the **exact** appid and official name. No guessing, no confirmation, no
+network call.
+
+Verified against a real 13-game library on 2026-08-07: folder `AbioticFactor` →
+appid 427410, matching the manifest exactly.
+
+This path covers the majority of real usage.
+
+### Path B — everything else: guess, then confirm
+
+For Epic / GOG / itch / standalone games there is no manifest, so a name has to
+be guessed and looked up. Candidate name, best signal first:
+
+| # | Signal | Quality |
 |---|---|---|
-| 1 | `.exe` path is under `steamapps\common\` | Read the sibling `appmanifest_<appid>.acf` → **exact** appid and official name |
-| 2 | `.exe` version resource `ProductName` | e.g. `DOOMEternalx64vk.exe` → "DOOM Eternal" → `SearchApps` → appid |
-| 3 | Window title, then parent folder name | → `SearchApps` → appid |
-| 4 | No match | Keep whatever name we have. No auto art. User sets it manually, exactly as in v2. |
+| 1 | Parent folder name | Reliable — correct for essentially every game measured |
+| 2 | Window title | Usually good, sometimes decorated with subtitles or FPS counters |
+| 3 | `.exe` filename | Weak but better than nothing |
+| 4 | `.exe` version resource `ProductName` | **Unreliable — do not trust** (see below) |
 
-Steps 2–4 are how non-Steam games are recognised. No separate game library needs
-to be built or maintained.
+The candidate goes to `SearchApps`. **The result is shown to the user with its
+cover art for confirmation**, with a search box to correct it. It is never
+applied silently.
 
-Every resolution stores its `steamAppId` so it is done once, not on every launch.
+### Why `ProductName` is demoted
+
+It was the original plan and measurement killed it. Across 13 installed games:
+
+| Result | Count | Examples |
+|---|---|---|
+| Correct | 5 | Destiny 2, Fields of Mistria |
+| Empty | 3 | Abiotic Factor, Dead by Daylight, Marvel Rivals |
+| **Actively wrong** | 4 | Stardew Valley → `SMAPI`, Palia → `BootstrapPackagedGame`, Mabinogi → `Nexon Steam Connector` |
+
+Right less than half the time, and confidently wrong a third of the time.
+
+### Why confirmation is mandatory on Path B
+
+Two measured failure modes, pulling in opposite directions:
+
+- **Garbage fails closed.** `BootstrapPackagedGame`, `SMAPI` and
+  `Nexon Steam Connector` all return *no match*. A bad signal yields no art
+  rather than wrong art — the safe direction, and it needs no handling.
+- **But plausible input can fail open.** `MarvelRivals` returned **Marvel Rivals
+  Playtest** (2936120) rather than the real game (2767030). Fuzzy search will
+  confidently hand back demos, playtests, soundtracks and sequels.
+
+The second is why silent application is not acceptable on Path B. It costs the
+user one glance at a cover image, and only for non-Steam games.
+
+Name search also simply misses sometimes: `Metro Exodus Enhanced Edition`
+returns no match at all, despite being an owned, installed game. It resolves
+perfectly via Path A. This is the concrete argument for keeping the manifest
+lookup as its own path rather than routing everything through search.
+
+Every resolution stores its `steamAppId` so it happens once, not on every launch.
+
+### Launching, and why the `.exe` is not the launch mechanism
+
+When an appid is known, launch via `steam://rungameid/<appid>` rather than
+spawning the `.exe`. Steam then applies the game's configured launch options,
+which is what correctly starts Stardew Valley **through SMAPI** and Marvel Rivals
+**through its launcher**. Spawning the raw `.exe` would bypass that and can break
+modded or launcher-fronted games.
+
+`exePath` is still stored — it is what background detection matches against, and
+it is the launch fallback when no appid exists.
 
 ## The two time metrics
 
@@ -201,7 +261,9 @@ defaulting to "follow global".
   one's real `.exe` icon and window title. Likely games sorted first (anything
   under `steamapps\common\`, `Epic Games\`, `GOG Galaxy\Games\`); launchers and
   OS processes filtered out. Click a tile → name filled in, art fetched, `.exe`
-  and appid linked.
+  and appid linked. Steam-installed games (Path A) complete silently; anything
+  resolved by name search (Path B) shows the matched cover for a one-click
+  confirm first.
 - **Add manually** → today's type-a-name box, unchanged.
 
 Deliberately **no "browse for .exe" option** — it is the confusing one, and the
