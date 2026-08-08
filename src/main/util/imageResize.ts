@@ -30,6 +30,12 @@ export async function saveCappedImage(
   const img = nativeImage.createFromPath(sourcePath)
   const { width, height } = img.getSize()
 
+  // A source that does not decode is not an image; copying it through
+  // verbatim would put arbitrary bytes on disk under an image's name.
+  if (img.isEmpty() || width === 0 || height === 0) {
+    throw new Error('Not a usable image')
+  }
+
   if (width <= maxDimension && height <= maxDimension) {
     await fs.copyFile(sourcePath, destPath)
     return
@@ -55,6 +61,13 @@ export async function saveCappedImageBuffer(
 ): Promise<void> {
   const img = nativeImage.createFromBuffer(sourceBuffer)
   const { width, height } = img.getSize()
+
+  // Anything that does not decode is not an image, and writing it through
+  // unchanged is what let a crafted import choose the bytes on disk as well as
+  // their location. An import that isn't an image simply fails.
+  if (img.isEmpty() || width === 0 || height === 0) {
+    throw new Error('Not a usable image')
+  }
 
   if (width <= maxDimension && height <= maxDimension) {
     await fs.writeFile(destPath, sourceBuffer)

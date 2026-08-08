@@ -8,6 +8,7 @@ import { ICON_MAX_DIMENSION, BACKGROUND_MAX_DIMENSION } from '@shared/constants'
 import { fetchArt, fetchGenres } from './steamArt'
 import { findGogGame } from './gogCatalog'
 import { mapTagsToGenres } from './genreMap'
+import { isAllowedArtUrl } from './allowedHosts'
 
 /**
  * One place that answers "what do we know about this game", trying sources in
@@ -88,6 +89,10 @@ export async function enrichGame(name: string, steamAppId: number | null): Promi
  * fallbacks, no second-guessing: if that image cannot be used, nothing changes.
  */
 export async function storeArtFromUrl(url: string, kind: 'icon' | 'background'): Promise<string | null> {
+  // The URL arrives from the renderer. It should only ever be one this app
+  // produced, but main fetching whatever it is handed is a request-forgery
+  // primitive, so the host is checked rather than assumed.
+  if (!isAllowedArtUrl(url)) return null
   const buf = await downloadUsable(url, kind === 'icon' ? 32 : 200)
   if (!buf) return null
   return kind === 'icon'

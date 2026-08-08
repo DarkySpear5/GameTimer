@@ -2,6 +2,7 @@ import { net, protocol } from 'electron'
 import { join } from 'path'
 import { pathToFileURL } from 'url'
 import { paths } from './store/paths'
+import { ALLOWED_ART_HOSTS } from './art/allowedHosts'
 
 export const GT_ASSET_SCHEME = 'gt-asset'
 
@@ -11,23 +12,6 @@ export function registerAssetSchemeAsPrivileged(): void {
     { scheme: GT_ASSET_SCHEME, privileges: { secure: true, supportFetchAPI: true } }
   ])
 }
-
-/**
- * Hosts the art picker is allowed to preview from. An allowlist rather than
- * "any https URL" on purpose: the renderer's CSP deliberately forbids remote
- * images, and relaxing it to `https:` would let anything rendered in the app
- * reach any server. Proxying through here keeps that door shut while still
- * letting the picker show real thumbnails.
- */
-const ALLOWED_REMOTE_HOSTS = new Set([
-  'cdn.cloudflare.steamstatic.com',
-  'shared.cloudflare.steamstatic.com',
-  'shared.fastly.steamstatic.com',
-  'shared.akamai.steamstatic.com',
-  'store.akamai.steamstatic.com',
-  'steamcdn-a.akamaihd.net',
-  'images.gog-statics.com'
-])
 
 /**
  * Serves icons/backgrounds to the renderer as gt-asset://icons/<file> and
@@ -50,7 +34,7 @@ export function registerAssetProtocolHandler(): void {
       } catch {
         return new Response('Bad request', { status: 400 })
       }
-      if (parsed.protocol !== 'https:' || !ALLOWED_REMOTE_HOSTS.has(parsed.hostname)) {
+      if (parsed.protocol !== 'https:' || !ALLOWED_ART_HOSTS.has(parsed.hostname)) {
         return new Response('Forbidden', { status: 403 })
       }
       return net.fetch(parsed.toString())
