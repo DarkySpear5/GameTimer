@@ -73,6 +73,16 @@ export function SettingsDialog({ onClose }: { onClose: () => void }): React.JSX.
             checked={settings.checkForUpdates}
             onChange={(v) => void updateSettings({ checkForUpdates: v })}
           />
+          {/*
+           * The default for every game that hasn't set its own preference —
+           * turning this off stops art being fetched for games added from now
+           * on, and for any game still following the global setting.
+           */}
+          <ToggleRow
+            label={t('label_auto_art')}
+            checked={settings.autoFetchArt}
+            onChange={(v) => void updateSettings({ autoFetchArt: v })}
+          />
         </div>
       )}
 

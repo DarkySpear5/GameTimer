@@ -250,8 +250,51 @@ function AppearanceTab({ profile }: { profile: Profile }): React.JSX.Element {
     useProfilesStore.getState().upsert(updated)
   }
 
+  async function setAutoArt(value: boolean | null): Promise<void> {
+    useProfilesStore.getState().upsert(await window.api.profiles.setAutoFetchArt(profile.name, value))
+  }
+  async function refreshArt(): Promise<void> {
+    useProfilesStore.getState().upsert(await window.api.profiles.refreshArt(profile.name))
+  }
+
   return (
     <div className="flex flex-col gap-5">
+      {/*
+       * Only meaningful once a game has an appid to fetch art *for*, so it is
+       * hidden entirely for manually added games rather than shown as a
+       * control that silently does nothing.
+       */}
+      {profile.steamAppId != null && (
+        <div>
+          <label className="mb-1 block text-xs text-subtext">{t('label_auto_art')}</label>
+          <div className="flex gap-1.5">
+            {(
+              [
+                [null, t('label_auto_art_follow')],
+                [true, t('label_auto_art_on')],
+                [false, t('label_auto_art_off')]
+              ] as [boolean | null, string][]
+            ).map(([value, label]) => (
+              <button
+                key={String(value)}
+                onClick={() => void setAutoArt(value)}
+                className={`flex-1 rounded px-2 py-1.5 text-xs transition-colors ${
+                  profile.autoFetchArt === value ? 'bg-accent text-bg' : 'bg-card text-text hover:bg-card/70'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={() => void refreshArt()}
+            className="mt-1.5 w-full rounded bg-card py-1.5 text-xs text-subtext hover:text-text"
+          >
+            {t('btn_refresh_art')}
+          </button>
+        </div>
+      )}
+
       <div>
         <label className="mb-1 block text-xs text-subtext">{t('label_icon')}</label>
         <div className="flex items-center gap-3">
