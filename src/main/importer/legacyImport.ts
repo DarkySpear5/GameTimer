@@ -7,6 +7,7 @@ import { locateLegacyDataFile } from './legacyLocate'
 import { readFirstRunState, writeFirstRunState } from './firstRun'
 import { setRunAtStartup } from '../autostart/autostart'
 import { saveCappedImage } from '../util/imageResize'
+import { isInside, safeAssetFileName } from '../util/safePath'
 import { DEFAULT_CUSTOM_COLORS, THEME_ORDER, ICON_MAX_DIMENSION, BACKGROUND_MAX_DIMENSION } from '@shared/constants'
 import type { LegacyDetectResult, Profile, Settings, Status } from '@shared/types'
 
@@ -104,20 +105,38 @@ function normalizeLegacySettings(raw: Record<string, unknown> | undefined): Sett
   }
 }
 
-/** Copies an asset in, renaming on collision as defense-in-depth (uuid-based v1 filenames make collisions vanishingly unlikely). */
+/**
+ * Copies an asset in, renaming on collision as defense-in-depth (uuid-based v1
+ * filenames make collisions vanishingly unlikely).
+ *
+ * `rawName` comes out of the imported v1 JSON and is therefore untrusted. It
+ * used to be used verbatim for both the file read and the file written, so a
+ * crafted data file could read any file the user could read and write any file
+ * the user could write. It is now reduced to a bare filename with a safe
+ * extension, and both resulting paths are checked to be inside the directories
+ * they belong to.
+ */
 async function copyAssetIfExists(
-  sourcePath: string,
+  sourceDir: string,
   destDir: string,
-  preferredFileName: string,
+  rawName: string,
   maxDimension: number
 ): Promise<string | null> {
-  if (!existsSync(sourcePath)) return null
+  const safeName = safeAssetFileName(rawName)
+  if (!safeName) return null
+
+  const sourcePath = join(sourceDir, safeName)
+  if (!isInside(sourceDir, sourcePath) || !existsSync(sourcePath)) return null
+
   await fs.mkdir(destDir, { recursive: true })
-  let fileName = preferredFileName
+  let fileName = safeName
   if (existsSync(join(destDir, fileName))) {
-    fileName = `${randomUUID()}${extname(preferredFileName)}`
+    fileName = `${randomUUID()}${extname(safeName)}`
   }
-  await saveCappedImage(sourcePath, join(destDir, fileName), maxDimension)
+  const destPath = join(destDir, fileName)
+  if (!isInside(destDir, destPath)) return null
+
+  await saveCappedImage(sourcePath, destPath, maxDimension)
   return fileName
 }
 
@@ -164,7 +183,7 @@ export async function runLegacyImport(legacyDataFilePath: string): Promise<{ imp
 
     if (profile.iconFile) {
       profile.iconFile = await copyAssetIfExists(
-        join(legacyDir, 'icons', profile.iconFile),
+        join(legacyDir, 'icons'),
         paths.iconsDir(),
         profile.iconFile,
         ICON_MAX_DIMENSION
@@ -172,7 +191,7 @@ export async function runLegacyImport(legacyDataFilePath: string): Promise<{ imp
     }
     if (profile.bgImage) {
       profile.bgImage = await copyAssetIfExists(
-        join(legacyDir, 'backgrounds', profile.bgImage),
+        join(legacyDir, 'backgrounds'),
         paths.backgroundsDir(),
         profile.bgImage,
         BACKGROUND_MAX_DIMENSION
