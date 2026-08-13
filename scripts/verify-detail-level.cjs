@@ -1,5 +1,7 @@
 /*
- * Verifies the one Simple/Advanced switch governs both surfaces it claims to.
+ * Verifies the Simple/Advanced switch on Game Stats, and that More Info (K2)
+ * ignores it entirely and always shows everything.
+ *
  * Isolated save folder via the §7 GAMUT_TEST_APPDATA patch.
  */
 const fs = require('fs')
@@ -46,7 +48,8 @@ function check(label, actual, expected) {
           openSeconds: 5400,
           launches: 3,
           sessionStats: { count: 2, totalSeconds: 3600, longestSeconds: 2400, firstPlayedAt: 1, lastPlayedAt: 2 },
-          sessionLog: []
+          sessionLog: [],
+          activeSession: null
         }
       },
       lastSelected: GAME,
@@ -82,9 +85,14 @@ function check(label, actual, expected) {
     await win.waitForTimeout(500)
   }
 
-  console.log('\n=== Simple is the default ===')
-  await win.locator('button:has-text("Stats")').first().click()
-  await win.waitForTimeout(400)
+  /** "Game Stats", specifically — Library and About never contain the word, but Profile Stats does. */
+  async function openGameStats() {
+    await win.locator('button:has-text("Game Stats")').first().click()
+    await win.waitForTimeout(400)
+  }
+
+  console.log('\n=== Simple is the default, on Game Stats ===')
+  await openGameStats()
   await win.screenshot({ path: path.join(SHOTS, '08-stats-simple.png') })
   const simpleCols = (await headers()).map((h) => h.replace(/[▲▼\s]+$/, '').trim())
   check('Simple hides Started', simpleCols.includes('Started'), false)
@@ -93,43 +101,37 @@ function check(label, actual, expected) {
   check('Simple keeps Time to Beat', simpleCols.includes('Time to Beat'), true)
   check('Simple keeps Rating', simpleCols.includes('Rating'), true)
 
-  console.log('\n=== More info follows the same switch ===')
+  console.log('\n=== K2: More Info ignores the switch and always shows everything ===')
   await openMoreInfo()
   let info = await infoText()
-  // Guard against a silently empty selector making every "hides X" check pass.
+  // Guard against a silently empty selector making every check below pass.
   check('the info window was actually read', info.includes(GAME), true)
-  check('Simple hides Launches', info.includes('Launches'), false)
-  check('Simple hides Longest session', info.includes('Longest session'), false)
-  check('Simple hides the open/idle block', info.includes('Game was open'), false)
-  check('Simple keeps Sessions', info.includes('Sessions'), true)
+  check('Launches is shown even with Game Stats on Simple', info.includes('Launches'), true)
+  check('Longest session is shown even with Game Stats on Simple', info.includes('Longest session'), true)
+  check('the open/idle block is shown even with Game Stats on Simple', info.includes('Game was open'), true)
+  check('Sessions is shown', info.includes('Sessions'), true)
+  // 3600 tracked of 5400 open = 33% idle, 67% tracked, on one line.
+  check('tracked and idle share a single line', /Tracked 67% · idle 33%/.test(info), true)
   await win.keyboard.press('Escape')
   await win.waitForTimeout(300)
 
-  console.log('\n=== switching to Advanced brings all of it back ===')
-  await win.locator('button[aria-label="Settings"]').click()
-  await win.waitForTimeout(400)
-  await win.locator('button:has-text("Games")').first().click()
-  await win.waitForTimeout(300)
+  console.log('\n=== the switch itself lives on Game Stats, not Settings (F2) ===')
+  await openGameStats()
   await win.locator('button:has-text("Advanced")').first().click()
   await win.waitForTimeout(500)
-  await win.keyboard.press('Escape')
-  await win.waitForTimeout(400)
 
-  await win.locator('button:has-text("Stats")').first().click()
-  await win.waitForTimeout(400)
   await win.screenshot({ path: path.join(SHOTS, '09-stats-advanced.png') })
   const advCols = (await headers()).map((h) => h.replace(/[▲▼\s]+$/, '').trim())
   check('Advanced shows Started', advCols.includes('Started'), true)
   check('Advanced shows Completed On', advCols.includes('Completed On'), true)
   check('Advanced shows Genres', advCols.includes('Genres'), true)
 
+  console.log('\n=== More Info is unaffected either way ===')
   await openMoreInfo()
   await win.screenshot({ path: path.join(SHOTS, '10-info-advanced.png') })
   info = await infoText()
-  check('Advanced shows Launches', info.includes('Launches'), true)
-  check('Advanced shows the open/idle block', info.includes('Game was open'), true)
-  // 3600 tracked of 5400 open = 33% idle, 67% tracked, on one line.
-  check('tracked and idle share a single line', /Tracked 67% · idle 33%/.test(info), true)
+  check('Launches still shown', info.includes('Launches'), true)
+  check('the open/idle block still shown', info.includes('Game was open'), true)
 
   await app.close()
   console.log(`\n${failures === 0 ? 'ALL CHECKS PASSED' : `${failures} CHECK(S) FAILED`}`)

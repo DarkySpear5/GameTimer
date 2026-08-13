@@ -2,10 +2,9 @@ import { create } from 'zustand'
 
 /**
  * `library` is first and is the default: it answers "what do I have", which is
- * the question someone opening the app for the first time actually has. Timer
- * answers "what am I playing", which only matters once a game is chosen.
+ * the question someone opening the app for the first time actually has.
  */
-export type MainTab = 'library' | 'stats' | 'about'
+export type MainTab = 'library' | 'stats' | 'profileStats' | 'about'
 export type DialogKind =
   | 'modify'
   | 'notes'

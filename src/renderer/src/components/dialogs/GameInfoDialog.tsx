@@ -23,7 +23,13 @@ export function GameInfoDialog({
 }): React.JSX.Element | null {
   const { t } = useTranslation()
   const profile = useProfilesStore((s) => s.profiles[name])
-  const advanced = useSettingsStore((s) => s.settings?.detailLevel === 'advanced')
+  /**
+   * K2: More Info always shows everything, regardless of the Simple/Advanced
+   * setting. That toggle now belongs to Game Stats alone (see DataTab) — it
+   * was never intuitive that clicking "Advanced" on a different tab was what
+   * unlocked rows here, and this dialog already has the room to show them.
+   */
+  const advanced = true
   const watching = useSettingsStore((s) => s.settings?.watchForGames ?? false)
   // Read from the running aggregate, not the log — the log is a bounded
   // tail, so recomputing from it would under-report a long-played game.

@@ -143,14 +143,24 @@ Status key: `[ ]` not started · `[~]` in progress · `[x]` done
 
 ## K. Stats restructure (found 2026-08-13)
 
-- [ ] **K1. Split Stats into two tabs: "Game Stats" (per-game, what F1/F2
+- [x] **K1. Split Stats into two tabs: "Game Stats" (per-game, what F1/F2
   already cover) and a new "Profile Stats"** (account-wide: total active time,
-  total idle time, both also as a %; hours per genre, also as a %).
-- [ ] **K2. More Info is always Advanced** — remove the per-game Simple/Advanced
-  toggle from Settings → Games; F2's Advanced/Simple button stays scoped to the
-  Stats window only.
-- [ ] **K3. Move the right-click/options entry point above the fold** — next to
-  total time played, not below the game list where it needs scrolling.
+  total idle time, both also as a %; hours per genre, also as a %). Profile
+  Stats excludes Not Started games (matches F1). A multi-genre game's full
+  playtime counts toward EVERY genre it carries — same non-exclusive tagging
+  Gamut already uses everywhere else — so genre percentages can and do sum
+  past 100%, by design. "Your Stats" title/tab renamed to "Game Stats" to
+  match. Verified against the real app with a mixed library (two genres on
+  one game, one untracked game, one Not Started).
+- [x] **K2. More Info is always Advanced** — the Settings → Games toggle was
+  already gone (F2 removed it); this was the second half: More Info no longer
+  reads `detailLevel` at all, so it can't be affected by Game Stats' own
+  switch. Verified against the real app: Launches, longest session and the
+  open/idle block all show in More Info with Game Stats left on Simple.
+- [x] **K3. Move the right-click/options entry point above the fold** — next to
+  total time played, not below the game list where it needs scrolling. Was
+  below the table; now sits between the stat cards and the table, so it's on
+  screen for any list longer than a handful of rows without scrolling.
 
 ## L. Notes rewrite (found 2026-08-13, expands D5)
 
