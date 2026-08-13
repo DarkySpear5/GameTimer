@@ -8,11 +8,14 @@ export function registerNotesIpc(): void {
     drawingPopout.open(name, noteId)
   )
   ipcMain.handle(IPC.notes.getPopoutState, () => drawingPopout.getState())
-  ipcMain.handle(IPC.notes.moveDrawing, async (_e, name: string, fromNoteId: string, toNoteId: string) => {
-    const profile = await profileService.moveDrawing(name, fromNoteId, toNoteId)
-    drawingPopout.retarget(toNoteId)
-    return profile
-  })
+  ipcMain.handle(
+    IPC.notes.moveDrawing,
+    async (_e, fromName: string, fromNoteId: string, toName: string, toNoteId: string) => {
+      const result = await profileService.moveDrawing(fromName, fromNoteId, toName, toNoteId)
+      drawingPopout.retarget(toName, toNoteId)
+      return result
+    }
+  )
   ipcMain.on(IPC.notes.setViewedNote, (_e, target: { name: string; noteId: string } | null) =>
     drawingPopout.setViewedNote(target)
   )

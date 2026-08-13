@@ -92,24 +92,33 @@ function clearHover(): void {
 /**
  * Fires ~DROP_SETTLE_MS after the pop-out stops moving — the drag-release
  * detector. If it's now over the drop zone, tells the pop-out's OWN renderer
- * which note it landed on (its own, if the main window isn't showing a
- * different one of the same game) and leaves every decision from there —
- * confirm an overwrite, actually move the drawing, close itself — to that
- * renderer. That's what makes this identical in behavior to the "Move to
- * note" dropdown instead of a second, differently-behaved code path: both
- * end up calling the exact same handleMoveTo.
+ * which note (and which GAME — the main window can be showing a note that
+ * belongs to a completely different game from the one popped out) it landed
+ * on, and leaves every decision from there — confirm an overwrite, actually
+ * move the drawing, close itself — to that renderer. That's what makes this
+ * identical in behavior to the "Move to note" dropdown instead of a second,
+ * differently-behaved code path: both end up calling the exact same
+ * handleMoveTo.
  */
 function handleSettledDrop(): void {
   if (!popoutWin || popoutWin.isDestroyed() || !state) return
+  // Maximizing (the button, or double-clicking the title bar) fires the same
+  // 'move'/'resize' events a real drag does, and trivially overlaps the drop
+  // zone since it now covers the whole screen — clicking maximize to get more
+  // room to draw is not a request to reattach. isMaximized() is exactly the
+  // signal to tell the two apart: a real drag onto the zone can never leave
+  // the window in that state.
+  if (popoutWin.isMaximized()) return
   const mainWin = mainWindowOf(popoutWin)
   if (!mainWin) return
   const zone = absoluteDropZone(mainWin)
   if (!zone || !rectsOverlap(popoutWin.getBounds(), zone)) return
 
-  const target =
-    viewedNote && viewedNote.name === state.name && viewedNote.noteId !== state.noteId
-      ? viewedNote.noteId
-      : state.noteId // no different note in view -> reattach to its own
+  // Any note in view is a valid target, same game or a different one — no
+  // different note in view (list view, or nothing to do with notes at all)
+  // falls back to reattaching to its own.
+  const target: { name: string; noteId: string } =
+    viewedNote && viewedNote.noteId !== state.noteId ? viewedNote : state
 
   if (!popoutWin.webContents.isDestroyed()) {
     popoutWin.webContents.send(IPC.notes.dropDetected, target)
@@ -190,12 +199,14 @@ export const drawingPopout = {
     popoutWin.on('move', () => {
       // Live hover feedback — checked on every move, not just the debounced
       // settle, so the target highlights DURING the drag rather than only
-      // reacting after the fact.
+      // reacting after the fact. Suppressed while maximized for the same
+      // reason handleSettledDrop ignores it below — maximizing isn't a drag,
+      // and highlighting the zone for it would be a false promise.
       const win = popoutWin
       const mainWin = win && mainWindowOf(win)
       if (win && mainWin) {
         const zone = absoluteDropZone(mainWin)
-        setHovering(!!zone && rectsOverlap(win.getBounds(), zone), mainWin)
+        setHovering(!win.isMaximized() && !!zone && rectsOverlap(win.getBounds(), zone), mainWin)
       }
 
       if (moveDebounce) clearTimeout(moveDebounce)
@@ -218,10 +229,10 @@ export const drawingPopout = {
     return { opened: true }
   },
 
-  /** Called after moveDrawing succeeds — dropdown or drag alike — so the pop-out keeps tracking whichever note its content actually lives in now. */
-  retarget(noteId: string): void {
+  /** Called after moveDrawing succeeds — dropdown or drag alike, same game or a different one — so the pop-out keeps tracking whichever note (and game) its content actually lives in now. */
+  retarget(name: string, noteId: string): void {
     if (!state) return
-    state = { name: state.name, noteId }
+    state = { name, noteId }
     broadcastState()
   }
 }

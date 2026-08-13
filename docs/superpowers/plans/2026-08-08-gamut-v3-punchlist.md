@@ -242,6 +242,38 @@ outside the zone) now correctly does nothing — proof the narrowing is real,
 not just documentation — while a drag onto the actual zone still hovers,
 highlights, and reattaches exactly as before. 9 checks total for this pass.
 
+**Fourth pass, same day — three more real gaps, all user-found:**
+- **Maximizing the pop-out merged it.** The maximize button (or double-
+  clicking its title bar) fires the same 'move'/'resize' events a drag does,
+  and trivially overlaps the drop zone once it covers the whole screen —
+  clicking maximize to get more drawing room is not a request to reattach.
+  `isMaximized()` is the exact signal that tells the two apart: a real drag
+  onto the zone can never leave the window in that state, so both the hover
+  highlight and the settle-triggered merge now check and skip it.
+- **Dragging onto a DIFFERENT GAME's note editor silently did nothing.**
+  `moveDrawing` only ever supported moving within one profile's note list, so
+  a cross-game target lookup failed closed with neither a merge nor a
+  confirm. Generalized to accept two profile names (same-profile moves —
+  the dropdown's only case — still work identically, just as a same-name
+  call); the pop-out's own identity (which game, which note) is now state
+  instead of fixed from the URL it opened with, since a cross-game move
+  changes what it's showing, not just which note within one game.
+- **No eraser.** Whole-stroke removal (click/drag over a stroke deletes it),
+  not partial pixel erasing — fits the vector storage far better than
+  rasterizing would, and is a straightforward filter over `strokes` by
+  proximity to the cursor in normalized space. Redraws from a local working
+  copy immediately rather than waiting on the save round trip, matching the
+  pen's already-instant feedback.
+
+10 more checks: the exact maximize repro (still open afterward, despite
+covering the zone), a cross-game drag whose confirm names both the target
+note AND the target game, both profiles' data landing correctly on either
+side of the move, and the eraser removing precisely the stroke it touches
+while leaving a second, untouched one intact — plus confirming the pen still
+works normally after toggling the eraser back off. 34 + 9 + 10 = 53 checks
+across all four passes of L3 today; every earlier pass's suite re-run clean
+alongside each new one.
+
 ## M. Keybinds (found 2026-08-13)
 
 - [ ] **M1. Settings → Keybinds tab.**

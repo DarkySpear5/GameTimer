@@ -16,30 +16,39 @@ import type { DrawingStroke } from '@shared/notes'
 export function DrawingPopoutApp(): React.JSX.Element {
   const { t } = useTranslation()
   const params = new URLSearchParams(window.location.search)
-  const profileName = params.get('profile') ?? ''
 
+  // Both are state, not fixed from the URL — a cross-game "Move to note"
+  // (dropdown or drag alike) changes which PROFILE this window is showing,
+  // not just which note within one profile, so its whole identity has to be
+  // able to move, not only noteId.
+  const [activeName, setActiveName] = useState(params.get('profile') ?? '')
   const [noteId, setNoteId] = useState(params.get('note') ?? '')
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loaded, setLoaded] = useState(false)
 
-  async function refresh(): Promise<void> {
-    const data = await window.api.app.getInitialData()
-    setProfile(data.profiles[profileName] ?? null)
-  }
+  useEffect(() => {
+    void (async () => {
+      const data = await window.api.app.getInitialData()
+      setProfile(data.profiles[activeName] ?? null)
+    })()
+  }, [activeName])
 
   useEffect(() => {
     void (async () => {
       const data = await window.api.app.getInitialData()
       applyThemeToDocument(data.settings)
-      setProfile(data.profiles[profileName] ?? null)
       setLoaded(true)
     })()
-    // The main window can move this pop-out to a different note (or close
-    // it) — this is what keeps the two in sync without polling.
+    // The main window can move this pop-out to a different note — or a
+    // different GAME entirely — or close it. This is what keeps the two in
+    // sync without polling.
     return window.api.notes.onPopoutStateChanged((state) => {
-      if (state && state.name === profileName) setNoteId(state.noteId)
+      if (state) {
+        setActiveName(state.name)
+        setNoteId(state.noteId)
+      }
     })
-  }, [profileName])
+  }, [])
 
   const note = profile?.noteList.find((n) => n.id === noteId) ?? null
 
@@ -48,43 +57,62 @@ export function DrawingPopoutApp(): React.JSX.Element {
   }, [note?.title, t])
 
   async function handleDrawingChange(drawing: DrawingStroke[]): Promise<void> {
-    const updated = await window.api.profiles.updateNoteDrawing(profileName, noteId, drawing)
+    const updated = await window.api.profiles.updateNoteDrawing(activeName, noteId, drawing)
     setProfile(updated)
   }
 
-  /** Returns whether the move actually happened — false means the user cancelled the overwrite confirm, or it was already a no-op. Read by the drag-drop handler below to decide whether to close the window afterward. */
-  async function handleMoveTo(targetId: string): Promise<boolean> {
-    if (targetId === noteId) return false
-    const target = profile?.noteList.find((n) => n.id === targetId)
+  /**
+   * Returns whether the move actually happened — false means the user
+   * cancelled the overwrite confirm, or it was already a no-op. Read by the
+   * drag-drop handler below to decide whether to close the window afterward.
+   * `targetName` can equal `activeName` (the dropdown only ever offers
+   * same-game notes) or differ from it (dragging onto a different game's
+   * note editor) — either way this is the one place that decides and moves.
+   */
+  async function handleMoveTo(targetName: string, targetNoteId: string): Promise<boolean> {
+    if (targetName === activeName && targetNoteId === noteId) return false
+    const targetProfile =
+      targetName === activeName ? profile : (await window.api.app.getInitialData()).profiles[targetName]
+    const target = targetProfile?.noteList.find((n) => n.id === targetNoteId)
     if (target && target.drawing.length > 0) {
-      if (!window.confirm(t('confirm_overwrite_drawing_msg', { title: target.title.trim() || t('note_untitled') })))
-        return false
+      const title = target.title.trim() || t('note_untitled')
+      const confirmed =
+        targetName === activeName
+          ? window.confirm(t('confirm_overwrite_drawing_msg', { title }))
+          : window.confirm(t('confirm_overwrite_drawing_cross_game_msg', { title, game: targetName }))
+      if (!confirmed) return false
     }
-    setNoteId(targetId) // immediate feedback — onPopoutStateChanged will confirm the same value shortly after
-    await window.api.notes.moveDrawing(profileName, noteId, targetId)
-    await refresh()
+    // Immediate feedback — the effect above refetches this profile, and
+    // onPopoutStateChanged confirms the same identity shortly after.
+    setActiveName(targetName)
+    setNoteId(targetNoteId)
+    await window.api.notes.moveDrawing(activeName, noteId, targetName, targetNoteId)
     return true
   }
 
   /**
    * A settled drag-drop landed on the drop zone — see drawingPopout.ts for
-   * how "landed on" is detected. Reattaching to the pop-out's OWN note needs
-   * no confirm (it never left); moving to a DIFFERENT note reuses
-   * handleMoveTo verbatim, so the confirm and the actual move behave
-   * identically to using the dropdown. Either way, a successful drop fades
-   * the window out and closes it — the "merging into the note" animation —
-   * rather than the instant window.close() the escape hatch uses, which
-   * deliberately stays instant and independent of this whole flow.
+   * how "landed on" is detected, including the game it belongs to (which can
+   * differ from this pop-out's own). Reattaching to the pop-out's OWN note
+   * needs no confirm (it never left); anywhere else reuses handleMoveTo
+   * verbatim, so the confirm and the actual move behave identically to using
+   * the dropdown. Either way, a successful drop fades the window out and
+   * closes it — the "merging into the note" animation — rather than the
+   * instant window.close() the escape hatch uses, which deliberately stays
+   * instant and independent of this whole flow.
    */
   useEffect(() => {
-    return window.api.notes.onDropDetected((targetNoteId) => {
+    return window.api.notes.onDropDetected((target) => {
       void (async () => {
-        const moved = targetNoteId === noteId ? true : await handleMoveTo(targetNoteId)
+        const moved =
+          target.name === activeName && target.noteId === noteId
+            ? true
+            : await handleMoveTo(target.name, target.noteId)
         if (moved) window.api.notes.closePopoutWithFade()
       })()
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [noteId, profile])
+  }, [activeName, noteId, profile])
 
   /**
    * The literal fix for the fullscreen lockout is fullscreenable: false on
@@ -146,7 +174,7 @@ export function DrawingPopoutApp(): React.JSX.Element {
         {profile.noteList.length > 1 && (
           <select
             value={noteId}
-            onChange={(e) => void handleMoveTo(e.target.value)}
+            onChange={(e) => void handleMoveTo(activeName, e.target.value)}
             title={t('note_move_to_hint')}
             className="max-w-[45%] shrink-0 rounded bg-card px-2 py-1 text-xs text-text outline-none"
           >

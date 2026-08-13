@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next'
 import type { DrawingStroke } from '@shared/notes'
 
 const PEN_WIDTH = 2.5
+/** Normalized-space hit radius for the eraser — a fraction of canvas size, so it scales the same whether windowed or popped out, rather than a fixed pixel count that'd feel different on each. */
+const ERASE_RADIUS = 0.025
 
 /**
  * Relative (WCAG-ish) luminance from a `#rrggbb` string, used only to pick
@@ -39,6 +41,12 @@ export function DrawingCanvas({
   const containerRef = useRef<HTMLDivElement>(null)
   const drawingRef = useRef<DrawingStroke | null>(null)
   const [color, setColor] = useState<(typeof PALETTE)[number]>('auto')
+  const [mode, setMode] = useState<'pen' | 'eraser'>('pen')
+  // The eraser's own working copy of `strokes`, live only during one erase
+  // drag. Needed because `strokes` is a prop — it won't reflect a removal
+  // from earlier in the SAME drag until the parent round-trips a re-render,
+  // and a fast drag can cross several strokes well before that happens.
+  const eraseWorkingRef = useRef<DrawingStroke[] | null>(null)
 
   const penColor = color === 'auto' ? contrastingPen() : color
 
@@ -98,19 +106,49 @@ export function DrawingCanvas({
     }
   }
 
+  /** Removes any whole stroke passing near `point` — an eraser here means "undo this stroke", not partial pixel erasing, which fits a vector-stored drawing far better than rasterizing one would. */
+  function eraseAt(point: { x: number; y: number }): void {
+    const current = eraseWorkingRef.current ?? strokes
+    const remaining = current.filter(
+      (s) => !s.points.some((p) => Math.hypot(p.x - point.x, p.y - point.y) < ERASE_RADIUS)
+    )
+    if (remaining.length === current.length) return
+    eraseWorkingRef.current = remaining
+    // Redrawn immediately from the local working copy — onChange's own
+    // round trip (save, then a fresh `strokes` prop) would otherwise make
+    // erasing visibly lag a beat behind the pen's instant feedback.
+    strokesRef.current = remaining
+    redraw()
+    onChange(remaining)
+  }
+
   function handlePointerDown(e: React.PointerEvent<HTMLCanvasElement>): void {
     e.currentTarget.setPointerCapture(e.pointerId)
+    if (mode === 'eraser') {
+      eraseWorkingRef.current = null
+      eraseAt(pointFromEvent(e))
+      return
+    }
     drawingRef.current = { points: [pointFromEvent(e)], color: penColor, width: PEN_WIDTH }
     redraw()
   }
 
   function handlePointerMove(e: React.PointerEvent<HTMLCanvasElement>): void {
+    if (mode === 'eraser') {
+      if (eraseWorkingRef.current === null && !e.buttons) return // not actively erasing
+      eraseAt(pointFromEvent(e))
+      return
+    }
     if (!drawingRef.current) return
     drawingRef.current.points.push(pointFromEvent(e))
     redraw()
   }
 
   function handlePointerUp(): void {
+    if (mode === 'eraser') {
+      eraseWorkingRef.current = null
+      return
+    }
     const finished = drawingRef.current
     drawingRef.current = null
     // A tap with no real movement isn't a stroke worth keeping.
@@ -137,6 +175,16 @@ export function DrawingCanvas({
             }}
           />
         ))}
+        <button
+          onClick={() => setMode(mode === 'eraser' ? 'pen' : 'eraser')}
+          title={t('note_eraser')}
+          aria-pressed={mode === 'eraser'}
+          className={`ml-1 flex h-5 w-5 shrink-0 items-center justify-center rounded text-xs transition-colors ${
+            mode === 'eraser' ? 'bg-accent text-bg' : 'bg-card text-subtext hover:text-text'
+          }`}
+        >
+          ⌫
+        </button>
         <div className="ml-auto flex items-center gap-2">
           {toolbarExtra}
           <button
@@ -151,7 +199,7 @@ export function DrawingCanvas({
       <div ref={containerRef} className="min-h-0 flex-1 overflow-hidden rounded bg-card">
         <canvas
           ref={canvasRef}
-          className="h-full w-full touch-none"
+          className={`h-full w-full touch-none ${mode === 'eraser' ? 'cursor-crosshair' : ''}`}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}

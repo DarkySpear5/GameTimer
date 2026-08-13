@@ -176,6 +176,24 @@ async function dropZoneCenter(app, mainPage) {
   await drawStroke(popout2, await popout2.locator('canvas').boundingBox())()
   await win.waitForTimeout(300)
 
+  console.log('  maximizing the pop-out must NOT merge it — it covers the drop zone but the user just wants room to draw')
+  await app.evaluate(({ BrowserWindow }) => {
+    const w = BrowserWindow.getAllWindows().find((x) => x.webContents.getURL().includes('drawing-popout'))
+    w.maximize()
+  })
+  await win.waitForTimeout(500)
+  check(
+    'pop-out is still open after maximizing, despite now covering the drop zone',
+    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length),
+    2
+  )
+  await app.evaluate(({ BrowserWindow }) => {
+    const w = BrowserWindow.getAllWindows().find((x) => x.webContents.getURL().includes('drawing-popout'))
+    w.unmaximize()
+    w.setBounds({ x: 2000, y: 2000, width: 420, height: 480 })
+  })
+  await win.waitForTimeout(500)
+
   console.log('  landing elsewhere on the app (title bar area) should do nothing — proves this is a specific zone now')
   const mainBounds = await app.evaluate(({ BrowserWindow }) => {
     const w = BrowserWindow.getAllWindows().find((x) => !x.webContents.getURL().includes('drawing-popout'))

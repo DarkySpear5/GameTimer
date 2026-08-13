@@ -462,15 +462,24 @@ export const profileService = {
   },
 
   /**
-   * L3: the pop-out's "Move to note" control. The caller (drawingPopout.ts)
-   * is responsible for confirming an overwrite with the user first — this
-   * just performs it, unconditionally, exactly like every other destructive
-   * action in this file trusts its caller to have already asked.
+   * L3: the pop-out's "Move to note" control and its drag-drop equivalent —
+   * the two games can differ, since dragging the pop-out onto a DIFFERENT
+   * game's note editor is a valid target too, not just other notes of the
+   * same game. The caller (DrawingPopoutApp) is responsible for confirming
+   * an overwrite with the user first — this just performs it unconditionally,
+   * exactly like every other destructive action in this file trusts its
+   * caller to have already asked.
    */
-  async moveDrawing(name: string, fromNoteId: string, toNoteId: string): Promise<Profile> {
-    const profile = requireProfile(name)
-    const from = profile.noteList.find((n) => n.id === fromNoteId)
-    const to = profile.noteList.find((n) => n.id === toNoteId)
+  async moveDrawing(
+    fromName: string,
+    fromNoteId: string,
+    toName: string,
+    toNoteId: string
+  ): Promise<{ from: Profile; to: Profile }> {
+    const fromProfile = requireProfile(fromName)
+    const toProfile = fromName === toName ? fromProfile : requireProfile(toName)
+    const from = fromProfile.noteList.find((n) => n.id === fromNoteId)
+    const to = toProfile.noteList.find((n) => n.id === toNoteId)
     if (from && to && from !== to) {
       to.drawing = from.drawing
       to.updatedAt = Date.now()
@@ -478,7 +487,7 @@ export const profileService = {
       from.updatedAt = Date.now()
     }
     await dataStore.safeSave()
-    return profile
+    return { from: fromProfile, to: toProfile }
   },
 
   async addRemoveTime(name: string, deltaSeconds: number): Promise<Profile> {

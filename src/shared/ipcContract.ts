@@ -211,8 +211,13 @@ export interface GameTimerApi {
   notes: {
     openPopout(name: string, noteId: string): Promise<{ opened: boolean }>
     getPopoutState(): Promise<PopoutState | null>
-    /** The caller must confirm an overwrite with the user before calling this — it performs the move unconditionally. */
-    moveDrawing(name: string, fromNoteId: string, toNoteId: string): Promise<Profile>
+    /** The two games can differ — dragging onto a DIFFERENT game's note editor is a valid target. The caller must confirm an overwrite with the user before calling this — it performs the move unconditionally. */
+    moveDrawing(
+      fromName: string,
+      fromNoteId: string,
+      toName: string,
+      toNoteId: string
+    ): Promise<{ from: Profile; to: Profile }>
     /** Which note (if any) the main window's NoteEditor currently has open — lets a drag-drop reattach pick a different note as the target, instead of always reattaching to the pop-out's own. Pass null when leaving the editor. */
     setViewedNote(target: { name: string; noteId: string } | null): void
     /**
@@ -233,13 +238,15 @@ export interface GameTimerApi {
     /**
      * Fired at the pop-out window ONLY, when main detects it's been dropped
      * on the app after a drag. main decides WHETHER a drop happened and
-     * WHICH note it landed on; the pop-out's own renderer decides what to do
-     * about it (confirm an overwrite, call moveDrawing, close itself) —
-     * reusing the exact same code path the "Move to note" dropdown already
-     * uses, so both ways of moving a drawing behave identically and a
-     * confirm can be driven/verified as an ordinary web dialog.
+     * WHICH note (and which GAME — the main window can be showing a note of
+     * a totally different game from the one popped out) it landed on; the
+     * pop-out's own renderer decides what to do about it (confirm an
+     * overwrite, call moveDrawing, close itself) — reusing the exact same
+     * code path the "Move to note" dropdown already uses, so both ways of
+     * moving a drawing behave identically and a confirm can be
+     * driven/verified as an ordinary web dialog.
      */
-    onDropDetected(cb: (targetNoteId: string) => void): () => void
+    onDropDetected(cb: (target: { name: string; noteId: string }) => void): () => void
     /** Fired at the MAIN window only, while a pop-out is being dragged over the drop zone — drives the hover highlight so the target is discoverable and gives feedback before release. */
     onDropZoneHover(cb: (hovering: boolean) => void): () => void
   }
