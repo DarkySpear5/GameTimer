@@ -30,6 +30,26 @@ export function createMainWindow(): BrowserWindow {
   win.on('maximize', () => win.webContents.send('window:maximizeChange', true))
   win.on('unmaximize', () => win.webContents.send('window:maximizeChange', false))
 
+  /*
+   * A frameless BrowserWindow (frame: false, needed for the custom title bar)
+   * loses Chromium's usual guarantee that the compositor repaints in lockstep
+   * with a live native resize drag on Windows — the surface can grow or shrink
+   * faster than it repaints, leaving stale pixels from the old layout behind at
+   * the new edge. It reads exactly like a layout bug (text or buttons visibly
+   * cropped at the border) but is really a stale paint: the DOM underneath is
+   * already correct, nothing is actually clipped or unreachable, invalidate()
+   * just hasn't been asked to redraw it yet. Debounced so a drag firing dozens
+   * of 'resize' events doesn't schedule dozens of full repaints.
+   */
+  let repaintTimer: ReturnType<typeof setTimeout> | null = null
+  win.on('resize', () => {
+    if (repaintTimer) clearTimeout(repaintTimer)
+    repaintTimer = setTimeout(() => {
+      repaintTimer = null
+      if (!win.isDestroyed()) win.webContents.invalidate()
+    }, 60)
+  })
+
   // Anything the renderer tries to navigate to externally (e.g. an About-tab
   // link) opens in the OS browser instead of inside the app window.
   //

@@ -196,85 +196,94 @@ export function LibraryBrowse(): React.JSX.Element {
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
-      <div className="flex flex-wrap items-end gap-3 border-b border-card/60 px-5 py-3">
-        <Field label={t('label_view')}>
-          <div className="flex overflow-hidden rounded bg-card">
-            {(['grid', 'list'] as const).map((mode) => (
-              <button
-                key={mode}
-                onClick={() => void updateSettings({ libraryView: mode })}
-                className={`px-3 py-1 text-xs transition-colors ${
-                  view === mode ? 'bg-accent text-bg' : 'text-subtext hover:text-text'
-                }`}
-              >
-                {t(mode === 'grid' ? 'view_grid' : 'view_list')}
-              </button>
-            ))}
-          </div>
-        </Field>
+      {/*
+       * Add Game is a sibling of the filter cluster, not a 6th member of its
+       * flex-wrap group. With all six in one wrapping row, Add Game (last,
+       * ml-auto) was the first thing pushed to a new line whenever the
+       * filters didn't fit — landing alone on its own row well before the
+       * window was actually too narrow for it specifically, which read as
+       * "jumps down for no reason". justify-between keeps it pinned to the
+       * right of whichever line it ends up sharing instead.
+       */}
+      <div className="flex flex-wrap items-end justify-between gap-3 border-b border-card/60 px-5 py-3">
+        <div className="flex flex-wrap items-end gap-3">
+          <Field label={t('label_view')}>
+            <div className="flex overflow-hidden rounded bg-card">
+              {(['grid', 'list'] as const).map((mode) => (
+                <button
+                  key={mode}
+                  onClick={() => void updateSettings({ libraryView: mode })}
+                  className={`px-3 py-1 text-xs transition-colors ${
+                    view === mode ? 'bg-accent text-bg' : 'text-subtext hover:text-text'
+                  }`}
+                >
+                  {t(mode === 'grid' ? 'view_grid' : 'view_list')}
+                </button>
+              ))}
+            </div>
+          </Field>
 
-        <Field label={t('label_sort')}>
-          <select
-            className="rounded bg-card px-2 py-1 text-xs text-text outline-none"
-            value={sortMode}
-            onChange={(e) => void updateSettings({ sortMode: e.target.value as SortMode })}
-          >
-            {SORT_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {t(o.labelKey)}
-              </option>
-            ))}
-          </select>
-        </Field>
+          <Field label={t('label_sort')}>
+            <select
+              className="rounded bg-card px-2 py-1 text-xs text-text outline-none"
+              value={sortMode}
+              onChange={(e) => void updateSettings({ sortMode: e.target.value as SortMode })}
+            >
+              {SORT_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {t(o.labelKey)}
+                </option>
+              ))}
+            </select>
+          </Field>
 
-        <Field label={t('label_status')}>
-          <select
-            className="rounded bg-card px-2 py-1 text-xs text-text outline-none"
-            value={settings?.statusFilter ?? 'All'}
-            onChange={(e) => void updateSettings({ statusFilter: e.target.value as 'All' | Status })}
-          >
-            <option value="All">{t('filter_all')}</option>
-            {(Object.keys(STATUS_LABEL) as Status[]).map((s) => (
-              <option key={s} value={s}>
-                {STATUS_LABEL[s]}
-              </option>
-            ))}
-          </select>
-        </Field>
+          <Field label={t('label_status')}>
+            <select
+              className="rounded bg-card px-2 py-1 text-xs text-text outline-none"
+              value={settings?.statusFilter ?? 'All'}
+              onChange={(e) => void updateSettings({ statusFilter: e.target.value as 'All' | Status })}
+            >
+              <option value="All">{t('filter_all')}</option>
+              {(Object.keys(STATUS_LABEL) as Status[]).map((s) => (
+                <option key={s} value={s}>
+                  {STATUS_LABEL[s]}
+                </option>
+              ))}
+            </select>
+          </Field>
 
-        <Field label={t('label_genre')}>
-          <select
-            className="rounded bg-card px-2 py-1 text-xs text-text outline-none"
-            value={settings?.genreFilter ?? 'All'}
-            onChange={(e) => void updateSettings({ genreFilter: e.target.value })}
-          >
-            <option value="All">{t('filter_all')}</option>
-            {GENRE_OPTIONS.map((g) => (
-              <option key={g} value={g}>
-                {t(g, { ns: 'genres' })}
-              </option>
-            ))}
-          </select>
-        </Field>
+          <Field label={t('label_genre')}>
+            <select
+              className="rounded bg-card px-2 py-1 text-xs text-text outline-none"
+              value={settings?.genreFilter ?? 'All'}
+              onChange={(e) => void updateSettings({ genreFilter: e.target.value })}
+            >
+              <option value="All">{t('filter_all')}</option>
+              {GENRE_OPTIONS.map((g) => (
+                <option key={g} value={g}>
+                  {t(g, { ns: 'genres' })}
+                </option>
+              ))}
+            </select>
+          </Field>
 
-        <Field label={t('label_search')}>
-          <input
-            type="search"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder={t('placeholder_search_games')}
-            className="w-44 rounded bg-card px-2 py-1 text-xs text-text outline-none ring-1 ring-transparent focus:ring-accent"
-          />
-        </Field>
-
-        <div className="ml-auto flex items-end gap-2">
-          <button
-            onClick={() => openDialog('add')}
-            className="rounded bg-accent px-4 py-1.5 text-xs font-medium text-bg transition-opacity hover:opacity-90"
-          >
-            {t('btn_add_game')}
-          </button>
+          <Field label={t('label_search')}>
+            <input
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={t('placeholder_search_games')}
+              className="w-44 rounded bg-card px-2 py-1 text-xs text-text outline-none ring-1 ring-transparent focus:ring-accent"
+            />
+          </Field>
         </div>
+
+        <button
+          onClick={() => openDialog('add')}
+          className="shrink-0 rounded bg-accent px-4 py-1.5 text-xs font-medium text-bg transition-opacity hover:opacity-90"
+        >
+          {t('btn_add_game')}
+        </button>
       </div>
 
       <div
