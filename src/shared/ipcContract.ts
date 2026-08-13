@@ -93,6 +93,7 @@ export const IPC = {
     createGame: 'detect:createGame',
     launch: 'detect:launch',
     stop: 'detect:stop',
+    openExeDirectory: 'detect:openExeDirectory',
     openGames: 'detect:openGames',
     openGamesChanged: 'detect:openGamesChanged',
     setAutoStartTimer: 'detect:setAutoStartTimer',
@@ -208,6 +209,8 @@ export interface GameTimerApi {
     launch(name: string): Promise<{ launched: boolean }>
     /** Kills every process belonging to this game (same folder/exe match the watcher uses). */
     stop(name: string): Promise<{ stopped: boolean }>
+    /** Opens Explorer at the game's .exe (selected) or its install folder. False if neither is known or the path no longer exists. */
+    openExeDirectory(name: string): Promise<{ opened: boolean }>
     /** Names of every game whose process is currently seen running. */
     openGames(): Promise<string[]>
     /** Fires whenever a game's process opens or closes. */

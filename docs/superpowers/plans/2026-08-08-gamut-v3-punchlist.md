@@ -128,9 +128,18 @@ Status key: `[ ]` not started · `[~]` in progress · `[x]` done
   shrink below its content, so the tab container grew past the window and its
   `overflow-hidden` cut the bottom off — with no scrollbar to reach it. Same
   latent bug fixed in Library browse, Stats and About.
-- [ ] **J4. Loading animation for any async app action**, so a slow operation
-  doesn't read as a freeze.
-- [ ] **J5. "Open .exe directory" button** per game.
+- [x] **J4. Loading animation for any async app action**, so a slow operation
+  doesn't read as a freeze. Shared `Spinner` component, wired into every
+  currently-silent busy/scanning state: the running-apps picker (initial scan
+  and the identify/classify round trip after picking), the installed-games
+  scan and its Add button, Add Game's confirm/manual submit buttons, the v1
+  legacy import's Import button, and Modify → Appearance's Re-fetch art
+  button. Verified against the real app: the spinner is visible immediately
+  when Detect running game scan starts.
+- [x] **J5. "Open .exe directory" button** per game. Shows the .exe selected
+  in Explorer; falls back to the install folder for a Steam/Store game with no
+  exe on disk. Only appears when there's somewhere for it to go. Verified
+  against the real app: present for a linked game, absent for a manual one.
 
 ## K. Stats restructure (found 2026-08-13)
 

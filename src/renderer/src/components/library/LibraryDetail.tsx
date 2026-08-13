@@ -106,6 +106,12 @@ export function LibraryDetail({ name }: { name: string }): React.JSX.Element {
     if (result) toast.info(t('info_exported_msg', { path: result.path }))
   }
 
+  /** J5: shows the .exe selected in Explorer, or the install folder for a game with none on disk (Steam/Store). */
+  async function handleOpenExeDirectory(): Promise<void> {
+    const { opened } = await window.api.detect.openExeDirectory(name)
+    if (!opened) toast.error(t('err_open_exe_directory'))
+  }
+
   async function handleDelete(): Promise<void> {
     if (!window.confirm(t('confirm_delete_msg', { name }))) return
     await window.api.profiles.delete(name)
@@ -267,7 +273,12 @@ export function LibraryDetail({ name }: { name: string }): React.JSX.Element {
           { label: t('ctx_info'), onClick: () => openDialog('info', name) },
           { label: t('ctx_notes'), onClick: () => openDialog('notes', name) },
           { label: t('ctx_export'), onClick: () => void handleExport() },
-          { label: t('ctx_import'), onClick: () => void handleImport() }
+          { label: t('ctx_import'), onClick: () => void handleImport() },
+          // J5: only shown when there's somewhere for it to go — a manually
+          // added game with no detected exe or install folder has neither.
+          ...(profile.exePath || profile.installDir
+            ? [{ label: t('ctx_open_exe_directory'), onClick: () => void handleOpenExeDirectory() }]
+            : [])
         ].map((action) => (
           <button
             key={action.label}

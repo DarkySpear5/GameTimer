@@ -104,6 +104,7 @@ const api: GameTimerApi = {
       ipcRenderer.invoke(IPC.detect.createGame, name, exePath, steamAppId),
     launch: (name) => ipcRenderer.invoke(IPC.detect.launch, name),
     stop: (name) => ipcRenderer.invoke(IPC.detect.stop, name),
+    openExeDirectory: (name) => ipcRenderer.invoke(IPC.detect.openExeDirectory, name),
     openGames: () => ipcRenderer.invoke(IPC.detect.openGames),
     onOpenGamesChanged: (cb) => {
       const listener = (_event: Electron.IpcRendererEvent, names: string[]): void => cb(names)

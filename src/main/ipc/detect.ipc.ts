@@ -5,7 +5,7 @@ import { listRunningApps } from '../detect/processList'
 import { identify } from '../detect/identify'
 import { searchSteamApps } from '../art/steamArt'
 import { profileService } from '../store/profileService'
-import { launchGame, stopGame } from '../launch/gameLauncher'
+import { launchGame, stopGame, openExeDirectory } from '../launch/gameLauncher'
 import { gameWatcher } from '../detect/gameWatcher'
 import { classifyGames } from '../detect/classify'
 import { getArtOptions } from '../art/artOptions'
@@ -110,6 +110,7 @@ export function registerDetectIpc(): void {
   ipcMain.handle(IPC.detect.classify, (_e, exePaths: string[]) => classifyGames(exePaths))
   ipcMain.handle(IPC.detect.launch, (_e, name: string) => launchGame(name))
   ipcMain.handle(IPC.detect.stop, (_e, name: string) => stopGame(name))
+  ipcMain.handle(IPC.detect.openExeDirectory, (_e, name: string) => openExeDirectory(name))
   ipcMain.handle(IPC.detect.openGames, () => gameWatcher.openNames())
   ipcMain.handle(IPC.detect.setAutoStartTimer, (_e, name: string, value: boolean | null) =>
     profileService.setAutoStartTimer(name, value)

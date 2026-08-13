@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Modal } from '../common/Modal'
+import { Spinner } from '../common/Spinner'
 import { formatSeconds } from '@shared/format'
 import { toast } from '../common/Toast'
 import { useProfilesStore } from '../../state/profilesStore'
@@ -21,6 +22,9 @@ interface Detected {
 export function LegacyImportPrompt({ onResolved }: { onResolved?: () => void }): React.JSX.Element | null {
   const [detected, setDetected] = useState<Detected | null>(null)
   const [dismissed, setDismissed] = useState(false)
+  // J4: the import copies every icon/background it finds, which is real disk
+  // I/O — the button used to stay clickable with no sign anything was running.
+  const [busy, setBusy] = useState(false)
 
   useEffect(() => {
     void (async () => {
@@ -44,6 +48,7 @@ export function LegacyImportPrompt({ onResolved }: { onResolved?: () => void }):
   if (!detected || dismissed) return null
 
   async function doImport(path: string): Promise<void> {
+    setBusy(true)
     try {
       const result = await window.api.legacyImport.run(path)
       useProfilesStore.getState().setAll(await window.api.profiles.list())
@@ -75,17 +80,24 @@ export function LegacyImportPrompt({ onResolved }: { onResolved?: () => void }):
       <div className="mt-4 flex flex-wrap justify-end gap-2">
         <button
           onClick={() => void chooseDifferentFile()}
-          className="rounded bg-card px-3 py-1.5 text-sm text-text hover:bg-card/70"
+          disabled={busy}
+          className="rounded bg-card px-3 py-1.5 text-sm text-text hover:bg-card/70 disabled:opacity-50"
         >
           Choose a different file…
         </button>
-        <button onClick={() => void skip()} className="rounded bg-card px-3 py-1.5 text-sm text-text hover:bg-card/70">
+        <button
+          onClick={() => void skip()}
+          disabled={busy}
+          className="rounded bg-card px-3 py-1.5 text-sm text-text hover:bg-card/70 disabled:opacity-50"
+        >
           Skip
         </button>
         <button
           onClick={() => void doImport(detected.path)}
-          className="rounded bg-accent px-4 py-1.5 text-sm font-medium text-bg hover:opacity-90"
+          disabled={busy}
+          className="flex items-center gap-2 rounded bg-accent px-4 py-1.5 text-sm font-medium text-bg hover:opacity-90 disabled:opacity-50"
         >
+          {busy && <Spinner className="h-3.5 w-3.5" />}
           Import
         </button>
       </div>

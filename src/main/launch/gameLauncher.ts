@@ -1,6 +1,7 @@
 import { shell } from 'electron'
 import { spawn } from 'child_process'
 import { dirname } from 'path'
+import { existsSync } from 'fs'
 import { dataStore } from '../store/dataStore'
 import { gameWatcher } from '../detect/gameWatcher'
 import { listRunningProcesses } from '../detect/processes'
@@ -116,4 +117,29 @@ export async function stopGame(name: string): Promise<{ stopped: boolean }> {
   }
   gameWatcher.noteClosed(name)
   return { stopped: true }
+}
+
+/**
+ * Opens Explorer at the game's install location.
+ *
+ * showItemInFolder (select the .exe) is preferred over openPath (just open the
+ * folder) when an exe is known — landing on the actual file is more useful
+ * than the top of a folder that might hold dozens of unrelated ones, and it's
+ * how "show in folder" behaves everywhere else in Windows. Falls back to
+ * installDir for a Steam/Store game, which has no exe on disk that Gamut
+ * knows about at all.
+ */
+export async function openExeDirectory(name: string): Promise<{ opened: boolean }> {
+  const profile = dataStore.get().profiles[name]
+  if (!profile) return { opened: false }
+
+  if (profile.exePath && existsSync(profile.exePath)) {
+    shell.showItemInFolder(profile.exePath)
+    return { opened: true }
+  }
+  if (profile.installDir && existsSync(profile.installDir)) {
+    const error = await shell.openPath(profile.installDir)
+    return { opened: error === '' }
+  }
+  return { opened: false }
 }
