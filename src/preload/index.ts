@@ -68,10 +68,16 @@ const api: GameTimerApi = {
     getPopoutState: () => ipcRenderer.invoke(IPC.notes.getPopoutState),
     moveDrawing: (name, fromNoteId, toNoteId) =>
       ipcRenderer.invoke(IPC.notes.moveDrawing, name, fromNoteId, toNoteId),
+    setViewedNote: (target) => ipcRenderer.send(IPC.notes.setViewedNote, target),
     onPopoutStateChanged: (cb) => {
       const listener = (_event: Electron.IpcRendererEvent, state: PopoutState | null): void => cb(state)
       ipcRenderer.on(IPC.notes.popoutState, listener)
       return () => ipcRenderer.removeListener(IPC.notes.popoutState, listener)
+    },
+    onDropDetected: (cb) => {
+      const listener = (_event: Electron.IpcRendererEvent, targetNoteId: string): void => cb(targetNoteId)
+      ipcRenderer.on(IPC.notes.dropDetected, listener)
+      return () => ipcRenderer.removeListener(IPC.notes.dropDetected, listener)
     }
   },
   window: {

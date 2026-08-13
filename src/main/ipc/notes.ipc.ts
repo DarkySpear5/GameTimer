@@ -13,4 +13,7 @@ export function registerNotesIpc(): void {
     drawingPopout.retarget(toNoteId)
     return profile
   })
+  ipcMain.on(IPC.notes.setViewedNote, (_e, target: { name: string; noteId: string } | null) =>
+    drawingPopout.setViewedNote(target)
+  )
 }

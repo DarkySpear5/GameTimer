@@ -217,6 +217,7 @@
   "note_pen_auto": "Auto (matches the theme)",
   "note_pop_out": "Pop out",
   "note_pop_out_busy": "Close the other pop-out to move it here",
+  "note_popout_close_hint": "Close (Esc)",
   "note_popout_gone": "This note no longer exists.",
   "note_rename_hint": "Click to rename",
   "note_select_genres": "Click to select any number of genres.",

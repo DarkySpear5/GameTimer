@@ -74,7 +74,9 @@ export const IPC = {
     openPopout: 'notes:openPopout',
     getPopoutState: 'notes:getPopoutState',
     moveDrawing: 'notes:moveDrawing',
-    popoutState: 'notes:popoutState'
+    setViewedNote: 'notes:setViewedNote',
+    popoutState: 'notes:popoutState',
+    dropDetected: 'notes:dropDetected'
   },
   window: {
     minimize: 'window:minimize',
@@ -208,7 +210,19 @@ export interface GameTimerApi {
     getPopoutState(): Promise<PopoutState | null>
     /** The caller must confirm an overwrite with the user before calling this — it performs the move unconditionally. */
     moveDrawing(name: string, fromNoteId: string, toNoteId: string): Promise<Profile>
+    /** Which note (if any) the main window's NoteEditor currently has open — lets a drag-drop reattach pick a different note as the target, instead of always reattaching to the pop-out's own. Pass null when leaving the editor. */
+    setViewedNote(target: { name: string; noteId: string } | null): void
     onPopoutStateChanged(cb: (state: PopoutState | null) => void): () => void
+    /**
+     * Fired at the pop-out window ONLY, when main detects it's been dropped
+     * on the app after a drag. main decides WHETHER a drop happened and
+     * WHICH note it landed on; the pop-out's own renderer decides what to do
+     * about it (confirm an overwrite, call moveDrawing, close itself) —
+     * reusing the exact same code path the "Move to note" dropdown already
+     * uses, so both ways of moving a drawing behave identically and a
+     * confirm can be driven/verified as an ordinary web dialog.
+     */
+    onDropDetected(cb: (targetNoteId: string) => void): () => void
   }
   window: {
     minimize(): void

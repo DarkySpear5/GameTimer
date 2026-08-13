@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Modal } from '../common/Modal'
 import { useProfilesStore } from '../../state/profilesStore'
@@ -22,6 +22,17 @@ export function NotesDialog({ name, onClose }: { name: string; onClose: () => vo
   // is the real path, not a defensive nicety, same reasoning as Library's
   // detail page handling a profile disappearing.
   const openNote = openNoteId ? profile.noteList.find((n) => n.id === openNoteId) : null
+
+  // L3: tells main which note (if any) is on screen right now, so a
+  // drag-drop reattach of the pop-out can target THIS note instead of always
+  // reattaching to wherever it came from. Cleared on every path out of a
+  // note — Back, Delete, and unmounting (dialog closed) alike — so a stale
+  // value can never linger as a merge target once nobody is actually looking
+  // at that note anymore.
+  useEffect(() => {
+    window.api.notes.setViewedNote(openNote ? { name, noteId: openNote.id } : null)
+    return () => window.api.notes.setViewedNote(null)
+  }, [name, openNote?.id])
 
   return (
     <Modal title={t('dlg_notes_title', { name: profile.name })} onClose={onClose} width="max-w-2xl">

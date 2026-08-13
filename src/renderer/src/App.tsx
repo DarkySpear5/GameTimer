@@ -19,6 +19,7 @@ import { useProfilesStore } from './state/profilesStore'
 import { loadSettings } from './state/settingsStore'
 import { startTimerTickSubscription } from './state/timerStore'
 import { startOpenGamesSubscription } from './state/openGamesStore'
+import { startNotesPopoutSync } from './state/notesPopoutSync'
 import { useUiStore } from './state/uiStore'
 
 // The Timer tab is gone. It existed to answer "what am I playing", but a game's
@@ -54,6 +55,7 @@ function App(): React.JSX.Element {
     })()
     startTimerTickSubscription()
     startOpenGamesSubscription()
+    startNotesPopoutSync()
   }, [])
 
   return (

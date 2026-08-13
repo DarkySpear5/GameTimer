@@ -175,23 +175,49 @@ Status key: `[ ]` not started · `[~]` in progress · `[x]` done
   it, plus a 4-color palette. Strokes are stored as normalized 0..1 points,
   not a baked image, so they redraw correctly at any canvas size.
 - [x] **L3. The drawing canvas can pop out into its own resizable window** —
-  the note's text zone expands to fill the space it leaves. **Scope change,
-  flagged before and after building:** literal drag-to-reattach needs
-  continuous cross-window OS drag-position tracking, which can't be built or
-  verified without a human physically dragging a window — nothing in this
-  environment can drive or observe that gesture. Same outcome, different
-  input: closing the pop-out auto-reattaches to its own note (no prompt
-  needed — it never left that note); an explicit "Move to note ▾" dropdown in
-  the pop-out retargets it to a different note, with a confirm if that note
-  already has a drawing (accept = old one lost). Only one pop-out can exist
-  at a time.
+  the note's text zone expands to fill the space it leaves. First pass shipped
+  a click-only fallback (dropdown + auto-reattach-on-close) after wrongly
+  assuming drag-position tracking was unverifiable here. The user tried it,
+  didn't like it, and asked for the real thing — turned out buildable after
+  all: Electron fires the same native 'move' event for a scripted
+  `setBounds()` sequence as for an actual OS drag (both go through
+  WM_WINDOWPOSCHANGED on Windows), so it could be driven AND verified.
+  Rebuilt properly: dragging the pop-out onto the main window and letting go
+  reattaches it; if the main window has a DIFFERENT note of the same game
+  open, it offers to move the drawing there instead, with the same
+  overwrite-confirm the dropdown gives (kept, alongside the drag, as a
+  non-drag alternative). Only one pop-out can exist at a time.
 
-All three verified against the real packaged app (not a browser
-approximation — same lesson as the earlier layout-bug chase this session):
-25 checks covering the legacy-note migration, full CRUD, drawing persistence,
-the pop-out's full lifecycle (open → draw → close → auto-reattach), and both
-"Move to note" branches (empty target, and the overwrite confirm with its
-exact dialog text asserted).
+  Two real bugs the user found by hand, neither test suite had caught:
+  - **Fullscreen lockout.** The pop-out could be driven into OS fullscreen
+    (no frame, no taskbar, no visible way out) with no code path that put it
+    there deliberately — some default Electron/OS trigger. Fixed at the root
+    (`fullscreenable: false`, so the window can no longer enter that state by
+    any path) plus a belt-and-suspenders escape hatch: an always-visible ✕
+    and Escape-to-close, present in every state the window can render,
+    so a similar trap can't happen again even from an unanticipated cause.
+  - **Stale main-window view after closing the pop-out.** The pop-out is a
+    separate renderer process; saving a stroke there updated the real data
+    (main process owns it either way) but never told the main window's own
+    copy of that data to refresh, so its canvas reverted to whatever it last
+    knew instead of showing what was just drawn — data on disk was correct
+    the whole time, only the rendered view was stale. Fixed with a small
+    global subscription (`notesPopoutSync`) that refetches whenever the
+    pop-out's state changes at all, which also covers the list view's ✏️
+    marker staying current after a "Move to note".
+
+All three verified against the real packaged app throughout (not a browser
+approximation — the same lesson from the earlier layout-bug chase this
+session, twice reconfirmed): 25 checks on the base CRUD/list/canvas/pop-out
+flow, plus 8 more once the user's reports landed — the exact stale-sync
+repro (draw / pop out / draw / close / draw again, all four strokes
+required present), fullscreenable verified false, drag-to-reattach onto the
+main window, and drag onto a different note triggering the same
+overwrite-confirm the dropdown uses (same code path, not a duplicate one —
+the first attempt at the confirm used Electron's native `dialog` API in
+main, which is invisible to a renderer-side test harness; rebuilt so the
+pop-out's own renderer decides and confirms, reusing the dropdown's already-
+tested handleMoveTo instead of a second, differently-behaved implementation).
 
 ## M. Keybinds (found 2026-08-13)
 
