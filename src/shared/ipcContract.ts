@@ -14,6 +14,7 @@ import type {
   UpdateInfo,
   UpdateProgress
 } from './types'
+import type { DrawingStroke } from './notes'
 
 /**
  * Channel name constants — single source of truth so main/ipc/*.ts and the
@@ -33,7 +34,11 @@ export const IPC = {
     setGenres: 'profiles:setGenres',
     setRating: 'profiles:setRating',
     setFavorite: 'profiles:setFavorite',
-    setNotes: 'profiles:setNotes',
+    createNote: 'profiles:createNote',
+    renameNote: 'profiles:renameNote',
+    deleteNote: 'profiles:deleteNote',
+    updateNoteBody: 'profiles:updateNoteBody',
+    updateNoteDrawing: 'profiles:updateNoteDrawing',
     addRemoveTime: 'profiles:addRemoveTime',
     resetTime: 'profiles:resetTime',
     setIcon: 'profiles:setIcon',
@@ -64,6 +69,12 @@ export const IPC = {
     setRunAtStartup: 'system:setRunAtStartup',
     setTrayEnabled: 'system:setTrayEnabled',
     quit: 'system:quit'
+  },
+  notes: {
+    openPopout: 'notes:openPopout',
+    getPopoutState: 'notes:getPopoutState',
+    moveDrawing: 'notes:moveDrawing',
+    popoutState: 'notes:popoutState'
   },
   window: {
     minimize: 'window:minimize',
@@ -118,6 +129,12 @@ export interface TimerTickPayload {
   running: Record<string, number>
 }
 
+/** Which note's drawing is currently open in the L3 pop-out window, or null if none is. */
+export interface PopoutState {
+  name: string
+  noteId: string
+}
+
 /**
  * The typed surface the preload script exposes as `window.api`. Kept here
  * (not in preload) so main's IPC handlers and the renderer's usage sites are
@@ -140,8 +157,13 @@ export interface GameTimerApi {
     setGenres(name: string, genres: string[]): Promise<Profile>
     setRating(name: string, rating: 0 | 1 | 2 | 3 | 4 | 5): Promise<Profile>
     setFavorite(name: string, favorite: boolean): Promise<Profile>
-    setNotes(name: string, notes: string): Promise<Profile>
-    addRemoveTime(name: string, deltaSeconds: number, note?: string): Promise<Profile>
+    /** L1: a fresh untitled note at the top of the list. */
+    createNote(name: string): Promise<Profile>
+    renameNote(name: string, noteId: string, title: string): Promise<Profile>
+    deleteNote(name: string, noteId: string): Promise<Profile>
+    updateNoteBody(name: string, noteId: string, body: string): Promise<Profile>
+    updateNoteDrawing(name: string, noteId: string, drawing: DrawingStroke[]): Promise<Profile>
+    addRemoveTime(name: string, deltaSeconds: number): Promise<Profile>
     resetTime(name: string): Promise<Profile>
     setIcon(name: string): Promise<Profile | null>
     setBackground(name: string, kind: 'image' | 'color', value: string): Promise<Profile | null>
@@ -173,6 +195,20 @@ export interface GameTimerApi {
     setRunAtStartup(enabled: boolean): Promise<void>
     setTrayEnabled(enabled: boolean): Promise<void>
     quit(): Promise<void>
+  }
+  /**
+   * L3: the drawing pop-out. Only one can be open at a time — see
+   * drawingPopout.ts. openPopout resolves false if a DIFFERENT note is
+   * already popped out; the caller is expected to have hidden/disabled the
+   * button in that case (see NoteEditor's own popoutState subscription)
+   * rather than needing to handle it as a surprise.
+   */
+  notes: {
+    openPopout(name: string, noteId: string): Promise<{ opened: boolean }>
+    getPopoutState(): Promise<PopoutState | null>
+    /** The caller must confirm an overwrite with the user before calling this — it performs the move unconditionally. */
+    moveDrawing(name: string, fromNoteId: string, toNoteId: string): Promise<Profile>
+    onPopoutStateChanged(cb: (state: PopoutState | null) => void): () => void
   }
   window: {
     minimize(): void

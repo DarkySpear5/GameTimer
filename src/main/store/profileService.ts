@@ -9,8 +9,10 @@ import { todayDateString } from '../util/date'
 import { saveCappedImage } from '../util/imageResize'
 import { enrichGame, storeArtFromUrl } from '../art/enrich'
 import { emptyAggregate } from '@shared/sessionStats'
+import { emptyNote } from '@shared/notes'
 import { ICON_MAX_DIMENSION, BACKGROUND_MAX_DIMENSION, COVER_MAX_DIMENSION } from '@shared/constants'
 import type { Profile, Status } from '@shared/types'
+import type { DrawingStroke } from '@shared/notes'
 
 function freshProfile(name: string): Profile {
   return {
@@ -29,6 +31,7 @@ function freshProfile(name: string): Profile {
     lastPlayed: null,
     startedDate: null,
     notes: '',
+    noteList: [],
     rating: 0,
     sessionStats: emptyAggregate(),
     sessionLog: [],
@@ -162,6 +165,14 @@ export const profileService = {
       lastPlayed: original.lastPlayed,
       startedDate: original.startedDate,
       notes: original.notes,
+      // Deep-ish copy: notes are mutated in place elsewhere in this file (see
+      // renameNote/updateNoteBody/etc.), so a shallow array spread would
+      // still share the same Note objects between original and copy — the
+      // copy editing a note would silently edit the original's too.
+      noteList: original.noteList.map((n) => ({
+        ...n,
+        drawing: n.drawing.map((s) => ({ ...s, points: [...s.points] }))
+      })),
       rating: original.rating,
       // Copied, not reset: duplicate() clones seconds and the completion
       // snapshot too, so an empty log here would make the copy claim hours
@@ -398,14 +409,79 @@ export const profileService = {
     return profile
   },
 
-  async setNotes(name: string, notes: string): Promise<Profile> {
+  /** L1: a fresh, untitled note at the top of the list — same "most recent first" order the note list itself uses. */
+  async createNote(name: string): Promise<Profile> {
     const profile = requireProfile(name)
-    profile.notes = notes
+    const now = Date.now()
+    // Plain English, not translated: main has no i18n access, same as every
+    // other main-process-generated default string in this file (e.g. the
+    // migration's "Note" title for a folded-in legacy note).
+    profile.noteList = [emptyNote(randomUUID(), 'Untitled Note', now), ...profile.noteList]
     await dataStore.safeSave()
     return profile
   },
 
-  async addRemoveTime(name: string, deltaSeconds: number, note?: string): Promise<Profile> {
+  async renameNote(name: string, noteId: string, title: string): Promise<Profile> {
+    const profile = requireProfile(name)
+    const note = profile.noteList.find((n) => n.id === noteId)
+    if (note) {
+      note.title = title
+      note.updatedAt = Date.now()
+    }
+    await dataStore.safeSave()
+    return profile
+  },
+
+  async deleteNote(name: string, noteId: string): Promise<Profile> {
+    const profile = requireProfile(name)
+    profile.noteList = profile.noteList.filter((n) => n.id !== noteId)
+    await dataStore.safeSave()
+    return profile
+  },
+
+  async updateNoteBody(name: string, noteId: string, body: string): Promise<Profile> {
+    const profile = requireProfile(name)
+    const note = profile.noteList.find((n) => n.id === noteId)
+    if (note) {
+      note.body = body
+      note.updatedAt = Date.now()
+    }
+    await dataStore.safeSave()
+    return profile
+  },
+
+  async updateNoteDrawing(name: string, noteId: string, drawing: DrawingStroke[]): Promise<Profile> {
+    const profile = requireProfile(name)
+    const note = profile.noteList.find((n) => n.id === noteId)
+    if (note) {
+      note.drawing = drawing
+      note.updatedAt = Date.now()
+    }
+    await dataStore.safeSave()
+    return profile
+  },
+
+  /**
+   * L3: the pop-out's "Move to note" control. The caller (drawingPopout.ts)
+   * is responsible for confirming an overwrite with the user first — this
+   * just performs it, unconditionally, exactly like every other destructive
+   * action in this file trusts its caller to have already asked.
+   */
+  async moveDrawing(name: string, fromNoteId: string, toNoteId: string): Promise<Profile> {
+    const profile = requireProfile(name)
+    const from = profile.noteList.find((n) => n.id === fromNoteId)
+    const to = profile.noteList.find((n) => n.id === toNoteId)
+    if (from && to && from !== to) {
+      to.drawing = from.drawing
+      to.updatedAt = Date.now()
+      from.drawing = []
+      from.updatedAt = Date.now()
+    }
+    await dataStore.safeSave()
+    return profile
+  },
+
+  async addRemoveTime(name: string, deltaSeconds: number): Promise<Profile> {
     const profile = requireProfile(name)
     const removing = deltaSeconds < 0
     const magnitude = Math.abs(deltaSeconds)
@@ -414,15 +490,6 @@ export const profileService = {
     } else {
       profile.seconds += magnitude
       profile.lastPlayed = Date.now()
-    }
-    const trimmedNote = note?.trim()
-    if (trimmedNote) {
-      const hours = Math.floor(magnitude / 3600)
-      const minutes = Math.floor((magnitude % 3600) / 60)
-      const hm = hours ? `${hours}h ${minutes}m` : `${minutes}m`
-      const sign = removing ? '-' : '+'
-      const line = `[${todayDateString()}] ${sign}${hm} — ${trimmedNote}`
-      profile.notes = profile.notes ? `${profile.notes}\n${line}` : line
     }
     await dataStore.safeSave()
     void writeStatusLog()

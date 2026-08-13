@@ -10,6 +10,7 @@ import { registerImportExportIpc } from './importExport.ipc'
 import { registerUpdaterIpc } from './updater.ipc'
 import { registerFontsIpc } from './fonts.ipc'
 import { registerDetectIpc } from './detect.ipc'
+import { registerNotesIpc } from './notes.ipc'
 
 /** Single place every ipcMain.handle/on registration goes through, so there's one spot to audit what's wired up. */
 export function registerAllIpcHandlers(win: BrowserWindow): void {
@@ -32,4 +33,5 @@ export function registerAllIpcHandlers(win: BrowserWindow): void {
   registerUpdaterIpc()
   registerFontsIpc()
   registerDetectIpc()
+  registerNotesIpc()
 }

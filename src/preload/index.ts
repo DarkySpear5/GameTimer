@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { IPC } from '@shared/ipcContract'
-import type { GameTimerApi, TimerTickPayload } from '@shared/ipcContract'
+import type { GameTimerApi, PopoutState, TimerTickPayload } from '@shared/ipcContract'
 import type { UpdateInfo, UpdateProgress } from '@shared/types'
 
 // Thin pass-through only — no logic belongs here. Every method just forwards
@@ -19,9 +19,14 @@ const api: GameTimerApi = {
     setGenres: (name, genres) => ipcRenderer.invoke(IPC.profiles.setGenres, name, genres),
     setRating: (name, rating) => ipcRenderer.invoke(IPC.profiles.setRating, name, rating),
     setFavorite: (name, favorite) => ipcRenderer.invoke(IPC.profiles.setFavorite, name, favorite),
-    setNotes: (name, notes) => ipcRenderer.invoke(IPC.profiles.setNotes, name, notes),
-    addRemoveTime: (name, deltaSeconds, note) =>
-      ipcRenderer.invoke(IPC.profiles.addRemoveTime, name, deltaSeconds, note),
+    createNote: (name) => ipcRenderer.invoke(IPC.profiles.createNote, name),
+    renameNote: (name, noteId, title) => ipcRenderer.invoke(IPC.profiles.renameNote, name, noteId, title),
+    deleteNote: (name, noteId) => ipcRenderer.invoke(IPC.profiles.deleteNote, name, noteId),
+    updateNoteBody: (name, noteId, body) =>
+      ipcRenderer.invoke(IPC.profiles.updateNoteBody, name, noteId, body),
+    updateNoteDrawing: (name, noteId, drawing) =>
+      ipcRenderer.invoke(IPC.profiles.updateNoteDrawing, name, noteId, drawing),
+    addRemoveTime: (name, deltaSeconds) => ipcRenderer.invoke(IPC.profiles.addRemoveTime, name, deltaSeconds),
     resetTime: (name) => ipcRenderer.invoke(IPC.profiles.resetTime, name),
     setIcon: (name) => ipcRenderer.invoke(IPC.profiles.setIcon, name),
     setBackground: (name, kind, value) =>
@@ -57,6 +62,17 @@ const api: GameTimerApi = {
     setRunAtStartup: (enabled) => ipcRenderer.invoke(IPC.system.setRunAtStartup, enabled),
     setTrayEnabled: (enabled) => ipcRenderer.invoke(IPC.system.setTrayEnabled, enabled),
     quit: () => ipcRenderer.invoke(IPC.system.quit)
+  },
+  notes: {
+    openPopout: (name, noteId) => ipcRenderer.invoke(IPC.notes.openPopout, name, noteId),
+    getPopoutState: () => ipcRenderer.invoke(IPC.notes.getPopoutState),
+    moveDrawing: (name, fromNoteId, toNoteId) =>
+      ipcRenderer.invoke(IPC.notes.moveDrawing, name, fromNoteId, toNoteId),
+    onPopoutStateChanged: (cb) => {
+      const listener = (_event: Electron.IpcRendererEvent, state: PopoutState | null): void => cb(state)
+      ipcRenderer.on(IPC.notes.popoutState, listener)
+      return () => ipcRenderer.removeListener(IPC.notes.popoutState, listener)
+    }
   },
   window: {
     minimize: () => ipcRenderer.send(IPC.window.minimize),

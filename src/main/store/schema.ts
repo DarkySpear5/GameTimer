@@ -27,6 +27,28 @@ const RatingSchema = z
   .union([z.literal(0), z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5)])
   .catch(0)
 
+const DrawingStrokeSchema = z
+  .object({
+    points: z.array(z.object({ x: z.number(), y: z.number() })).catch([]),
+    color: z.string().catch('#ffffff'),
+    width: z.number().catch(2)
+  })
+  .catch({ points: [], color: '#ffffff', width: 2 })
+
+const NoteSchema = z.object({
+  // A note with no id can't be renamed, deleted or edited afterward, so an
+  // empty/missing one is treated as invalid input (triggers .catch below)
+  // rather than silently accepted.
+  id: z.string().min(1).catch(() => Math.random().toString(36).slice(2)),
+  title: z.string().catch(''),
+  body: z.string().catch(''),
+  drawing: z.array(DrawingStrokeSchema).catch([]),
+  createdAt: z.number().catch(0),
+  updatedAt: z.number().catch(0)
+})
+
+const NoteListSchema = z.array(NoteSchema).catch([])
+
 const SessionEntrySchema = z.object({
   startedAt: z.number().catch(0),
   seconds: z.number().catch(0),
@@ -57,6 +79,10 @@ const ProfileSchema = z
     lastPlayed: z.number().nullable().catch(null),
     startedDate: z.string().nullable().catch(null),
     notes: z.string().catch(''),
+    // Absent in every save written before L1's multi-note rewrite — defaults
+    // to empty and gets folded from the legacy `notes` field by
+    // migrateLegacyNotes, same shape as the activeSession precedent below.
+    noteList: NoteListSchema,
     rating: RatingSchema,
     // .catch([]) rather than validation: same contract as every other field
     // here — a partial or corrupt file loses the bad field, never the library.

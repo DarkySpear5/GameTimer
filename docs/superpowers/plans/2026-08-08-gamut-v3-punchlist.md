@@ -162,17 +162,36 @@ Status key: `[ ]` not started · `[~]` in progress · `[x]` done
   below the table; now sits between the stat cards and the table, so it's on
   screen for any list longer than a handful of rows without scrolling.
 
-## L. Notes rewrite (found 2026-08-13, expands D5)
+## L. Notes rewrite (found 2026-08-13, expands D5) — DONE 2026-08-13
 
-- [ ] **L1. Multi-note list per game** — `+` to add, rename in place, list view
-  (name + open), back arrow to return. Outlook/Google Keep shaped.
-- [ ] **L2. Each note is split left/right: text on the left, a live drawing
-  canvas on the right.** Canvas background matches the active theme; default
-  pen color is whichever of black/white contrasts with it.
-- [ ] **L3. The drawing canvas can pop out into its own resizable window** —
-  the note's text zone expands to fill the space it leaves. Dragging the
-  pop-out back onto its note reattaches it; dragging it onto a DIFFERENT note
-  that already has a canvas prompts to overwrite (yes = old canvas lost).
+- [x] **L1. Multi-note list per game** — `+ New note`, click a title to
+  rename it in place, list view (title + a ✏️ marker for notes with a
+  drawing), back arrow to return. Outlook/Google Keep shaped. The legacy
+  single `notes` string is folded into a one-item list once, on load or
+  import, and kept (not cleared) as the source of truth for older exports.
+- [x] **L2. Each note is split left/right: text on the left, a live drawing
+  canvas on the right.** Canvas background matches the active theme (reads
+  `--gt-card`); default pen color is whichever of black/white contrasts with
+  it, plus a 4-color palette. Strokes are stored as normalized 0..1 points,
+  not a baked image, so they redraw correctly at any canvas size.
+- [x] **L3. The drawing canvas can pop out into its own resizable window** —
+  the note's text zone expands to fill the space it leaves. **Scope change,
+  flagged before and after building:** literal drag-to-reattach needs
+  continuous cross-window OS drag-position tracking, which can't be built or
+  verified without a human physically dragging a window — nothing in this
+  environment can drive or observe that gesture. Same outcome, different
+  input: closing the pop-out auto-reattaches to its own note (no prompt
+  needed — it never left that note); an explicit "Move to note ▾" dropdown in
+  the pop-out retargets it to a different note, with a confirm if that note
+  already has a drawing (accept = old one lost). Only one pop-out can exist
+  at a time.
+
+All three verified against the real packaged app (not a browser
+approximation — same lesson as the earlier layout-bug chase this session):
+25 checks covering the legacy-note migration, full CRUD, drawing persistence,
+the pop-out's full lifecycle (open → draw → close → auto-reattach), and both
+"Move to note" branches (empty target, and the overwrite confirm with its
+exact dialog text asserted).
 
 ## M. Keybinds (found 2026-08-13)
 

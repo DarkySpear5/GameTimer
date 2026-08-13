@@ -9,6 +9,7 @@ import { setRunAtStartup } from '../autostart/autostart'
 import { saveCappedImage } from '../util/imageResize'
 import { isInside, safeAssetFileName } from '../util/safePath'
 import { emptyAggregate } from '@shared/sessionStats'
+import { emptyNote } from '@shared/notes'
 import { DEFAULT_CUSTOM_COLORS, THEME_ORDER, ICON_MAX_DIMENSION, BACKGROUND_MAX_DIMENSION } from '@shared/constants'
 import type { LegacyDetectResult, Profile, Settings, Status } from '@shared/types'
 
@@ -84,6 +85,9 @@ function normalizeLegacyProfile(name: string, raw: LegacyProfileRaw): Profile {
     lastPlayed: raw.last_played ?? null,
     startedDate: raw.started_date ?? null,
     notes: raw.notes ?? '',
+    // v1's one note field folds into a single note, same as any other
+    // pre-L1 source — see migrateLegacyNotes for the general case.
+    noteList: raw.notes?.trim() ? [{ ...emptyNote(randomUUID(), 'Note', Date.now()), body: raw.notes }] : [],
     rating,
     // v1 never recorded sessions, so an imported library starts with an
     // empty log — its `seconds` total is real, its session count starts at 0.

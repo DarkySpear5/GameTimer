@@ -1,4 +1,5 @@
 import type { ActiveSession, SessionAggregate, SessionEntry } from './sessionStats'
+import type { Note } from './notes'
 
 export type Status = 'not_started' | 'in_progress' | 'completed' | 'dropped' | 'on_hold'
 
@@ -35,7 +36,9 @@ export interface Profile {
   genres: string[]
   lastPlayed: number | null
   startedDate: string | null
+  /** L1: superseded by noteList, kept only as the pre-L1 export/import shape and migration source — see migrateLegacyNotes. */
   notes: string
+  noteList: Note[]
   rating: 0 | 1 | 2 | 3 | 4 | 5
   /**
    * Running totals over every session ever played. This — not sessionLog — is
@@ -291,6 +294,8 @@ export interface GtProfileFile {
    */
   sessionLog?: SessionEntry[]
   sessionStats?: SessionAggregate
+  /** Optional for the same reason as sessionLog — absent from any export written before L1, and simply ignored by any build older than it. */
+  noteList?: Note[]
   steamAppId?: number | null
   iconB64?: string
   iconExt?: string
