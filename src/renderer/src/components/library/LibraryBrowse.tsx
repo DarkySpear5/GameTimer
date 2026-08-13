@@ -141,9 +141,18 @@ const GameListRow = memo(function GameListRow({
 })
 
 /** A labelled control. The three filters used to be bare dropdowns reading "Name (A-Z) / All / All" — three mystery boxes in the first thing a new user sees. */
-function Field({ label, children }: { label: string; children: React.ReactNode }): React.JSX.Element {
+function Field({
+  label,
+  children,
+  className = ''
+}: {
+  label: string
+  children: React.ReactNode
+  /** Only the search field passes this, to make itself the toolbar's flexible element. */
+  className?: string
+}): React.JSX.Element {
   return (
-    <label className="flex flex-col gap-1">
+    <label className={`flex flex-col gap-1 ${className}`}>
       <span className="text-[0.65rem] font-medium tracking-wide text-subtext uppercase">{label}</span>
       {children}
     </label>
@@ -197,16 +206,18 @@ export function LibraryBrowse(): React.JSX.Element {
   return (
     <div className="flex h-full flex-col overflow-hidden">
       {/*
-       * Add Game is a sibling of the filter cluster, not a 6th member of its
-       * flex-wrap group. With all six in one wrapping row, Add Game (last,
-       * ml-auto) was the first thing pushed to a new line whenever the
-       * filters didn't fit — landing alone on its own row well before the
-       * window was actually too narrow for it specifically, which read as
-       * "jumps down for no reason". justify-between keeps it pinned to the
-       * right of whichever line it ends up sharing instead.
+       * Add Game keeps its corner; the search box gives up the pixels.
+       *
+       * Everything used to share one flex-wrap row, so Add Game — last in the
+       * line — was the first thing bumped onto a row of its own as soon as the
+       * filters got crowded, which is only a handful of pixels' worth of
+       * crowding. The button is now outside the wrapping group entirely and
+       * never moves. The search input is the one flexible element (see its
+       * min-w-0 + flex-1), so a narrower window shortens the search box by the
+       * few pixels needed instead of rearranging the toolbar.
        */}
-      <div className="flex flex-wrap items-end justify-between gap-3 border-b border-card/60 px-5 py-3">
-        <div className="flex flex-wrap items-end gap-3">
+      <div className="flex items-end gap-3 border-b border-card/60 px-5 py-3">
+        <div className="flex min-w-0 flex-1 flex-wrap items-end gap-3">
           <Field label={t('label_view')}>
             <div className="flex overflow-hidden rounded bg-card">
               {(['grid', 'list'] as const).map((mode) => (
@@ -267,13 +278,19 @@ export function LibraryBrowse(): React.JSX.Element {
             </select>
           </Field>
 
-          <Field label={t('label_search')}>
+          {/*
+           * The toolbar's shock absorber. min-w-0 is what actually lets it
+           * shrink — a flex item defaults to min-width:auto and would other-
+           * wise refuse to go below its intrinsic width, pushing the row wider
+           * instead. basis-44 keeps its comfortable size when there is room.
+           */}
+          <Field label={t('label_search')} className="min-w-0 flex-1 basis-44">
             <input
               type="search"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder={t('placeholder_search_games')}
-              className="w-44 rounded bg-card px-2 py-1 text-xs text-text outline-none ring-1 ring-transparent focus:ring-accent"
+              className="w-full min-w-24 rounded bg-card px-2 py-1 text-xs text-text outline-none ring-1 ring-transparent focus:ring-accent"
             />
           </Field>
         </div>
