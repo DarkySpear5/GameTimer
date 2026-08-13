@@ -1,4 +1,4 @@
-import type { SessionAggregate, SessionEntry } from './sessionStats'
+import type { ActiveSession, SessionAggregate, SessionEntry } from './sessionStats'
 
 export type Status = 'not_started' | 'in_progress' | 'completed' | 'dropped' | 'on_hold'
 
@@ -49,6 +49,11 @@ export interface Profile {
    * the schema defaults it to [].
    */
   sessionLog: SessionEntry[]
+  /**
+   * Set while a timer is running, cleared on pause. A non-null value at
+   * startup means the previous run ended without pausing — see recoverSessions.
+   */
+  activeSession: ActiveSession | null
   /** Full path of the .exe this game was detected from, or null if added manually. */
   exePath: string | null
   /** Resolved once, then cached — used for art and for launching via steam://rungameid. */

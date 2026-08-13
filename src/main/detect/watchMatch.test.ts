@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isGameRunning } from './watchMatch'
+import { isGameRunning, matchingPaths } from './watchMatch'
 
 const running = (...paths: string[]): Set<string> => new Set(paths.map((p) => p.toLowerCase()))
 
@@ -66,5 +66,34 @@ describe('isGameRunning', () => {
     expect(
       isGameRunning({ installDir: 'C:\\Games\\Doom', exePath: null }, running('c:\\games\\doom\\doom.exe'))
     ).toBe(true)
+  })
+})
+
+describe('matchingPaths', () => {
+  // Stop needs every matching path (to find their PIDs), not just a yes/no —
+  // Rocket League's launcher-plus-binary shape means that can be more than one.
+  it('returns every process under the install folder, not just the first', () => {
+    const rocketLeague = {
+      installDir: 'C:\\Program Files\\Epic Games\\rocketleague',
+      exePath: 'C:\\Program Files\\Epic Games\\rocketleague\\Binaries\\Win64\\Launcher.exe'
+    }
+    expect(
+      matchingPaths(
+        rocketLeague,
+        running(
+          'C:\\Program Files\\Epic Games\\rocketleague\\Binaries\\Win64\\Launcher.exe',
+          'C:\\Program Files\\Epic Games\\rocketleague\\Binaries\\Win64\\RocketLeague.exe',
+          'C:\\Windows\\explorer.exe'
+        )
+      )
+    ).toEqual([
+      'c:\\program files\\epic games\\rocketleague\\binaries\\win64\\launcher.exe',
+      'c:\\program files\\epic games\\rocketleague\\binaries\\win64\\rocketleague.exe'
+    ])
+  })
+
+  it('returns an empty list when nothing matches', () => {
+    const game = { installDir: 'C:\\Games\\Portal', exePath: null }
+    expect(matchingPaths(game, running('C:\\Windows\\explorer.exe'))).toEqual([])
   })
 })

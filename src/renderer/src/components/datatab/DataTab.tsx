@@ -122,7 +122,7 @@ export function DataTab(): React.JSX.Element {
   const completedCount = list.filter((p) => p.status === 'completed').length
 
   return (
-    <div className="flex-1 overflow-y-auto">
+    <div className="min-h-0 flex-1 overflow-y-auto">
       {/*
        * The zoom lives on this inner wrapper, NOT the scroll container, and
        * the context menu below sits deliberately outside it. CSS zoom scales

@@ -140,6 +140,8 @@ export async function importProfile(win: BrowserWindow): Promise<Profile | null>
     // fold them; a newer one carries the totals for its whole history.
     sessionStats: imported.sessionStats ?? aggregateFrom(imported.sessionLog ?? []),
     sessionLog: trimSessionLog(imported.sessionLog ?? []),
+    // An import is never mid-session, whatever the exporting machine was doing.
+    activeSession: null,
     // Never carried across machines — the exe lives on the exporter's disk.
     exePath: null,
     steamAppId: imported.steamAppId ?? null,

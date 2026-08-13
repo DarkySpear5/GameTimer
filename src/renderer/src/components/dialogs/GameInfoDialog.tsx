@@ -24,6 +24,7 @@ export function GameInfoDialog({
   const { t } = useTranslation()
   const profile = useProfilesStore((s) => s.profiles[name])
   const advanced = useSettingsStore((s) => s.settings?.detailLevel === 'advanced')
+  const watching = useSettingsStore((s) => s.settings?.watchForGames ?? false)
   // Read from the running aggregate, not the log — the log is a bounded
   // tail, so recomputing from it would under-report a long-played game.
   const summary = useMemo(
@@ -101,8 +102,20 @@ export function GameInfoDialog({
        * competing playtimes; with it they see "Steam would have said 50 — here
        * is where the other 31 went".
        */}
-      {advanced && profile.openSeconds > 0 && (
+      {/*
+       * Shown whenever Advanced is on, even with nothing to report. Hiding the
+       * block on openSeconds === 0 meant a reader who turned Advanced on
+       * specifically to see idle time got no idle row and no reason why — it
+       * read as broken rather than as "nothing has been measured yet".
+       */}
+      {advanced && (
         <div className="mt-4 border-t border-card pt-4">
+          {profile.openSeconds === 0 ? (
+            <div className="text-xs leading-snug text-subtext">
+              {watching ? t('note_idle_none_yet') : t('note_idle_needs_watching')}
+            </div>
+          ) : (
+            <>
           <dl className="space-y-2 text-sm">
             <Row label={t('stat_open')} value={formatSeconds(profile.openSeconds)} />
             <Row
@@ -126,6 +139,8 @@ export function GameInfoDialog({
            * most of the gap is that sampling rather than real idle time.
            */}
           <div className="mt-2 text-xs leading-snug text-subtext">{t('note_idle_explained')}</div>
+            </>
+          )}
         </div>
       )}
 

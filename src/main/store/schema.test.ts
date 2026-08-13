@@ -35,6 +35,28 @@ describe('sessionLog schema', () => {
   })
 })
 
+describe('activeSession schema', () => {
+  it('defaults to null for every save written before crash recovery existed', () => {
+    const data = parseAppData({ profiles: { Doom: { name: 'Doom', seconds: 10 } } })
+    expect(data.profiles.Doom.activeSession).toBeNull()
+  })
+
+  it('preserves a marker left behind by a crash', () => {
+    const data = parseAppData({
+      profiles: { Doom: { name: 'Doom', activeSession: { startedAt: 1000, lastSeenAt: 5000 } } }
+    })
+    expect(data.profiles.Doom.activeSession).toEqual({ startedAt: 1000, lastSeenAt: 5000 })
+  })
+
+  it('drops a corrupt marker rather than rejecting the profile', () => {
+    const data = parseAppData({
+      profiles: { Doom: { name: 'Doom', seconds: 42, activeSession: { startedAt: 'nope' } } }
+    })
+    expect(data.profiles.Doom.activeSession).toBeNull()
+    expect(data.profiles.Doom.seconds).toBe(42)
+  })
+})
+
 describe('status schema', () => {
   it('accepts the not_started status added in v3', () => {
     const data = parseAppData({ profiles: { Doom: { name: 'Doom', status: 'not_started' } } })

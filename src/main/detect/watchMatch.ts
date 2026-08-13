@@ -29,12 +29,18 @@ export interface WatchTarget {
  * remains the fallback for a manually linked game with no folder recorded.
  */
 export function isGameRunning(game: WatchTarget, running: Set<string>): boolean {
+  return matchingPaths(game, running).length > 0
+}
+
+/** Same matching rule as isGameRunning, but returns the paths instead of a boolean — Stop needs the PIDs behind them. */
+export function matchingPaths(game: WatchTarget, running: Iterable<string>): string[] {
   const dir = game.installDir?.toLowerCase().replace(/[\\/]+$/, '')
-  if (dir) {
+  const exe = game.exePath?.toLowerCase()
+  const hits: string[] = []
+  for (const path of running) {
     // The trailing separator matters: without it "C:\Games\Portal" would also
     // match a process inside "C:\Games\Portal 2".
-    const prefix = dir + '\\'
-    for (const path of running) if (path.startsWith(prefix)) return true
+    if ((dir && path.startsWith(dir + '\\')) || (exe && path === exe)) hits.push(path)
   }
-  return game.exePath ? running.has(game.exePath.toLowerCase()) : false
+  return hits
 }

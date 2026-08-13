@@ -5,6 +5,7 @@ import { writeStatusLog } from './statusLog/writeStatusLog'
 import { trayService } from './tray/trayService'
 import { loadAppContent } from './window'
 import { IPC } from '@shared/ipcContract'
+import { gameWatcher } from './detect/gameWatcher'
 
 let mainWindow: BrowserWindow | null = null
 let quitting = false
@@ -41,6 +42,11 @@ export function registerMainWindow(win: BrowserWindow): void {
   timerEngine.onTick((payload) => {
     if (win.isDestroyed() || win.webContents.isDestroyed()) return
     win.webContents.send(IPC.timer.tick, payload)
+  })
+
+  gameWatcher.onChange((names) => {
+    if (win.isDestroyed() || win.webContents.isDestroyed()) return
+    win.webContents.send(IPC.detect.openGamesChanged, names)
   })
 
   if (dataStore.get().settings.trayEnabled) {

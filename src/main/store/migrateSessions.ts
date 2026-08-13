@@ -1,4 +1,5 @@
 import { aggregateFrom, trimSessionLog } from '@shared/sessionStats'
+import { recoverSession } from '@shared/recoverSession'
 import type { AppData } from '@shared/types'
 
 /**
@@ -27,6 +28,11 @@ export function migrateSessionAggregates(data: AppData): boolean {
       profile.sessionLog = trimmed
       changed = true
     }
+    // A session marker still set at load time means the last run never paused
+    // — a crash, a power cut, or a force-quit. Its time was already committed
+    // to `seconds` by the checkpoint; this is what stops the session itself
+    // from being lost, which is what made totals and averages disagree.
+    if (recoverSession(profile)) changed = true
   }
   return changed
 }

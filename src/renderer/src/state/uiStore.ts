@@ -96,3 +96,8 @@ export async function launchGame(name: string): Promise<void> {
   await selectProfile(name)
   await window.api.detect.launch(name)
 }
+
+/** Kills the game's process. The caller is responsible for confirming with the user first. */
+export async function stopGame(name: string): Promise<void> {
+  await window.api.detect.stop(name)
+}

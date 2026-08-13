@@ -25,6 +25,7 @@ function profile(name: string, overrides: Partial<Profile> = {}): Profile {
       lastPlayedAt: null
     },
     sessionLog: [],
+    activeSession: null,
     exePath: null,
     steamAppId: null,
     autoFetchArt: null,

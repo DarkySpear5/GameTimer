@@ -89,6 +89,7 @@ function normalizeLegacyProfile(name: string, raw: LegacyProfileRaw): Profile {
     // empty log — its `seconds` total is real, its session count starts at 0.
     sessionStats: emptyAggregate(),
     sessionLog: [],
+    activeSession: null,
     // v1 had no concept of the game's executable either; these are filled in
     // if the user later links the game through the Add Game picker.
     exePath: null,

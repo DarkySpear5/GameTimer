@@ -39,6 +39,24 @@ export interface SessionAggregate {
 }
 
 /**
+ * A session that is running right now, written to disk so it survives the app
+ * not getting to run its shutdown path.
+ *
+ * Without this, a session only ever reached sessionStats via pause(). A crash,
+ * a power cut or a force-quit therefore lost the session ENTIRELY while its
+ * elapsed time still landed in `seconds` via the 5s checkpoint — so a game
+ * showed more total playtime than its sessions could account for, and "average
+ * session" silently became "length of the last session that ended cleanly".
+ *
+ * `lastSeenAt` is refreshed by the same checkpoint that commits the seconds, so
+ * recovery can only ever credit time that was already durably counted.
+ */
+export interface ActiveSession {
+  startedAt: number
+  lastSeenAt: number
+}
+
+/**
  * How many individual sessions are retained per game. Nothing displayed today
  * reads these — they exist so a future play-history graph has something to
  * draw. The aggregate above is what keeps the numbers honest.

@@ -62,6 +62,13 @@ const ProfileSchema = z
     // here — a partial or corrupt file loses the bad field, never the library.
     sessionStats: SessionAggregateSchema,
     sessionLog: z.array(SessionEntrySchema).catch([]),
+    // Absent in every save written before crash recovery existed, so it
+    // defaults to null rather than being required.
+    activeSession: z
+      .object({ startedAt: z.number(), lastSeenAt: z.number() })
+      .nullable()
+      .catch(null)
+      .default(null),
     exePath: z.string().nullable().catch(null),
     steamAppId: z.number().nullable().catch(null),
     // Tri-state on purpose: null means "follow the global setting", so

@@ -1,10 +1,7 @@
-import { execFile } from 'child_process'
-import { promisify } from 'util'
 import { isGameRunning } from './watchMatch'
+import { listRunningProcesses } from './processes'
 import { dataStore } from '../store/dataStore'
 import { timerEngine } from '../timer/timerEngine'
-
-const execFileAsync = promisify(execFile)
 
 /**
  * How often the running-process list is re-read. Ten seconds is a deliberate
@@ -25,28 +22,12 @@ const selfLaunched = new Set<string>()
 
 let handle: ReturnType<typeof setInterval> | null = null
 
+/** Fired with the full set of currently-open game names whenever a poll changes it — the Launch/Stop button listens for this. */
+const changeListeners = new Set<(names: string[]) => void>()
+
 /** Just the executable paths — no window titles, no icons. Polled, so it must stay cheap. */
 async function runningExePaths(): Promise<Set<string>> {
-  try {
-    const { stdout } = await execFileAsync(
-      'powershell.exe',
-      [
-        '-NoProfile',
-        '-NonInteractive',
-        '-Command',
-        'Get-Process | Where-Object { $_.Path } | Select-Object -ExpandProperty Path -Unique'
-      ],
-      { windowsHide: true, maxBuffer: 8 * 1024 * 1024, timeout: 15_000 }
-    )
-    return new Set(
-      stdout
-        .split(/\r?\n/)
-        .map((l) => l.trim().toLowerCase())
-        .filter(Boolean)
-    )
-  } catch {
-    return new Set()
-  }
+  return new Set((await listRunningProcesses()).map((p) => p.path))
 }
 
 function autoStartEnabled(name: string): boolean {
@@ -91,7 +72,11 @@ async function poll(): Promise<void> {
     }
   }
 
-  if (touched) await dataStore.safeSave()
+  if (touched) {
+    await dataStore.safeSave()
+    const names = [...open.keys()]
+    for (const cb of changeListeners) cb(names)
+  }
 }
 
 /**
@@ -124,6 +109,34 @@ export const gameWatcher = {
   noteLaunched(name: string): void {
     selfLaunched.add(name)
     this.sync()
+  },
+
+  /** Names of every game whose process is currently seen running, as of the last poll. */
+  openNames(): string[] {
+    return [...open.keys()]
+  },
+
+  /** Called right after Gamut kills a game's process itself, so the UI flips to "Launch" without waiting for the next poll. */
+  noteClosed(name: string): void {
+    const startedAt = open.get(name)
+    if (startedAt === undefined) return
+    open.delete(name)
+    const profile = dataStore.get().profiles[name]
+    if (profile) {
+      profile.openSeconds += Math.max(0, Math.floor((Date.now() - startedAt) / 1000))
+      void dataStore.safeSave()
+    }
+    // The player just confirmed they're done — stop the clock regardless of
+    // the auto-start setting, same as closing the app's own window would.
+    if (timerEngine.isRunning(name)) timerEngine.pause(name)
+    const names = this.openNames()
+    for (const cb of changeListeners) cb(names)
+  },
+
+  /** Subscribes to the open-games list changing. Returns an unsubscribe function. */
+  onChange(cb: (names: string[]) => void): () => void {
+    changeListeners.add(cb)
+    return () => changeListeners.delete(cb)
   },
 
   stop(): void {

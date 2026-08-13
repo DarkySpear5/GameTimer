@@ -20,11 +20,16 @@ Status key: `[ ]` not started · `[~]` in progress · `[x]` done
 
 ## B. Launching (all measured broken on real games)
 
-- [~] **B1. Vindictus** — shows "Loading Nexon Launcher…" then nothing happens.
+- [~] **B1. Vindictus** — DEPRIORITIZED 2026-08-13, moved to low priority (see
+  bottom of file). Shows "Loading Nexon Launcher…" then nothing happens.
+  `nxl://launch/10300` is the real URI read off the user's own shortcut
+  (confirmed correct), so this isn't a wrong-ID bug — it looks like the Nexon
+  Launcher's own cold-start behavior. Needs a live repro before guessing at a
+  fix; not worth the token spend until the rest of the list is done.
 - [x] **B2. Xbox games have no Launch Game button at all** (no `.exe`, so the
   button's `canLaunch` test fails — it must accept `launchUri` too).
-- [~] **B3. Heroes of the Storm** — Battle.net opens and navigates to the game's
-  page, but never starts it. Same from another game's page.
+- [~] **B3. Heroes of the Storm** — DEPRIORITIZED 2026-08-13, moved to low
+  priority (see bottom of file). Same "needs a live repro" situation as B1.
 - [x] **B4. Rocket League timer** — starts after the first EasyAntiCheat splash,
   then a second EAC process opens and the timer PAUSES and never resumes.
 - [x] **B5. Closing a game does not stop the timer** (possibly all games, or
@@ -78,6 +83,109 @@ Status key: `[ ]` not started · `[~]` in progress · `[x]` done
 ## H. About
 
 - [x] **H1. Credit the sources used for icon/background fetching.**
+
+## I. Session/data integrity bugs (found 2026-08-13)
+
+- [x] **I1. Idle time missing for some users in Advanced mode.** Root cause: the
+  whole open/idle block was gated on `openSeconds > 0`, and `openSeconds` only
+  accumulates when the watcher sees a game close — so with background watching
+  off it is always 0 and the block silently vanished. Turning Advanced on
+  specifically to see idle time and getting nothing read as broken. Now the
+  block always renders under Advanced, and when there is no figure it says why
+  (watching off vs. nothing measured yet).
+- [x] **I2. Session count/total/average mismatch after a crash.** Root cause:
+  `sessionStats` was only ever written by `timerEngine.pause()`. A crash means
+  pause never runs, so the session's TIME still landed in `seconds` via the 5s
+  checkpoint but the SESSION was lost entirely — hence 2 real runs showing as
+  1, "average session" silently becoming "length of the last clean session",
+  and a total that didn't reconcile. Fixed with a durable `activeSession`
+  marker written on start and advanced by the same checkpoint that commits the
+  seconds; on next load an unfinished marker is folded into the totals,
+  credited only up to its last checkpoint (never to now, since the gap to the
+  next launch could be days). 7 unit tests in `recoverSession.test.ts`.
+- [x] **I3. "Reset time" doesn't reset game info.** Now clears sessionStats,
+  sessionLog, openSeconds, launches, lastPlayed and startedDate along with
+  `seconds` — everything MEASURED. Art, genres, rating, notes, status and the
+  exe link stay: it resets what was measured, not what the game is. Resetting
+  mid-session also restarts the in-flight session, which previously would have
+  written a session longer than the playtime the reset just cleared.
+
+## J. Game actions and Library polish (found 2026-08-13)
+
+- [x] **J1. Launch Game button becomes Stop Game while the game's process is
+  actually running** (process-detected, not just the app's own timer), styled
+  as a destructive action. Clicking it prompts "Are you sure you want to close
+  the game? Please save all your data first, or it might be lost." before
+  killing the process.
+- [x] **J2. Add Game (scan) needs Select All / Unselect All.** Already present.
+- [x] **J3. Scan dialog's "Add X game" button is hidden below the fold on a
+  small window.** Modal gained a `footer` slot pinned below the scrolling body,
+  so a dialog's confirm button can never scroll out of reach; the scan dialog's
+  actions moved into it.
+- [x] **J6. Library detail's Modify / More info / Notes / Export / Import and
+  the red Delete get CLIPPED when the window is short.** Root cause was one
+  missing `min-h-0`: a flex item defaults to `min-height:auto` and refuses to
+  shrink below its content, so the tab container grew past the window and its
+  `overflow-hidden` cut the bottom off — with no scrollbar to reach it. Same
+  latent bug fixed in Library browse, Stats and About.
+- [ ] **J4. Loading animation for any async app action**, so a slow operation
+  doesn't read as a freeze.
+- [ ] **J5. "Open .exe directory" button** per game.
+
+## K. Stats restructure (found 2026-08-13)
+
+- [ ] **K1. Split Stats into two tabs: "Game Stats" (per-game, what F1/F2
+  already cover) and a new "Profile Stats"** (account-wide: total active time,
+  total idle time, both also as a %; hours per genre, also as a %).
+- [ ] **K2. More Info is always Advanced** — remove the per-game Simple/Advanced
+  toggle from Settings → Games; F2's Advanced/Simple button stays scoped to the
+  Stats window only.
+- [ ] **K3. Move the right-click/options entry point above the fold** — next to
+  total time played, not below the game list where it needs scrolling.
+
+## L. Notes rewrite (found 2026-08-13, expands D5)
+
+- [ ] **L1. Multi-note list per game** — `+` to add, rename in place, list view
+  (name + open), back arrow to return. Outlook/Google Keep shaped.
+- [ ] **L2. Each note is split left/right: text on the left, a live drawing
+  canvas on the right.** Canvas background matches the active theme; default
+  pen color is whichever of black/white contrasts with it.
+- [ ] **L3. The drawing canvas can pop out into its own resizable window** —
+  the note's text zone expands to fill the space it leaves. Dragging the
+  pop-out back onto its note reattaches it; dragging it onto a DIFFERENT note
+  that already has a canvas prompts to overwrite (yes = old canvas lost).
+
+## M. Keybinds (found 2026-08-13)
+
+- [ ] **M1. Settings → Keybinds tab.**
+- [ ] **M2. Rebindable commands: start/pause timer, save screenshot.** Combos
+  only (never a single key) — first key forced to Shift/Ctrl/Alt/Tab, e.g.
+  `Ctrl+2`, `Alt+F1`, `Alt+Home`; a 3-key combo is allowed if it starts
+  `Ctrl+Tab+…`-style with the first two fixed.
+
+## N. Screenshots (found 2026-08-13)
+
+- [ ] **N1. Per-game Screenshot button next to Export/Import**, opening a
+  window listing that game's screenshots, saved to a local subfolder under
+  Documents. Bound to the M2 keybind.
+
+## O. Overlay (found 2026-08-13)
+
+- [ ] **O1. In-game overlay** showing session time and a recording-state dot
+  (green = tracking, red = not). Position on screen and what it shows are both
+  configurable from a new Overlay settings section.
+
+## P. Naming (found 2026-08-13)
+
+- [ ] **P1. Deep-search trademark/uniqueness on the name "Gamut"** before any
+  more branding investment — the color-word approach felt like a mismatch for
+  a game-time launcher anyway. Rename candidate: "Gameplats" (pending the
+  search).
+
+## Y. Low priority — needs live repro, do last before Linux
+
+- [ ] **Y1 (was B1). Vindictus/Nexon won't actually launch.**
+- [ ] **Y2 (was B3). Heroes of the Storm/Battle.net won't actually launch.**
 
 ## Z. Last
 

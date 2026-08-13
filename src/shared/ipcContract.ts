@@ -92,6 +92,9 @@ export const IPC = {
     search: 'detect:search',
     createGame: 'detect:createGame',
     launch: 'detect:launch',
+    stop: 'detect:stop',
+    openGames: 'detect:openGames',
+    openGamesChanged: 'detect:openGamesChanged',
     setAutoStartTimer: 'detect:setAutoStartTimer',
     classify: 'detect:classify',
     artOptions: 'detect:artOptions',
@@ -203,6 +206,12 @@ export interface GameTimerApi {
     createGame(name: string, exePath: string | null, steamAppId: number | null): Promise<Profile>
     /** Starts the game via steam://rungameid when an appid is known, else its .exe. Counts the launch. */
     launch(name: string): Promise<{ launched: boolean }>
+    /** Kills every process belonging to this game (same folder/exe match the watcher uses). */
+    stop(name: string): Promise<{ stopped: boolean }>
+    /** Names of every game whose process is currently seen running. */
+    openGames(): Promise<string[]>
+    /** Fires whenever a game's process opens or closes. */
+    onOpenGamesChanged(cb: (names: string[]) => void): () => void
     /** null = follow the global setting. */
     setAutoStartTimer(name: string, value: boolean | null): Promise<Profile>
     /** Which of these executables Steam's catalogue confirms are games. Promotion only — a 'no' never hides anything. */

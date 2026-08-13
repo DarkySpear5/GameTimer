@@ -2,7 +2,8 @@ import type { CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useProfilesStore } from '../../state/profilesStore'
 import { useTimerStore } from '../../state/timerStore'
-import { useUiStore, launchGame, selectProfile } from '../../state/uiStore'
+import { useUiStore, launchGame, stopGame, selectProfile } from '../../state/uiStore'
+import { useOpenGamesStore } from '../../state/openGamesStore'
 import { formatSeconds } from '@shared/format'
 import { summaryFrom } from '@shared/sessionStats'
 import { GameArt } from './GameArt'
@@ -35,6 +36,7 @@ export function LibraryDetail({ name }: { name: string }): React.JSX.Element {
   const { t } = useTranslation()
   const profile = useProfilesStore((s) => s.profiles[name])
   const liveSeconds = useTimerStore((s) => s.running[name])
+  const isProcessOpen = useOpenGamesStore((s) => s.open.has(name))
   const setLibraryFocus = useUiStore((s) => s.setLibraryFocus)
   const openDialog = useUiStore((s) => s.openDialog)
 
@@ -74,6 +76,11 @@ export function LibraryDetail({ name }: { name: string }): React.JSX.Element {
     if (isRunning) await window.api.timer.pause(name)
     else await window.api.timer.start(name)
     useProfilesStore.getState().setAll(await window.api.profiles.list())
+  }
+
+  async function handleStop(): Promise<void> {
+    if (!window.confirm(t('confirm_stop_game_msg'))) return
+    await stopGame(name)
   }
 
   async function toggleComplete(): Promise<void> {
@@ -154,14 +161,22 @@ export function LibraryDetail({ name }: { name: string }): React.JSX.Element {
               </div>
 
               <div className="flex flex-wrap items-center gap-2 pt-1">
-                {canLaunch && (
-                  <button
-                    onClick={() => void launchGame(profile.name)}
-                    className="rounded-lg bg-card px-4 py-2 text-sm font-medium text-text transition-opacity hover:opacity-80"
-                  >
-                    {t('btn_launch_game')}
-                  </button>
-                )}
+                {canLaunch &&
+                  (isProcessOpen ? (
+                    <button
+                      onClick={() => void handleStop()}
+                      className="rounded-lg bg-red px-4 py-2 text-sm font-medium text-bg transition-opacity hover:opacity-80"
+                    >
+                      {t('btn_stop_game')}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => void launchGame(profile.name)}
+                      className="rounded-lg bg-card px-4 py-2 text-sm font-medium text-text transition-opacity hover:opacity-80"
+                    >
+                      {t('btn_launch_game')}
+                    </button>
+                  ))}
                 <button
                   onClick={() => void togglePlay()}
                   className={`rounded-lg px-5 py-2 text-sm font-semibold text-bg transition-opacity hover:opacity-90 ${

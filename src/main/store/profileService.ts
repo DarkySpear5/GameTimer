@@ -32,6 +32,7 @@ function freshProfile(name: string): Profile {
     rating: 0,
     sessionStats: emptyAggregate(),
     sessionLog: [],
+    activeSession: null,
     exePath: null,
     steamAppId: null,
     launchUri: null,
@@ -168,6 +169,8 @@ export const profileService = {
       // share one array.
       sessionStats: { ...original.sessionStats },
       sessionLog: [...original.sessionLog],
+      // The copy is not running, whatever the original is doing.
+      activeSession: null,
       // The copy points at the same game, so it keeps the link and the art
       // preference — only the name differs.
       exePath: original.exePath,
@@ -426,9 +429,23 @@ export const profileService = {
     return profile
   },
 
+  /**
+   * Puts the game back to never-played. Resetting only `seconds` left the game
+   * claiming a first/last played date, a session count and an idle figure for
+   * playtime that no longer existed — so everything derived from tracking goes
+   * with it. Art, genres, rating, notes, status and the exe link all stay:
+   * this resets what was MEASURED, not what the game IS.
+   */
   async resetTime(name: string): Promise<Profile> {
     const profile = requireProfile(name)
     profile.seconds = 0
+    profile.sessionStats = emptyAggregate()
+    profile.sessionLog = []
+    profile.activeSession = null
+    profile.openSeconds = 0
+    profile.launches = 0
+    profile.lastPlayed = null
+    profile.startedDate = null
     timerEngine.restartActiveIfRunning(name)
     await dataStore.safeSave()
     return profile

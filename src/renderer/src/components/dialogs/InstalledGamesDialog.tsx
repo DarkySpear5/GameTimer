@@ -108,7 +108,28 @@ export function InstalledGamesDialog({
   })).filter((g) => g.items.length > 0)
 
   return (
-    <Modal title={t('installed_scan_title')} onClose={() => void skip()} width="max-w-lg">
+    <Modal
+      title={t('installed_scan_title')}
+      onClose={() => void skip()}
+      width="max-w-lg"
+      footer={
+        <div className="flex justify-end gap-2">
+          <button
+            onClick={() => void skip()}
+            className="rounded bg-card px-3 py-1.5 text-sm text-text hover:bg-card/70"
+          >
+            {firstRun ? t('installed_scan_not_now') : t('btn_close')}
+          </button>
+          <button
+            onClick={() => void doImport()}
+            disabled={busy || chosen.size === 0}
+            className="rounded bg-accent px-4 py-1.5 text-sm font-medium text-bg hover:opacity-90 disabled:opacity-40"
+          >
+            {t('installed_scan_add', { count: chosen.size })}
+          </button>
+        </div>
+      }
+    >
       {games === null ? (
         <p className="text-sm text-subtext">{t('installed_scan_searching')}</p>
       ) : games.length === 0 ? (
@@ -223,21 +244,6 @@ export function InstalledGamesDialog({
         )}
       </div>
 
-      <div className="mt-4 flex justify-end gap-2">
-        <button
-          onClick={() => void skip()}
-          className="rounded bg-card px-3 py-1.5 text-sm text-text hover:bg-card/70"
-        >
-          {firstRun ? t('installed_scan_not_now') : t('btn_close')}
-        </button>
-        <button
-          onClick={() => void doImport()}
-          disabled={busy || chosen.size === 0}
-          className="rounded bg-accent px-4 py-1.5 text-sm font-medium text-bg hover:opacity-90 disabled:opacity-40"
-        >
-          {t('installed_scan_add', { count: chosen.size })}
-        </button>
-      </div>
     </Modal>
   )
 }
