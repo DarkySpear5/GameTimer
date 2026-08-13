@@ -17,12 +17,14 @@ import { resolveAsset } from '../util/env'
  * "the user let go" — good enough for a window drag, which doesn't move
  * every millisecond the way a mouse does mid-motion.
  *
- * "Onto the note area" is simplified to "overlapping the main window at
- * all" — Electron's main process has no visibility into the renderer's DOM
- * layout, so it can't know the exact screen-space rectangle of a note's
- * canvas without new plumbing to report it continuously. Overlapping the
- * whole app window is what's actually buildable and verifiable, and matches
- * the common case (you drag it back toward the app you can see behind it).
+ * The drop target is a specific zone (NoteEditor's drawing area, live canvas
+ * or its placeholder), not "anywhere on the main window" — that first
+ * version measured correctly but felt imprecise to actually use, dragging a
+ * whole small window onto a whole big one. The renderer reports that zone's
+ * rect relative to its own content area (setDropZone); this module converts
+ * it to screen coordinates using the main window's CURRENT position at
+ * comparison time, which is what lets the renderer report it only when the
+ * zone's SIZE changes (not track the main window being moved around too).
  *
  * Only one pop-out can exist at a time — the note it's showing IS its
  * identity, so a second one would just be two windows fighting over which is
@@ -31,13 +33,19 @@ import { resolveAsset } from '../util/env'
 let popoutWin: BrowserWindow | null = null
 let state: PopoutState | null = null
 let moveDebounce: ReturnType<typeof setTimeout> | null = null
+let hovering = false
 
-/** Which note the main window's renderer is currently showing in NoteEditor, if any — pushed from NotesDialog. Used only to pick a drag-drop target; see setViewedNote. */
+/** Which note the main window's renderer is currently showing in NoteEditor, if any — pushed from NotesDialog. Used to pick a drag-drop target; see setViewedNote. */
 let viewedNote: { name: string; noteId: string } | null = null
 
-const DROP_SETTLE_MS = 220
+/** NoteEditor's drawing-zone rect, relative to the main window's OWN content area — see setDropZone. */
+let dropZoneRelative: { x: number; y: number; width: number; height: number } | null = null
 
-function broadcast(): void {
+const DROP_SETTLE_MS = 220
+const FADE_STEPS = 6
+const FADE_STEP_MS = 25
+
+function broadcastState(): void {
   for (const win of BrowserWindow.getAllWindows()) {
     if (win.isDestroyed() || win.webContents.isDestroyed()) continue
     win.webContents.send(IPC.notes.popoutState, state)
@@ -52,21 +60,51 @@ function mainWindowOf(popout: BrowserWindow): BrowserWindow | null {
   return BrowserWindow.getAllWindows().find((w) => w !== popout && !w.isDestroyed()) ?? null
 }
 
+/** The drop zone in screen coordinates, right now — null if nothing has reported one (no note editor currently on screen). */
+function absoluteDropZone(mainWin: BrowserWindow): Electron.Rectangle | null {
+  if (!dropZoneRelative) return null
+  const content = mainWin.getContentBounds()
+  return {
+    x: content.x + dropZoneRelative.x,
+    y: content.y + dropZoneRelative.y,
+    width: dropZoneRelative.width,
+    height: dropZoneRelative.height
+  }
+}
+
+function setHovering(next: boolean, mainWin: BrowserWindow): void {
+  if (next === hovering) return
+  hovering = next
+  if (!mainWin.isDestroyed() && !mainWin.webContents.isDestroyed()) {
+    mainWin.webContents.send(IPC.notes.dropZoneHover, hovering)
+  }
+}
+
+function clearHover(): void {
+  if (!hovering) return
+  hovering = false
+  for (const win of BrowserWindow.getAllWindows()) {
+    if (win.isDestroyed() || win.webContents.isDestroyed()) continue
+    win.webContents.send(IPC.notes.dropZoneHover, false)
+  }
+}
+
 /**
  * Fires ~DROP_SETTLE_MS after the pop-out stops moving — the drag-release
- * detector. If it's now over the main window, tells the pop-out's OWN
- * renderer which note it landed on (its own, if the main window isn't
- * showing a different one of the same game) and leaves every decision from
- * there — confirm an overwrite, actually move the drawing, close itself — to
- * that renderer. That's what makes this identical in behavior to the "Move
- * to note" dropdown instead of a second, differently-behaved code path: both
+ * detector. If it's now over the drop zone, tells the pop-out's OWN renderer
+ * which note it landed on (its own, if the main window isn't showing a
+ * different one of the same game) and leaves every decision from there —
+ * confirm an overwrite, actually move the drawing, close itself — to that
+ * renderer. That's what makes this identical in behavior to the "Move to
+ * note" dropdown instead of a second, differently-behaved code path: both
  * end up calling the exact same handleMoveTo.
  */
 function handleSettledDrop(): void {
   if (!popoutWin || popoutWin.isDestroyed() || !state) return
   const mainWin = mainWindowOf(popoutWin)
   if (!mainWin) return
-  if (!rectsOverlap(popoutWin.getBounds(), mainWin.getBounds())) return
+  const zone = absoluteDropZone(mainWin)
+  if (!zone || !rectsOverlap(popoutWin.getBounds(), zone)) return
 
   const target =
     viewedNote && viewedNote.name === state.name && viewedNote.noteId !== state.noteId
@@ -85,6 +123,30 @@ export const drawingPopout = {
 
   setViewedNote(target: { name: string; noteId: string } | null): void {
     viewedNote = target
+  },
+
+  setDropZone(rect: { x: number; y: number; width: number; height: number } | null): void {
+    dropZoneRelative = rect
+    if (!rect && popoutWin && !popoutWin.isDestroyed()) clearHover()
+  },
+
+  /** The merge animation for a successful drag-drop — see closePopoutWithFade's doc comment on the IPC contract for why the escape hatch deliberately does NOT go through this. */
+  closeWithFade(): void {
+    if (!popoutWin || popoutWin.isDestroyed()) return
+    const win = popoutWin
+    let step = 0
+    const timer = setInterval(() => {
+      step++
+      if (win.isDestroyed()) {
+        clearInterval(timer)
+        return
+      }
+      win.setOpacity(Math.max(0, 1 - step / FADE_STEPS))
+      if (step >= FADE_STEPS) {
+        clearInterval(timer)
+        if (!win.isDestroyed()) win.close()
+      }
+    }, FADE_STEP_MS)
   },
 
   /** False only when a DIFFERENT note is already popped out — the caller (NoteEditor) hides its own button in that case rather than needing to handle this as a surprise. */
@@ -126,6 +188,16 @@ export const drawingPopout = {
     void popoutWin.loadURL(url.toString())
 
     popoutWin.on('move', () => {
+      // Live hover feedback — checked on every move, not just the debounced
+      // settle, so the target highlights DURING the drag rather than only
+      // reacting after the fact.
+      const win = popoutWin
+      const mainWin = win && mainWindowOf(win)
+      if (win && mainWin) {
+        const zone = absoluteDropZone(mainWin)
+        setHovering(!!zone && rectsOverlap(win.getBounds(), zone), mainWin)
+      }
+
       if (moveDebounce) clearTimeout(moveDebounce)
       moveDebounce = setTimeout(() => {
         moveDebounce = null
@@ -138,10 +210,11 @@ export const drawingPopout = {
       state = null
       if (moveDebounce) clearTimeout(moveDebounce)
       moveDebounce = null
-      broadcast()
+      clearHover()
+      broadcastState()
     })
 
-    broadcast()
+    broadcastState()
     return { opened: true }
   },
 
@@ -149,6 +222,6 @@ export const drawingPopout = {
   retarget(noteId: string): void {
     if (!state) return
     state = { name: state.name, noteId }
-    broadcast()
+    broadcastState()
   }
 }

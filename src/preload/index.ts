@@ -69,6 +69,8 @@ const api: GameTimerApi = {
     moveDrawing: (name, fromNoteId, toNoteId) =>
       ipcRenderer.invoke(IPC.notes.moveDrawing, name, fromNoteId, toNoteId),
     setViewedNote: (target) => ipcRenderer.send(IPC.notes.setViewedNote, target),
+    setDropZone: (rect) => ipcRenderer.send(IPC.notes.setDropZone, rect),
+    closePopoutWithFade: () => ipcRenderer.send(IPC.notes.closePopoutWithFade),
     onPopoutStateChanged: (cb) => {
       const listener = (_event: Electron.IpcRendererEvent, state: PopoutState | null): void => cb(state)
       ipcRenderer.on(IPC.notes.popoutState, listener)
@@ -78,6 +80,11 @@ const api: GameTimerApi = {
       const listener = (_event: Electron.IpcRendererEvent, targetNoteId: string): void => cb(targetNoteId)
       ipcRenderer.on(IPC.notes.dropDetected, listener)
       return () => ipcRenderer.removeListener(IPC.notes.dropDetected, listener)
+    },
+    onDropZoneHover: (cb) => {
+      const listener = (_event: Electron.IpcRendererEvent, hovering: boolean): void => cb(hovering)
+      ipcRenderer.on(IPC.notes.dropZoneHover, listener)
+      return () => ipcRenderer.removeListener(IPC.notes.dropZoneHover, listener)
     }
   },
   window: {

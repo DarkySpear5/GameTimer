@@ -170,7 +170,7 @@ const readProfiles = () => JSON.parse(fs.readFileSync(DATA, 'utf8')).profiles
 
   check(
     'main window shows the "open elsewhere" placeholder',
-    await win.locator('text=This note').isVisible(),
+    await win.locator('text=Drawing open in a separate window').isVisible(),
     true
   )
   check('Pop out button is gone while popped out', await win.locator('button:has-text("Pop out")').count(), 0)
@@ -188,7 +188,7 @@ const readProfiles = () => JSON.parse(fs.readFileSync(DATA, 'utf8')).profiles
 
   check(
     'main window canvas is back (placeholder gone)',
-    await win.locator('text=This note').count(),
+    await win.locator('text=Drawing open in a separate window').count(),
     0
   )
   const gameName = 'Popout Game'

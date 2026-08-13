@@ -49,8 +49,8 @@ function drawStroke(page, box) {
   }
 }
 
-/** Simulates a native drag: repeated bounds changes (same WM_WINDOWPOSCHANGED path Windows uses for a real drag), landing on `end`. */
-async function simulateDragTo(app, end) {
+/** Simulates a native drag: repeated bounds changes (same WM_WINDOWPOSCHANGED path Windows uses for a real drag), landing on `end`. Pass a mid-drag callback to assert hover state before release. */
+async function simulateDragTo(app, end, onMidDrag) {
   const steps = 6
   const start = await app.evaluate(({ BrowserWindow }) => {
     const w = BrowserWindow.getAllWindows().find((x) => x.webContents.getURL().includes('drawing-popout'))
@@ -66,8 +66,24 @@ async function simulateDragTo(app, end) {
       },
       { x, y }
     )
+    if (i === steps && onMidDrag) await onMidDrag()
     await new Promise((r) => setTimeout(r, 60))
   }
+}
+
+/**
+ * Screen-space center of the main window's drop-zone element RIGHT NOW —
+ * Playwright's boundingBox() is viewport-relative, so it's added to the main
+ * window's own current on-screen content position (same conversion
+ * drawingPopout.ts itself does) to get a real drag target.
+ */
+async function dropZoneCenter(app, mainPage) {
+  const box = await mainPage.locator('[data-testid="note-drop-zone"]').boundingBox()
+  const content = await app.evaluate(({ BrowserWindow }) => {
+    const w = BrowserWindow.getAllWindows().find((x) => !x.webContents.getURL().includes('drawing-popout'))
+    return w.getContentBounds()
+  })
+  return { x: content.x + box.x + box.width / 2, y: content.y + box.y + box.height / 2 }
 }
 
 ;(async () => {
@@ -160,15 +176,33 @@ async function simulateDragTo(app, end) {
   await drawStroke(popout2, await popout2.locator('canvas').boundingBox())()
   await win.waitForTimeout(300)
 
+  console.log('  landing elsewhere on the app (title bar area) should do nothing — proves this is a specific zone now')
   const mainBounds = await app.evaluate(({ BrowserWindow }) => {
     const w = BrowserWindow.getAllWindows().find((x) => !x.webContents.getURL().includes('drawing-popout'))
     return w.getBounds()
   })
-  await simulateDragTo(app, { x: mainBounds.x + 100, y: mainBounds.y + 100 })
+  await simulateDragTo(app, { x: mainBounds.x + 40, y: mainBounds.y + 15 })
+  await win.waitForTimeout(500)
+  check(
+    'pop-out is still open — the title bar is well inside the app window but outside the drop zone',
+    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length),
+    2
+  )
+
+  let hoveredMidDrag = false
+  const zoneTarget = await dropZoneCenter(app, win)
+  await simulateDragTo(app, zoneTarget, async () => {
+    await win.waitForTimeout(150) // let the (undebounced) hover check catch up to this step
+    hoveredMidDrag = await win.locator('[data-testid="note-drop-zone"]').evaluate((el) => {
+      const shadow = getComputedStyle(el).boxShadow
+      return shadow !== 'none' && shadow !== ''
+    })
+  })
   await win.waitForTimeout(500)
 
+  check('the drop zone highlighted while the pop-out was hovering over it, before release', hoveredMidDrag, true)
   check(
-    'pop-out window closed itself after landing on the main window',
+    'pop-out window closed itself after landing on the specific drop zone (not just anywhere on the app)',
     await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length),
     1
   )
@@ -219,11 +253,8 @@ async function simulateDragTo(app, end) {
     confirmMessage = d.message()
     void d.accept()
   })
-  const mainBounds2 = await app.evaluate(({ BrowserWindow }) => {
-    const w = BrowserWindow.getAllWindows().find((x) => !x.webContents.getURL().includes('drawing-popout'))
-    return w.getBounds()
-  })
-  await simulateDragTo(app, { x: mainBounds2.x + 100, y: mainBounds2.y + 100 })
+  const zoneTarget2 = await dropZoneCenter(app, win)
+  await simulateDragTo(app, zoneTarget2)
   await win.waitForTimeout(500)
 
   check('drag onto a different note triggered a confirm', typeof confirmMessage, 'string')

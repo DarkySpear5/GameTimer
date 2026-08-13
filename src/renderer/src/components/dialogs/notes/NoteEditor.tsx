@@ -67,6 +67,42 @@ export function NoteEditor({
   const poppedOutHere = popoutState?.name === name && popoutState.noteId === noteId
   const poppedOutElsewhere = popoutState !== null && !poppedOutHere
 
+  // The drop zone the pop-out can be dragged onto — this exact box, whether
+  // it's currently showing a live canvas or the placeholder, not "anywhere
+  // on the app window" (measured correctly but felt imprecise to use: a
+  // whole small window dragged onto a whole big one). NotesDialog already
+  // reports WHICH note is on screen (setViewedNote, including the list-view
+  // case this component never sees); this effect owns the other half —
+  // exactly WHERE that note's drawing lives on screen — since only the
+  // component that actually renders the box can measure it.
+  const dropZoneRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    function reportZone(): void {
+      const el = dropZoneRef.current
+      if (!el) return
+      const r = el.getBoundingClientRect()
+      window.api.notes.setDropZone({ x: r.x, y: r.y, width: r.width, height: r.height })
+    }
+    reportZone()
+
+    // Two listeners because either can move/resize this box without the
+    // other firing: ResizeObserver catches the element's own size changing,
+    // window 'resize' catches the modal recentring at the same size when
+    // only the OS window itself resizes.
+    const observer = new ResizeObserver(reportZone)
+    if (dropZoneRef.current) observer.observe(dropZoneRef.current)
+    window.addEventListener('resize', reportZone)
+
+    return () => {
+      observer.disconnect()
+      window.removeEventListener('resize', reportZone)
+      window.api.notes.setDropZone(null)
+    }
+  }, [name, noteId])
+
+  const [dropHover, setDropHover] = useState(false)
+  useEffect(() => window.api.notes.onDropZoneHover(setDropHover), [])
+
   async function handlePopOut(): Promise<void> {
     const { opened } = await window.api.notes.openPopout(name, noteId)
     if (!opened) toast.error(t('note_pop_out_busy'))
@@ -159,37 +195,52 @@ export function NoteEditor({
         </button>
       </div>
 
-      {/*
-       * L3: while the drawing is popped out, the text zone expands to fill
-       * the space it leaves rather than sitting next to an empty column —
-       * the drawing genuinely isn't here right now, so pretending there's
-       * still a canvas-sized gap for it would be pure wasted space.
-       */}
-      <div className={`grid min-h-0 flex-1 gap-3 ${poppedOutHere ? 'grid-cols-1' : 'grid-cols-2'}`}>
+      <div className="grid min-h-0 flex-1 grid-cols-2 gap-3">
         <textarea
           value={body}
           onChange={(e) => handleBodyChange(e.target.value)}
           placeholder={t('note_body_placeholder')}
           className="h-full min-h-0 w-full resize-none rounded bg-card px-3 py-2 text-sm text-text outline-none"
         />
-        {!poppedOutHere && (
-          <DrawingCanvas
-            strokes={note.drawing}
-            onChange={(d) => void handleDrawingChange(d)}
-            toolbarExtra={
-              <button
-                onClick={() => void handlePopOut()}
-                disabled={poppedOutElsewhere}
-                title={poppedOutElsewhere ? t('note_pop_out_busy') : undefined}
-                className="rounded bg-card px-2.5 py-1 text-xs text-subtext transition-opacity hover:text-text disabled:opacity-40"
-              >
-                {t('note_pop_out')} ⧉
-              </button>
-            }
-          />
-        )}
+        {/*
+         * L3's drop target — this exact box, whether it's a live canvas or
+         * (while popped out) the placeholder below. ref is on the OUTER div
+         * deliberately: DrawingCanvas has its own internal padding/toolbar
+         * layout, and measuring a wrapper around it is what keeps the
+         * reported rect matching what the user actually sees as "the
+         * drawing area", independent of that internal layout.
+         */}
+        <div
+          ref={dropZoneRef}
+          data-testid="note-drop-zone"
+          className={`min-h-0 rounded-lg transition-shadow ${
+            dropHover ? 'shadow-[0_0_0_3px_var(--gt-accent)]' : ''
+          }`}
+        >
+          {poppedOutHere ? (
+            <div className="flex h-full flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-card bg-card/20 p-4 text-center text-xs text-subtext">
+              <span className="text-lg">⧉</span>
+              {t('note_open_elsewhere')}
+              <span className="text-[0.65rem] opacity-70">{t('note_drag_back_hint')}</span>
+            </div>
+          ) : (
+            <DrawingCanvas
+              strokes={note.drawing}
+              onChange={(d) => void handleDrawingChange(d)}
+              toolbarExtra={
+                <button
+                  onClick={() => void handlePopOut()}
+                  disabled={poppedOutElsewhere}
+                  title={poppedOutElsewhere ? t('note_pop_out_busy') : undefined}
+                  className="rounded bg-card px-2.5 py-1 text-xs text-subtext transition-opacity hover:text-text disabled:opacity-40"
+                >
+                  {t('note_pop_out')} ⧉
+                </button>
+              }
+            />
+          )}
+        </div>
       </div>
-      {poppedOutHere && <div className="text-xs text-subtext">{t('note_open_elsewhere')}</div>}
     </div>
   )
 }

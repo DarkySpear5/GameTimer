@@ -16,4 +16,10 @@ export function registerNotesIpc(): void {
   ipcMain.on(IPC.notes.setViewedNote, (_e, target: { name: string; noteId: string } | null) =>
     drawingPopout.setViewedNote(target)
   )
+  ipcMain.on(
+    IPC.notes.setDropZone,
+    (_e, rect: { x: number; y: number; width: number; height: number } | null) =>
+      drawingPopout.setDropZone(rect)
+  )
+  ipcMain.on(IPC.notes.closePopoutWithFade, () => drawingPopout.closeWithFade())
 }

@@ -219,6 +219,29 @@ main, which is invisible to a renderer-side test harness; rebuilt so the
 pop-out's own renderer decides and confirms, reusing the dropdown's already-
 tested handleMoveTo instead of a second, differently-behaved implementation).
 
+**Third pass, same day:** the drag worked but felt imprecise — dragging a
+small window onto the whole large app window, with no feedback about where
+exactly counted. Narrowed to a specific zone: NoteEditor now reports its
+actual drawing-area rect (live canvas or the placeholder, whichever is
+showing) to main via a ResizeObserver + window-resize watcher, converted to
+screen coordinates using the main window's CURRENT position at comparison
+time — the renderer only has to re-report when the zone's own size changes,
+not track the window being moved around separately. The zone highlights
+(accent-colored ring) while the pop-out is dragged over it, live during the
+drag via the same undebounced 'move' event, not only after release. A
+successful drop now fades the pop-out's opacity out before closing it — the
+"merging into the note" animation — while the escape hatch (✕ / Escape)
+stays a plain instant `window.close()`, deliberately independent of that
+fade so it can never be slowed down by it. Also replaced the vestigial
+single-line placeholder text with an actual bordered box sized to match
+where the canvas normally sits, both for the drop target's own sake and
+because a specific box reads as "drop here" in a way a line of text doesn't.
+
+Re-verified end to end: a title-bar drag (well inside the app window, well
+outside the zone) now correctly does nothing — proof the narrowing is real,
+not just documentation — while a drag onto the actual zone still hovers,
+highlights, and reattaches exactly as before. 9 checks total for this pass.
+
 ## M. Keybinds (found 2026-08-13)
 
 - [ ] **M1. Settings → Keybinds tab.**

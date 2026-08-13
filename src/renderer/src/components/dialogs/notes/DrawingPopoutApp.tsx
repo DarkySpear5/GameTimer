@@ -67,18 +67,20 @@ export function DrawingPopoutApp(): React.JSX.Element {
   }
 
   /**
-   * A settled drag-drop landed on the main window — see drawingPopout.ts for
+   * A settled drag-drop landed on the drop zone — see drawingPopout.ts for
    * how "landed on" is detected. Reattaching to the pop-out's OWN note needs
    * no confirm (it never left); moving to a DIFFERENT note reuses
    * handleMoveTo verbatim, so the confirm and the actual move behave
-   * identically to using the dropdown. Either way, a successful drop closes
-   * the window — that IS the "reenter the note" the drag is supposed to do.
+   * identically to using the dropdown. Either way, a successful drop fades
+   * the window out and closes it — the "merging into the note" animation —
+   * rather than the instant window.close() the escape hatch uses, which
+   * deliberately stays instant and independent of this whole flow.
    */
   useEffect(() => {
     return window.api.notes.onDropDetected((targetNoteId) => {
       void (async () => {
         const moved = targetNoteId === noteId ? true : await handleMoveTo(targetNoteId)
-        if (moved) window.close()
+        if (moved) window.api.notes.closePopoutWithFade()
       })()
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps

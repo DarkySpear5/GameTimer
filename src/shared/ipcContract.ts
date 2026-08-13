@@ -75,8 +75,11 @@ export const IPC = {
     getPopoutState: 'notes:getPopoutState',
     moveDrawing: 'notes:moveDrawing',
     setViewedNote: 'notes:setViewedNote',
+    setDropZone: 'notes:setDropZone',
+    closePopoutWithFade: 'notes:closePopoutWithFade',
     popoutState: 'notes:popoutState',
-    dropDetected: 'notes:dropDetected'
+    dropDetected: 'notes:dropDetected',
+    dropZoneHover: 'notes:dropZoneHover'
   },
   window: {
     minimize: 'window:minimize',
@@ -212,6 +215,20 @@ export interface GameTimerApi {
     moveDrawing(name: string, fromNoteId: string, toNoteId: string): Promise<Profile>
     /** Which note (if any) the main window's NoteEditor currently has open — lets a drag-drop reattach pick a different note as the target, instead of always reattaching to the pop-out's own. Pass null when leaving the editor. */
     setViewedNote(target: { name: string; noteId: string } | null): void
+    /**
+     * The screen-space-relative rect of NoteEditor's drawing zone (the live
+     * canvas, or its placeholder when popped out) — main compares the
+     * pop-out's dragged position against this specific rect, not the whole
+     * app window, and adds the main window's own current on-screen position
+     * at comparison time. Coordinates are relative to the main window's
+     * content area (plain getBoundingClientRect() output), NOT absolute
+     * screen coordinates — that conversion only main can do, and only main
+     * knows where its own window currently sits. Pass null when the zone
+     * leaves the DOM (Back, note deleted, dialog closed).
+     */
+    setDropZone(rect: { x: number; y: number; width: number; height: number } | null): void
+    /** Fades the pop-out's opacity out, then closes it — the "merged into the note" animation for a successful drag-drop. Plain window.close() stays the escape hatch (✕ / Escape) precisely because it must NOT depend on this extra step. */
+    closePopoutWithFade(): void
     onPopoutStateChanged(cb: (state: PopoutState | null) => void): () => void
     /**
      * Fired at the pop-out window ONLY, when main detects it's been dropped
@@ -223,6 +240,8 @@ export interface GameTimerApi {
      * confirm can be driven/verified as an ordinary web dialog.
      */
     onDropDetected(cb: (targetNoteId: string) => void): () => void
+    /** Fired at the MAIN window only, while a pop-out is being dragged over the drop zone — drives the hover highlight so the target is discoverable and gives feedback before release. */
+    onDropZoneHover(cb: (hovering: boolean) => void): () => void
   }
   window: {
     minimize(): void
