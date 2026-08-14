@@ -184,7 +184,7 @@ async function closeApp(label, app) {
   console.log(`  [${label}] closed`)
 }
 
-/** The main window defaults to 1100px wide; the overlay's base width is 330 (up to 660 at 2.0x scale) — clearly distinguishable. */
+/** The main window defaults to 1100px wide; the overlay's base width is 200 (up to 400 at 2.0x scale) — clearly distinguishable. */
 async function overlayVisible(app) {
   return app.evaluate(({ BrowserWindow }) => {
     const overlay = BrowserWindow.getAllWindows().find((w) => w.getSize()[0] < 900)
@@ -255,7 +255,7 @@ async function overlayBounds(app) {
     check('overlay visible while focused+linked and enabled', await overlayVisible(app), true)
 
     // Anchored to the GAME window's rect, not the display — top-right corner,
-    // scale 1, MARGIN 8, BASE_WIDTH/HEIGHT 330x84 (overlayWindow.ts).
+    // scale 1, MARGIN 8, BASE_WIDTH/HEIGHT 200x40 (overlayWindow.ts).
     // GAME_BOUNDS is PHYSICAL pixels (what the real probe reports); converted
     // through the app's own screenToDipRect rather than assumed 1:1, so this
     // stays correct on a scaled display instead of only passing at 100%.
@@ -264,10 +264,10 @@ async function overlayBounds(app) {
       { x: GAME_BOUNDS.X, y: GAME_BOUNDS.Y, width: GAME_BOUNDS.Width, height: GAME_BOUNDS.Height }
     )
     const expected = {
-      x: dipGameBounds.x + dipGameBounds.width - 330 - 8,
+      x: dipGameBounds.x + dipGameBounds.width - 200 - 8,
       y: dipGameBounds.y + 8,
-      width: 330,
-      height: 84
+      width: 200,
+      height: 40
     }
     check('overlay anchored to the game window, not the display', await overlayBounds(app), expected)
 
@@ -319,10 +319,10 @@ async function overlayBounds(app) {
       const { app: app2, win: win2 } = await launch('overlay-taskbar', FULLSCREEN_GAME, true, 'bottom-right')
       await win2.waitForTimeout(2500) // overlayWindow polls every 2s
       const expected = {
-        x: display.bounds.x + display.bounds.width - 330 - 8,
-        y: display.bounds.y + display.bounds.height - 84 - 8,
-        width: 330,
-        height: 84
+        x: display.bounds.x + display.bounds.width - 200 - 8,
+        y: display.bounds.y + display.bounds.height - 40 - 8,
+        width: 200,
+        height: 40
       }
       check('overlay bottom-right lands on the display\'s true edge, not the work-area-clamped one', await overlayBounds(app2), expected)
       await closeApp('overlay-taskbar', app2)

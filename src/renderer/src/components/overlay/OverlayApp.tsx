@@ -27,7 +27,10 @@ export function OverlayApp(): React.JSX.Element {
     // 24 (not 16) to match overlayWindow.ts's BASE_WIDTH/HEIGHT — both got
     // the same 1.5x bump so the text still fills the window the same way at
     // any given scale, not just the window box growing around smaller text.
-    <div className="flex h-full items-center gap-2 px-3" style={{ fontSize: `${24 * state.scale}px` }}>
+    <div
+      className="flex h-full items-center justify-center gap-2 px-3"
+      style={{ fontSize: `${24 * state.scale}px` }}
+    >
       <span
         className="shrink-0 rounded-full"
         style={{

@@ -15,12 +15,13 @@ import { resolveAsset } from '../util/env'
  * PowerShell) but the displayed TIME piggybacks on the existing 500ms
  * timerEngine tick loop instead of its own poll — see pushTick.
  */
-// 1.5x the original base — user feedback after trying it live: 0.5x of the
-// original was too small to read, and the useful sizes all sat at the top of
-// the slider. Shifting the whole baseline up (not just the slider's default)
-// keeps 1.0x meaning "the size most people will actually leave it at."
-const BASE_WIDTH = 330
-const BASE_HEIGHT = 84
+// Sized to hug the actual content (a small dot + "HH:MM:SS", 24px font) with
+// its own px-3 padding, not the window's own arbitrary box — the previous
+// 330x84 was measured live as much bigger than the rendered content, which
+// left the visible text floating in a lot of transparent dead space instead
+// of sitting close to whichever corner/edge it was anchored to.
+const BASE_WIDTH = 200
+const BASE_HEIGHT = 40
 // User feedback after trying it live: 16px read as "not close enough to the
 // corner" next to Grim Dawn's own corner-hugging FPS counter — tightened to
 // match that reference.
