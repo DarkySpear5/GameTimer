@@ -50,6 +50,10 @@ function ensureWindow(): BrowserWindow {
     }
   })
   win.setIgnoreMouseEvents(true, { forward: true })
+  // 'screen-saver' is the highest ordinary level — plain alwaysOnTop
+  // ('floating') loses to other topmost windows and to a game that puts its
+  // own window on top, which is exactly the case this has to win.
+  win.setAlwaysOnTop(true, 'screen-saver')
   const url = pathToFileURL(join(__dirname, '../renderer/index.html'))
   url.hash = 'overlay'
   void win.loadURL(url.toString())
@@ -59,16 +63,30 @@ function ensureWindow(): BrowserWindow {
   return win
 }
 
-function positionFor(bounds: Electron.Rectangle, corner: OverlayCorner, scale: number): Electron.Rectangle {
-  const display = screen.getDisplayMatching(bounds)
+/**
+ * Where the overlay sits, anchored to the GAME'S OWN WINDOW rather than to
+ * the display.
+ *
+ * For a fullscreen or borderless game the two rects are the same, so this
+ * changes nothing there — but for a WINDOWED game they can be nowhere near
+ * each other, and anchoring to the display put the overlay somewhere the
+ * player never looks. Measured on a real report: Forager windowed at
+ * (242,415)-(1538,1174) on a 2560x1440 desktop, with the overlay parked at
+ * the top-centre of the DESKTOP — visible, correct, and completely off the
+ * game. "In-game overlay" has to mean on the game.
+ *
+ * `gameBounds` must already be in DIP (see poll's screenToDipRect call) —
+ * the PowerShell probe reports physical pixels, and every Electron window
+ * API here speaks DIP, so on a scaled display the two diverge.
+ */
+function positionFor(gameBounds: Electron.Rectangle, corner: OverlayCorner, scale: number): Electron.Rectangle {
   const width = Math.round(BASE_WIDTH * scale)
   const height = Math.round(BASE_HEIGHT * scale)
-  const area = display.workArea
-  const left = area.x + MARGIN
-  const right = area.x + area.width - width - MARGIN
-  const top = area.y + MARGIN
-  const bottom = area.y + area.height - height - MARGIN
-  const centerX = area.x + Math.round((area.width - width) / 2)
+  const left = gameBounds.x + MARGIN
+  const right = gameBounds.x + gameBounds.width - width - MARGIN
+  const top = gameBounds.y + MARGIN
+  const bottom = gameBounds.y + gameBounds.height - height - MARGIN
+  const centerX = gameBounds.x + Math.round((gameBounds.width - width) / 2)
   const positions: Record<OverlayCorner, { x: number; y: number }> = {
     'top-left': { x: left, y: top },
     'top-right': { x: right, y: top },
@@ -78,7 +96,16 @@ function positionFor(bounds: Electron.Rectangle, corner: OverlayCorner, scale: n
     'bottom-center': { x: centerX, y: bottom }
   }
   const { x, y } = positions[corner]
-  return { x, y, width, height }
+  // Clamped to the work area of whichever display the game is on, so a game
+  // window hanging off the edge of the screen can't drag the overlay to
+  // somewhere the player can't see it either.
+  const area = screen.getDisplayMatching(gameBounds).workArea
+  return {
+    x: Math.max(area.x, Math.min(x, area.x + area.width - width)),
+    y: Math.max(area.y, Math.min(y, area.y + area.height - height)),
+    width,
+    height
+  }
 }
 
 async function poll(): Promise<void> {
@@ -97,7 +124,12 @@ async function poll(): Promise<void> {
   }
   currentName = name
   const w = ensureWindow()
-  w.setBounds(positionFor(fg.bounds, overlay.corner, overlay.scale))
+  // The PowerShell probe reports PHYSICAL pixels; every Electron window API
+  // below speaks DIP. They're identical at 100% scaling — which is exactly
+  // why this is easy to miss — and diverge on the very common 125%/150%
+  // display, putting the overlay in the wrong place there.
+  const gameBounds = screen.screenToDipRect(null, fg.bounds)
+  w.setBounds(positionFor(gameBounds, overlay.corner, overlay.scale))
   // showInactive, never show() — stealing OS focus for the overlay would make
   // IT the foreground window on the next poll, hiding itself in a loop.
   w.showInactive()

@@ -113,9 +113,10 @@ const ProfileSchema = z
 const KeybindsSchema = z
   .object({
     startPauseTimer: z.string().catch('Ctrl+F9'),
-    saveScreenshot: z.string().catch('Ctrl+F10')
+    saveScreenshot: z.string().catch('Ctrl+F10'),
+    toggleOverlay: z.string().catch('Ctrl+F11')
   })
-  .catch({ startPauseTimer: 'Ctrl+F9', saveScreenshot: 'Ctrl+F10' })
+  .catch({ startPauseTimer: 'Ctrl+F9', saveScreenshot: 'Ctrl+F10', toggleOverlay: 'Ctrl+F11' })
 
 const OverlayCornerSchema = z
   .enum(['top-left', 'top-right', 'top-center', 'bottom-left', 'bottom-right', 'bottom-center'])

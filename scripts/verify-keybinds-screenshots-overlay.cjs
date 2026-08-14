@@ -101,7 +101,7 @@ function seed(label, overlayEnabled) {
         checkForUpdates: false,
         language: 'en',
         autoFetchArt: false,
-        keybinds: { startPauseTimer: 'Ctrl+F9', saveScreenshot: 'Ctrl+F10' },
+        keybinds: { startPauseTimer: 'Ctrl+F9', saveScreenshot: 'Ctrl+F10', toggleOverlay: 'Ctrl+F11' },
         overlay: { enabled: overlayEnabled, corner: 'top-right', scale: 1, shadow: true }
       }
     })
@@ -109,13 +109,17 @@ function seed(label, overlayEnabled) {
   return { appDataRoot, docs }
 }
 
+// Deliberately NOT a fullscreen/display-sized window — a real windowed game
+// (see the Forager report this was built to fix) can sit anywhere on the
+// desktop, nowhere near its edges. Anchoring the overlay to the DISPLAY
+// instead of this rect is exactly the bug that shipped: it visually passed
+// every other check ("overlay is visible") while landing somewhere the
+// player never looks.
+const GAME_BOUNDS = { X: 200, Y: 150, Width: 1280, Height: 800 }
 const FOCUSED_ON_GAME = JSON.stringify({
   ExePath: 'C:\\Games\\FocusedGame\\game.exe',
   Title: 'Focused Game Window',
-  X: 0,
-  Y: 0,
-  Width: 1920,
-  Height: 1080
+  ...GAME_BOUNDS
 })
 
 function withTimeout(promise, ms, label) {
@@ -188,6 +192,13 @@ async function overlayVisible(app) {
   })
 }
 
+async function overlayBounds(app) {
+  return app.evaluate(({ BrowserWindow }) => {
+    const overlay = BrowserWindow.getAllWindows().find((w) => w.getSize()[0] < 600)
+    return overlay ? overlay.getBounds() : null
+  })
+}
+
 ;(async () => {
   fs.rmSync(SCRATCH, { recursive: true, force: true })
   ensureBundlePatched()
@@ -243,11 +254,37 @@ async function overlayVisible(app) {
     await win.waitForTimeout(2500) // overlayWindow polls every 2s
     check('overlay visible while focused+linked and enabled', await overlayVisible(app), true)
 
+    // Anchored to the GAME window's rect, not the display — top-right corner,
+    // scale 1, MARGIN 16, BASE_WIDTH/HEIGHT 220x56 (overlayWindow.ts).
+    // GAME_BOUNDS is PHYSICAL pixels (what the real probe reports); converted
+    // through the app's own screenToDipRect rather than assumed 1:1, so this
+    // stays correct on a scaled display instead of only passing at 100%.
+    const dipGameBounds = await app.evaluate(
+      ({ screen }, rect) => screen.screenToDipRect(null, rect),
+      { x: GAME_BOUNDS.X, y: GAME_BOUNDS.Y, width: GAME_BOUNDS.Width, height: GAME_BOUNDS.Height }
+    )
+    const expected = {
+      x: dipGameBounds.x + dipGameBounds.width - 220 - 16,
+      y: dipGameBounds.y + 16,
+      width: 220,
+      height: 56
+    }
+    check('overlay anchored to the game window, not the display', await overlayBounds(app), expected)
+
+    console.log('  --- toggleOverlay keybind hides, then re-shows it ---')
+    await win.evaluate(() => window.__gamutTest.triggerKeybind('toggleOverlay'))
+    await win.waitForTimeout(500)
+    check('hidden after first toggle', await overlayVisible(app), false)
+
+    await win.evaluate(() => window.__gamutTest.triggerKeybind('toggleOverlay'))
+    await win.waitForTimeout(2500) // needs a poll tick to re-show
+    check('visible again after second toggle', await overlayVisible(app), true)
+
     await win.evaluate(() =>
       window.api.settings.update({ overlay: { enabled: false, corner: 'top-right', scale: 1, shadow: true } })
     )
     await win.waitForTimeout(300) // onSettingsChanged reacts immediately
-    check('overlay hidden once disabled', await overlayVisible(app), false)
+    check('overlay hidden once disabled via settings', await overlayVisible(app), false)
 
     await closeApp('overlay', app)
   }

@@ -4,7 +4,9 @@ import { toast } from '../components/common/Toast'
 const KEY_BY_CODE: Record<string, string> = {
   screenshot_saved: 'toast_screenshot_saved',
   screenshot_fallback: 'toast_screenshot_fallback',
-  screenshot_failed: 'err_screenshot_failed'
+  screenshot_failed: 'err_screenshot_failed',
+  overlay_enabled: 'toast_overlay_enabled',
+  overlay_disabled: 'toast_overlay_disabled'
 }
 
 /** Toasts triggered from main (e.g. the global screenshot hotkey) arrive as a code + params, translated here since main has no i18n instance — see the IPC contract's ToastBroadcastPayload doc. */

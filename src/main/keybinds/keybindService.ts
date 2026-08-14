@@ -2,6 +2,7 @@ import { BrowserWindow, globalShortcut } from 'electron'
 import { IPC } from '@shared/ipcContract'
 import type { KeybindKind } from '@shared/ipcContract'
 import { dataStore } from '../store/dataStore'
+import { updateSettings } from '../store/settingsService'
 import { timerEngine } from '../timer/timerEngine'
 import { trayService } from '../tray/trayService'
 import { getForegroundGameWindow, resolveCurrentGame } from '../detect/foregroundWindow'
@@ -48,6 +49,17 @@ export const keybindService = {
       return
     }
 
+    if (kind === 'toggleOverlay') {
+      const { overlay } = dataStore.get().settings
+      const enabled = !overlay.enabled
+      // Goes through the same updateSettings the Overlay Settings tab uses —
+      // one path handles persistence and reacting the live window, so a
+      // keybind toggle and a checkbox toggle can never behave differently.
+      await updateSettings({ overlay: { ...overlay, enabled } })
+      broadcastToast(enabled ? 'overlay_enabled' : 'overlay_disabled', 'info')
+      return
+    }
+
     try {
       const result = await captureScreenshot(name, fg)
       broadcastToast(result.fallback ? 'screenshot_fallback' : 'screenshot_saved', 'info', { name })
@@ -71,6 +83,7 @@ export const keybindService = {
     const { keybinds } = dataStore.get().settings
     keybindService.registerKind('startPauseTimer', keybinds.startPauseTimer)
     keybindService.registerKind('saveScreenshot', keybinds.saveScreenshot)
+    keybindService.registerKind('toggleOverlay', keybinds.toggleOverlay)
   },
 
   /** Called on quit — an unregistered global hotkey would otherwise keep intercepting the combo system-wide after the app closes. */

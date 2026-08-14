@@ -5,7 +5,8 @@ import type { KeybindKind } from '@shared/ipcContract'
 
 const ROWS: { kind: KeybindKind; labelKey: string }[] = [
   { kind: 'startPauseTimer', labelKey: 'label_keybind_start_pause' },
-  { kind: 'saveScreenshot', labelKey: 'label_keybind_screenshot' }
+  { kind: 'saveScreenshot', labelKey: 'label_keybind_screenshot' },
+  { kind: 'toggleOverlay', labelKey: 'label_keybind_toggle_overlay' }
 ]
 
 /** Normalizes a KeyboardEvent into the token shape validateCombo expects (shared/validateCombo.ts). */

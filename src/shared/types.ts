@@ -185,6 +185,7 @@ export interface Settings {
   keybinds: {
     startPauseTimer: string
     saveScreenshot: string
+    toggleOverlay: string
   }
   /** O: the in-game overlay's visibility, position, size, and text-shadow. */
   overlay: {

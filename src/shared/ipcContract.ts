@@ -163,7 +163,7 @@ export interface PopoutState {
   noteId: string
 }
 
-export type KeybindKind = 'startPauseTimer' | 'saveScreenshot'
+export type KeybindKind = 'startPauseTimer' | 'saveScreenshot' | 'toggleOverlay'
 
 /** Toasts triggered from main (no renderer call site to react to a result — e.g. the global screenshot hotkey) arrive as a code + params, not pre-translated text; main has no i18n instance. */
 export interface ToastBroadcastPayload {
