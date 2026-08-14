@@ -25,9 +25,21 @@ public class GamutWin32 {
   [DllImport("user32.dll")] public static extern int GetWindowThreadProcessId(IntPtr hWnd, out int processId);
   [DllImport("user32.dll")] public static extern int GetWindowText(IntPtr hWnd, StringBuilder text, int count);
   [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr hWnd, out RECT rect);
+  [DllImport("user32.dll")] public static extern bool SetProcessDpiAwarenessContext(IntPtr dpiContext);
   public struct RECT { public int Left; public int Top; public int Right; public int Bottom; }
 }
 "@
+# A plain, unmanifested PowerShell process is only SYSTEM-DPI-aware, not
+# PER-MONITOR-aware: Windows virtualizes GetWindowRect's coordinates using a
+# single scale factor (the primary monitor's) applied everywhere, instead of
+# each monitor's own. That's invisible on a single-monitor or same-scale
+# multi-monitor setup, and produces a real, systematic X/Y error the moment a
+# window sits on a secondary monitor with a DIFFERENT scale factor than the
+# primary (confirmed live: overlay position drifted specifically on a
+# two-monitor 150%/100% setup, worse on the secondary monitor). -4 is
+# DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2 — asking Windows for the actual
+# per-monitor-correct coordinates instead.
+[GamutWin32]::SetProcessDpiAwarenessContext([IntPtr]::new(-4)) | Out-Null
 $hwnd = [GamutWin32]::GetForegroundWindow()
 $procId = 0
 [GamutWin32]::GetWindowThreadProcessId($hwnd, [ref]$procId) | Out-Null

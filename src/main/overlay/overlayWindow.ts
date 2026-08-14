@@ -15,8 +15,12 @@ import { resolveAsset } from '../util/env'
  * PowerShell) but the displayed TIME piggybacks on the existing 500ms
  * timerEngine tick loop instead of its own poll — see pushTick.
  */
-const BASE_WIDTH = 220
-const BASE_HEIGHT = 56
+// 1.5x the original base — user feedback after trying it live: 0.5x of the
+// original was too small to read, and the useful sizes all sat at the top of
+// the slider. Shifting the whole baseline up (not just the slider's default)
+// keeps 1.0x meaning "the size most people will actually leave it at."
+const BASE_WIDTH = 330
+const BASE_HEIGHT = 84
 const MARGIN = 16
 const POLL_MS = 2000
 

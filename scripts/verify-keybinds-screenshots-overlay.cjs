@@ -184,17 +184,17 @@ async function closeApp(label, app) {
   console.log(`  [${label}] closed`)
 }
 
-/** The main window defaults to 1100px wide; the overlay's base width is 220 (up to 440 at 2.0x scale) — clearly distinguishable. */
+/** The main window defaults to 1100px wide; the overlay's base width is 330 (up to 660 at 2.0x scale) — clearly distinguishable. */
 async function overlayVisible(app) {
   return app.evaluate(({ BrowserWindow }) => {
-    const overlay = BrowserWindow.getAllWindows().find((w) => w.getSize()[0] < 600)
+    const overlay = BrowserWindow.getAllWindows().find((w) => w.getSize()[0] < 900)
     return overlay ? overlay.isVisible() : false
   })
 }
 
 async function overlayBounds(app) {
   return app.evaluate(({ BrowserWindow }) => {
-    const overlay = BrowserWindow.getAllWindows().find((w) => w.getSize()[0] < 600)
+    const overlay = BrowserWindow.getAllWindows().find((w) => w.getSize()[0] < 900)
     return overlay ? overlay.getBounds() : null
   })
 }
@@ -255,7 +255,7 @@ async function overlayBounds(app) {
     check('overlay visible while focused+linked and enabled', await overlayVisible(app), true)
 
     // Anchored to the GAME window's rect, not the display — top-right corner,
-    // scale 1, MARGIN 16, BASE_WIDTH/HEIGHT 220x56 (overlayWindow.ts).
+    // scale 1, MARGIN 16, BASE_WIDTH/HEIGHT 330x84 (overlayWindow.ts).
     // GAME_BOUNDS is PHYSICAL pixels (what the real probe reports); converted
     // through the app's own screenToDipRect rather than assumed 1:1, so this
     // stays correct on a scaled display instead of only passing at 100%.
@@ -264,10 +264,10 @@ async function overlayBounds(app) {
       { x: GAME_BOUNDS.X, y: GAME_BOUNDS.Y, width: GAME_BOUNDS.Width, height: GAME_BOUNDS.Height }
     )
     const expected = {
-      x: dipGameBounds.x + dipGameBounds.width - 220 - 16,
+      x: dipGameBounds.x + dipGameBounds.width - 330 - 16,
       y: dipGameBounds.y + 16,
-      width: 220,
-      height: 56
+      width: 330,
+      height: 84
     }
     check('overlay anchored to the game window, not the display', await overlayBounds(app), expected)
 
