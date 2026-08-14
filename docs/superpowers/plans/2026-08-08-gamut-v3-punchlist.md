@@ -349,6 +349,23 @@ alongside each new one.
   manual re-linking. Verified against this machine's real Steam library
   (14 installed games, all now resolve a real `installDir`).
 
+  **Third live bug, same day, in `gameWatcher.ts`'s background poll —
+  found once the Steam fix let it actually run against a real game**:
+  launching Grim Dawn from Gamut correctly auto-started the timer, but
+  (1) the Launch/Stop button never flipped to "Stop Game" (`touched`
+  was only set in the non-self-launched branch of "game just opened",
+  so the common case — Gamut launched the game itself — never fired the
+  broadcast), and (2) the displayed playtime reverted to a stale,
+  smaller number after the game closed (no push path existed for a
+  profile field, like `seconds`, changed by a main-process-initiated
+  auto-pause rather than a renderer-initiated one — only a full app
+  relaunch re-fetched it fresh). Fixed both; the second needed a new
+  `profiles:changed` broadcast + renderer subscription, not just a
+  logic fix. Verified with a real spawned process (`notepad.exe`, not
+  synthetic test data) through the actual rendered UI: button flips
+  both ways, displayed time is correct immediately after close with no
+  reload.
+
 ## P. Naming (found 2026-08-13)
 
 - [ ] **P1. Deep-search trademark/uniqueness on the name "Gamut"** before any
