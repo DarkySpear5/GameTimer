@@ -18,13 +18,24 @@ const api: GameTimerApi = {
     rename: (oldName, newName) => ipcRenderer.invoke(IPC.profiles.rename, oldName, newName),
     delete: (name) => ipcRenderer.invoke(IPC.profiles.delete, name),
     duplicate: (name) => ipcRenderer.invoke(IPC.profiles.duplicate, name),
-    setStatus: (name, status) => ipcRenderer.invoke(IPC.profiles.setStatus, name, status),
+    setStatus: (name, status, overrideSeconds) =>
+      ipcRenderer.invoke(IPC.profiles.setStatus, name, status, overrideSeconds),
     clearStatusRecord: (name) => ipcRenderer.invoke(IPC.profiles.clearStatusRecord, name),
     refreshArt: (name) => ipcRenderer.invoke(IPC.profiles.refreshArt, name),
     setAutoFetchArt: (name, value) => ipcRenderer.invoke(IPC.profiles.setAutoFetchArt, name, value),
     setGenres: (name, genres) => ipcRenderer.invoke(IPC.profiles.setGenres, name, genres),
     setRating: (name, rating) => ipcRenderer.invoke(IPC.profiles.setRating, name, rating),
     setFavorite: (name, favorite) => ipcRenderer.invoke(IPC.profiles.setFavorite, name, favorite),
+    createSubCategory: (name, categoryName) =>
+      ipcRenderer.invoke(IPC.profiles.createSubCategory, name, categoryName),
+    renameSubCategory: (name, categoryId, newName) =>
+      ipcRenderer.invoke(IPC.profiles.renameSubCategory, name, categoryId, newName),
+    deleteSubCategory: (name, categoryId) =>
+      ipcRenderer.invoke(IPC.profiles.deleteSubCategory, name, categoryId),
+    setSubCategoriesEnabled: (name, value) =>
+      ipcRenderer.invoke(IPC.profiles.setSubCategoriesEnabled, name, value),
+    assignSubCategorySession: (name, categoryId) =>
+      ipcRenderer.invoke(IPC.profiles.assignSubCategorySession, name, categoryId),
     createNote: (name) => ipcRenderer.invoke(IPC.profiles.createNote, name),
     renameNote: (name, noteId, title) => ipcRenderer.invoke(IPC.profiles.renameNote, name, noteId, title),
     deleteNote: (name, noteId) => ipcRenderer.invoke(IPC.profiles.deleteNote, name, noteId),
