@@ -9,6 +9,7 @@ import { timerEngine } from './timer/timerEngine'
 import { registerMainWindow, showWindow, quitApp } from './appLifecycle'
 import { registerUpdaterWindow, checkForUpdatesOnLaunch } from './updater/autoUpdater'
 import { gameWatcher } from './detect/gameWatcher'
+import { backfillSteamInstallDirs } from './detect/installedSources'
 import { keybindService } from './keybinds/keybindService'
 import { overlayWindow } from './overlay/overlayWindow'
 import { USER_DATA_FOLDER, APP_USER_MODEL_ID } from '@shared/channel'
@@ -35,6 +36,12 @@ if (!acquireSingleInstanceLock(() => showWindow())) {
     app.setAppUserModelId(APP_USER_MODEL_ID)
 
     await dataStore.load()
+    // Fire-and-forget: repairs any pre-fix Steam import in the background
+    // rather than delaying window creation on a filesystem rescan. The
+    // watcher/overlay polls both self-correct on their next tick regardless
+    // of exactly when this lands, and it'll always finish well before a
+    // realistic first hotkey press.
+    void backfillSteamInstallDirs()
     registerAssetProtocolHandler()
 
     mainWindow = createMainWindow()
