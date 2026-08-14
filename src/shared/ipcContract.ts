@@ -102,6 +102,15 @@ export const IPC = {
   fonts: {
     list: 'fonts:list'
   },
+  keybinds: {
+    set: 'keybinds:set'
+  },
+  toast: {
+    show: 'toast:show'
+  },
+  dev: {
+    triggerKeybind: 'dev:triggerKeybind'
+  },
   detect: {
     listRunning: 'detect:listRunning',
     identify: 'detect:identify',
@@ -138,6 +147,15 @@ export interface TimerTickPayload {
 export interface PopoutState {
   name: string
   noteId: string
+}
+
+export type KeybindKind = 'startPauseTimer' | 'saveScreenshot'
+
+/** Toasts triggered from main (no renderer call site to react to a result — e.g. the global screenshot hotkey) arrive as a code + params, not pre-translated text; main has no i18n instance. */
+export interface ToastBroadcastPayload {
+  code: string
+  kind: 'info' | 'error'
+  params?: Record<string, string>
 }
 
 /**
@@ -271,6 +289,16 @@ export interface GameTimerApi {
   fonts: {
     /** Curated fonts merged with every font installed on this PC (incl. third-party), deduped and sorted. */
     list(): Promise<string[]>
+  }
+  keybinds: {
+    /** Validates, registers (replacing any previous registration for this kind), and persists in one atomic call — see keybindService.ts. */
+    set(
+      kind: KeybindKind,
+      combo: string
+    ): Promise<{ ok: true; settings: Settings } | { ok: false; error: 'invalid_combo' | 'register_failed' }>
+  }
+  toast: {
+    onBroadcast(cb: (payload: ToastBroadcastPayload) => void): () => void
   }
   detect: {
     /** Running applications with a visible window, likely games first. Read-only. */

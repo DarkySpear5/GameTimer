@@ -110,6 +110,13 @@ const ProfileSchema = z
     installDir: z.string().nullable().catch(null)
   })
 
+const KeybindsSchema = z
+  .object({
+    startPauseTimer: z.string().catch('Ctrl+F9'),
+    saveScreenshot: z.string().catch('Ctrl+F10')
+  })
+  .catch({ startPauseTimer: 'Ctrl+F9', saveScreenshot: 'Ctrl+F10' })
+
 const ThemeNameSchema = z
   .enum(['Midnight Blue', 'Paper White', 'Slate Grey', 'Rose', 'Retro Terminal', 'Custom'])
   .catch('Midnight Blue')
@@ -160,7 +167,8 @@ const SettingsSchema = z.object({
   launcherFolders: z.record(z.string(), z.string()).catch({}),
   // The user's OWN SteamGridDB key. Empty = the feature is simply off. See the
   // exception note at the top of art/steamGridDb.ts.
-  steamGridDbApiKey: z.string().catch('')
+  steamGridDbApiKey: z.string().catch(''),
+  keybinds: KeybindsSchema
 })
 
 const AppDataSchema = z.object({

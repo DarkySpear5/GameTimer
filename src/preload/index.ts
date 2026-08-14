@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { IPC } from '@shared/ipcContract'
-import type { GameTimerApi, PopoutState, TimerTickPayload } from '@shared/ipcContract'
+import type { GameTimerApi, PopoutState, TimerTickPayload, ToastBroadcastPayload } from '@shared/ipcContract'
 import type { UpdateInfo, UpdateProgress } from '@shared/types'
 
 // Thin pass-through only — no logic belongs here. Every method just forwards
@@ -126,6 +126,16 @@ const api: GameTimerApi = {
   fonts: {
     list: () => ipcRenderer.invoke(IPC.fonts.list)
   },
+  keybinds: {
+    set: (kind, combo) => ipcRenderer.invoke(IPC.keybinds.set, kind, combo)
+  },
+  toast: {
+    onBroadcast: (cb) => {
+      const listener = (_event: Electron.IpcRendererEvent, payload: ToastBroadcastPayload): void => cb(payload)
+      ipcRenderer.on(IPC.toast.show, listener)
+      return () => ipcRenderer.removeListener(IPC.toast.show, listener)
+    }
+  },
   detect: {
     listRunning: () => ipcRenderer.invoke(IPC.detect.listRunning),
     identify: (exePath, windowTitle) => ipcRenderer.invoke(IPC.detect.identify, exePath, windowTitle),
@@ -162,3 +172,15 @@ const api: GameTimerApi = {
 }
 
 contextBridge.exposeInMainWorld('api', api)
+
+/**
+ * Real global hotkeys are OS-level input Playwright can't inject — this lets
+ * a verify script call the exact handler a real key press calls (see
+ * keybindService.ts / dev.ipc.ts). The main-process handler only exists when
+ * GAMUT_TEST_APPDATA is set, so this is harmless in a real shipped app —
+ * invoking it just gets "no handler registered" and resolves to undefined.
+ */
+contextBridge.exposeInMainWorld('__gamutTest', {
+  triggerKeybind: (kind: 'startPauseTimer' | 'saveScreenshot') =>
+    ipcRenderer.invoke(IPC.dev.triggerKeybind, kind)
+})

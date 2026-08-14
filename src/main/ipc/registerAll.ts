@@ -11,6 +11,8 @@ import { registerUpdaterIpc } from './updater.ipc'
 import { registerFontsIpc } from './fonts.ipc'
 import { registerDetectIpc } from './detect.ipc'
 import { registerNotesIpc } from './notes.ipc'
+import { registerKeybindsIpc } from './keybinds.ipc'
+import { registerDevIpc } from './dev.ipc'
 
 /** Single place every ipcMain.handle/on registration goes through, so there's one spot to audit what's wired up. */
 export function registerAllIpcHandlers(win: BrowserWindow): void {
@@ -34,4 +36,6 @@ export function registerAllIpcHandlers(win: BrowserWindow): void {
   registerFontsIpc()
   registerDetectIpc()
   registerNotesIpc()
+  registerKeybindsIpc()
+  registerDevIpc()
 }

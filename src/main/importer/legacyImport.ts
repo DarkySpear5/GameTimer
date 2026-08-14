@@ -133,7 +133,9 @@ function normalizeLegacySettings(raw: Record<string, unknown> | undefined): Sett
     detailLevel: 'simple',
     extraGameFolders: [],
     launcherFolders: {},
-    steamGridDbApiKey: ''
+    steamGridDbApiKey: '',
+    // v1 has no equivalent concept either — same defaults a fresh install gets.
+    keybinds: { startPauseTimer: 'Ctrl+F9', saveScreenshot: 'Ctrl+F10' }
   }
 }
 

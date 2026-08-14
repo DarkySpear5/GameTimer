@@ -179,6 +179,11 @@ export interface Settings {
    * Empty means the feature is off — every other art source is keyless.
    */
   steamGridDbApiKey: string
+  /** M: rebindable global hotkeys. Combo strings are validateCombo's display shape, e.g. "Ctrl+2". */
+  keybinds: {
+    startPauseTimer: string
+    saveScreenshot: string
+  }
 }
 
 /** One running application offered in the Add Game picker. */
