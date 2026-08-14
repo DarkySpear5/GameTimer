@@ -14,6 +14,7 @@ import { AddGameDialog } from './components/dialogs/AddGameDialog'
 import { FirstRunPrompts } from './components/dialogs/FirstRunPrompts'
 import { InstalledGamesDialog } from './components/dialogs/InstalledGamesDialog'
 import { AdjustTimeDialog } from './components/dialogs/AdjustTimeDialog'
+import { SubCategoryPromptDialog } from './components/dialogs/SubCategoryPromptDialog'
 import { UpdatePrompt } from './components/dialogs/UpdatePrompt'
 import { ToastHost } from './components/common/Toast'
 import { useProfilesStore, startProfilesChangeSubscription } from './state/profilesStore'
@@ -107,6 +108,9 @@ function App(): React.JSX.Element {
       {dialog === 'add' && <AddGameDialog onClose={closeDialog} />}
 
       {dialog === 'time' && dialogTarget && <AdjustTimeDialog name={dialogTarget} onClose={closeDialog} />}
+      {dialog === 'subCategoryPrompt' && dialogTarget && (
+        <SubCategoryPromptDialog name={dialogTarget} onClose={closeDialog} />
+      )}
       {dialog === 'installed' && <InstalledGamesDialog onClose={closeDialog} />}
 
       <FirstRunPrompts />

@@ -312,6 +312,8 @@
   "subcat_heading": "SUB-CATEGORIES",
   "subcat_new": "+ New",
   "subcat_new_name_prompt": "Sub-category name",
+  "subcat_prompt_none": "None — just the main total",
+  "subcat_prompt_title": "Which category is this session for, {{name}}?",
   "tab_about": "About",
   "tab_appearance": "Appearance",
   "tab_keybinds": "Keybinds",
