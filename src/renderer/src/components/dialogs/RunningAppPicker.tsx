@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { Spinner } from '../common/Spinner'
 import type { DetectedApp } from '@shared/types'
 
 /**
@@ -37,7 +38,12 @@ export function RunningAppPicker({
   }, [])
 
   if (apps === null) {
-    return <div className="py-8 text-center text-sm text-subtext">{t('add_scanning')}</div>
+    return (
+      <div className="flex flex-col items-center gap-2 py-8 text-sm text-subtext">
+        <Spinner className="h-5 w-5" />
+        {t('add_scanning')}
+      </div>
+    )
   }
   if (apps.length === 0) {
     return <div className="py-8 text-center text-sm text-subtext">{t('add_no_apps')}</div>
@@ -45,6 +51,13 @@ export function RunningAppPicker({
 
   return (
     <div className="flex flex-col gap-4">
+      {/* Picking an app triggers an identify/classify round trip — the grid disabling alone wasn't a visible "this is doing something". */}
+      {busy && (
+        <div className="flex items-center gap-2 rounded bg-card/40 px-3 py-2 text-xs text-subtext">
+          <Spinner className="h-3.5 w-3.5" />
+          {t('add_identifying')}
+        </div>
+      )}
       {/*
        * Two labelled groups rather than one undifferentiated grid: Gamut can
        * tell a game-library install from an ordinary program, and an unlabelled

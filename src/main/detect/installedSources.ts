@@ -4,6 +4,7 @@ import { promisify } from 'util'
 import { join } from 'path'
 import { regSubkeys, regValues, regKeyName, regTree, type RegKey } from '../util/registry'
 import { scanSteamLibrary } from './steamLibrary'
+import { dataStore } from '../store/dataStore'
 import type { FoundGame } from '@shared/types'
 
 const execFileAsync = promisify(execFile)
@@ -585,8 +586,45 @@ export async function scanSteam(): Promise<FoundGame[]> {
     // and why it is the correct route anyway — Steam applies launch options.
     exePath: null,
     steamAppId: g.appId,
-    installDir: null,
+    // scanSteamLibrary() already resolves this (steamapps/common/<installdir>
+    // from the manifest) — it was being computed and then silently dropped
+    // here, which is why background process-detection, auto-start-timer, and
+    // (added today) global keybinds/the overlay all silently never matched
+    // ANY Steam-imported game: every one of them matches on installDir/exePath,
+    // and every Steam import had both null, relying on steamAppId for launch
+    // only. Found live: Grim Dawn's Launch/Stop button never flipped, and
+    // turned out to be true of every Steam game in the library, not one game.
+    installDir: g.installPath ?? null,
     launchUri: null,
     confident: true
   }))
+}
+
+/**
+ * One-time-per-launch repair for every profile imported before the fix just
+ * above — `scanSteam()` used to hardcode `installDir: null` for every Steam
+ * import, unconditionally. That silently broke background process-detection,
+ * auto-start-timer, and (added the same day this was found) global keybinds
+ * and the overlay for EVERY Steam-imported profile in the library, not just
+ * one game — confirmed live: none of them had an "Open .exe directory"
+ * button, and Launch/Stop never flipped for any of them.
+ *
+ * Re-scans and matches by steamAppId (the one field that was always set
+ * correctly), filling in whatever's missing. No-op once a profile already
+ * has an installDir — safe to call on every launch, not just once.
+ */
+export async function backfillSteamInstallDirs(): Promise<void> {
+  const data = dataStore.get()
+  const broken = Object.values(data.profiles).filter((p) => p.steamAppId != null && !p.installDir)
+  if (broken.length === 0) return
+  const steamGames = await scanSteam()
+  let touched = false
+  for (const profile of broken) {
+    const match = steamGames.find((g) => g.steamAppId === profile.steamAppId)
+    if (match?.installDir) {
+      profile.installDir = match.installDir
+      touched = true
+    }
+  }
+  if (touched) await dataStore.safeSave()
 }

@@ -27,6 +27,28 @@ const RatingSchema = z
   .union([z.literal(0), z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5)])
   .catch(0)
 
+const DrawingStrokeSchema = z
+  .object({
+    points: z.array(z.object({ x: z.number(), y: z.number() })).catch([]),
+    color: z.string().catch('#ffffff'),
+    width: z.number().catch(2)
+  })
+  .catch({ points: [], color: '#ffffff', width: 2 })
+
+const NoteSchema = z.object({
+  // A note with no id can't be renamed, deleted or edited afterward, so an
+  // empty/missing one is treated as invalid input (triggers .catch below)
+  // rather than silently accepted.
+  id: z.string().min(1).catch(() => Math.random().toString(36).slice(2)),
+  title: z.string().catch(''),
+  body: z.string().catch(''),
+  drawing: z.array(DrawingStrokeSchema).catch([]),
+  createdAt: z.number().catch(0),
+  updatedAt: z.number().catch(0)
+})
+
+const NoteListSchema = z.array(NoteSchema).catch([])
+
 const SessionEntrySchema = z.object({
   startedAt: z.number().catch(0),
   seconds: z.number().catch(0),
@@ -57,11 +79,22 @@ const ProfileSchema = z
     lastPlayed: z.number().nullable().catch(null),
     startedDate: z.string().nullable().catch(null),
     notes: z.string().catch(''),
+    // Absent in every save written before L1's multi-note rewrite — defaults
+    // to empty and gets folded from the legacy `notes` field by
+    // migrateLegacyNotes, same shape as the activeSession precedent below.
+    noteList: NoteListSchema,
     rating: RatingSchema,
     // .catch([]) rather than validation: same contract as every other field
     // here — a partial or corrupt file loses the bad field, never the library.
     sessionStats: SessionAggregateSchema,
     sessionLog: z.array(SessionEntrySchema).catch([]),
+    // Absent in every save written before crash recovery existed, so it
+    // defaults to null rather than being required.
+    activeSession: z
+      .object({ startedAt: z.number(), lastSeenAt: z.number() })
+      .nullable()
+      .catch(null)
+      .default(null),
     exePath: z.string().nullable().catch(null),
     steamAppId: z.number().nullable().catch(null),
     // Tri-state on purpose: null means "follow the global setting", so
@@ -76,6 +109,27 @@ const ProfileSchema = z
     launchUri: z.string().nullable().catch(null),
     installDir: z.string().nullable().catch(null)
   })
+
+const KeybindsSchema = z
+  .object({
+    startPauseTimer: z.string().catch('Ctrl+F9'),
+    saveScreenshot: z.string().catch('Ctrl+F10'),
+    toggleOverlay: z.string().catch('Ctrl+F11')
+  })
+  .catch({ startPauseTimer: 'Ctrl+F9', saveScreenshot: 'Ctrl+F10', toggleOverlay: 'Ctrl+F11' })
+
+const OverlayCornerSchema = z
+  .enum(['top-left', 'top-right', 'top-center', 'bottom-left', 'bottom-right', 'bottom-center'])
+  .catch('top-right')
+
+const OverlaySchema = z
+  .object({
+    enabled: z.boolean().catch(false),
+    corner: OverlayCornerSchema,
+    scale: z.number().catch(1.0),
+    shadow: z.boolean().catch(true)
+  })
+  .catch({ enabled: false, corner: 'top-right', scale: 1.0, shadow: true })
 
 const ThemeNameSchema = z
   .enum(['Midnight Blue', 'Paper White', 'Slate Grey', 'Rose', 'Retro Terminal', 'Custom'])
@@ -127,7 +181,9 @@ const SettingsSchema = z.object({
   launcherFolders: z.record(z.string(), z.string()).catch({}),
   // The user's OWN SteamGridDB key. Empty = the feature is simply off. See the
   // exception note at the top of art/steamGridDb.ts.
-  steamGridDbApiKey: z.string().catch('')
+  steamGridDbApiKey: z.string().catch(''),
+  keybinds: KeybindsSchema,
+  overlay: OverlaySchema
 })
 
 const AppDataSchema = z.object({

@@ -4,6 +4,8 @@ import { Modal } from '../common/Modal'
 import { EyedropperButton } from '../common/EyedropperButton'
 import { useSettingsStore, updateSettings, updateSettingsOptimistic } from '../../state/settingsStore'
 import { LauncherSettings } from './LauncherSettings'
+import { KeybindsSettings } from './KeybindsSettings'
+import { OverlaySettings } from './OverlaySettings'
 import {
   THEMES,
   THEME_ORDER,
@@ -16,7 +18,7 @@ import {
 } from '@shared/constants'
 import type { Settings, ThemeColors, ThemeName } from '@shared/types'
 
-type Tab = 'general' | 'games' | 'launchers' | 'appearance' | 'language'
+type Tab = 'general' | 'games' | 'launchers' | 'keybinds' | 'overlay' | 'appearance'
 
 const ROLE_KEYS: Record<keyof ThemeColors, string> = {
   bg: 'role_background',
@@ -38,17 +40,27 @@ export function SettingsDialog({ onClose }: { onClose: () => void }): React.JSX.
     { id: 'general', label: t('tab_general') },
     // Everything about detecting and decorating games in one place — these
     // were scattered across General before and read as unrelated switches.
-
+    { id: 'games', label: t('tab_games') },
     // Detection sources get their own tab: they are about where games COME
     // FROM, which is a different question from how they behave once added.
     { id: 'launchers', label: t('tab_launchers') },
-    { id: 'games', label: t('tab_games') },
-    { id: 'appearance', label: t('tab_appearance') },
-    { id: 'language', label: t('tab_language') }
+    { id: 'keybinds', label: t('tab_keybinds') },
+    { id: 'overlay', label: t('tab_overlay') },
+    { id: 'appearance', label: t('tab_appearance') }
   ]
 
+  /*
+   * width is sized to the tab row's own content (measured: ~31.4rem for all
+   * six labels at default scale), not a generic Tailwind max-w-* step —
+   * those either overflowed into a scrollbar (max-w-lg) or left the row's
+   * trailing edge ("Appearance") sitting much further from the right border
+   * than "General" sits from the left, since the row is left-aligned and any
+   * extra cap width shows up entirely on one side. Stays rem-based (not a
+   * fixed px value) so it keeps scaling with the user's font-size setting
+   * the same way Tailwind's own max-w-* would.
+   */
   return (
-    <Modal title={t('settings_title')} onClose={onClose} width="max-w-lg">
+    <Modal title={t('settings_title')} onClose={onClose} width="max-w-[34rem]">
       <div className="mb-4 flex gap-1 border-b border-card">
         {TABS.map((tb) => (
           <button
@@ -80,6 +92,24 @@ export function SettingsDialog({ onClose }: { onClose: () => void }): React.JSX.
             checked={settings.checkForUpdates}
             onChange={(v) => void updateSettings({ checkForUpdates: v })}
           />
+
+          {/* Folded in from its own tab — one language picker didn't earn a whole tab of its own once the tab bar had six others to fit alongside it. */}
+          <div className="border-t border-card pt-4">
+            <div className="mb-2 text-xs font-medium tracking-wide text-subtext">{t('tab_language')}</div>
+            <div className="grid grid-cols-2 gap-1.5">
+              {LANGUAGE_ORDER.map((code) => (
+                <button
+                  key={code}
+                  onClick={() => void updateSettings({ language: code })}
+                  className={`rounded px-3 py-1.5 text-left text-sm ${
+                    settings.language === code ? 'bg-accent text-bg' : 'bg-card text-text hover:bg-card/70'
+                  }`}
+                >
+                  {LANGUAGE_NAMES[code]}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       )}
 
@@ -125,6 +155,10 @@ export function SettingsDialog({ onClose }: { onClose: () => void }): React.JSX.
       {/* Where games are found, and how to correct it — see LauncherSettings. */}
       {tab === 'launchers' && <LauncherSettings />}
 
+      {tab === 'keybinds' && <KeybindsSettings />}
+
+      {tab === 'overlay' && <OverlaySettings />}
+
       {tab === 'appearance' && (
         <div className="flex flex-col gap-6">
           <AppearanceTab settings={settings} />
@@ -134,22 +168,6 @@ export function SettingsDialog({ onClose }: { onClose: () => void }): React.JSX.
             <div className="mb-3 text-xs font-medium tracking-wide text-subtext">{t('tab_ui')}</div>
             <UiTab settings={settings} />
           </div>
-        </div>
-      )}
-
-      {tab === 'language' && (
-        <div className="grid grid-cols-2 gap-1.5">
-          {LANGUAGE_ORDER.map((code) => (
-            <button
-              key={code}
-              onClick={() => void updateSettings({ language: code })}
-              className={`rounded px-3 py-1.5 text-left text-sm ${
-                settings.language === code ? 'bg-accent text-bg' : 'bg-card text-text hover:bg-card/70'
-              }`}
-            >
-              {LANGUAGE_NAMES[code]}
-            </button>
-          ))}
         </div>
       )}
     </Modal>
@@ -292,7 +310,7 @@ function sizeKeyFor(label: string): string {
   }
 }
 
-function ToggleRow({
+export function ToggleRow({
   label,
   checked,
   onChange

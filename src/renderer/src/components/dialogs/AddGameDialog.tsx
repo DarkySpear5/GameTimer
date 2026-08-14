@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Modal } from '../common/Modal'
+import { Spinner } from '../common/Spinner'
 import { useUiStore } from '../../state/uiStore'
 import { toast } from '../common/Toast'
 import { useProfilesStore } from '../../state/profilesStore'
@@ -160,8 +161,9 @@ export function AddGameDialog({ onClose }: { onClose: () => void }): React.JSX.E
             onClick={() =>
               void finish(hits?.[0]?.name ?? query, pending.app.exePath, hits?.[0]?.appId ?? null)
             }
-            className="rounded bg-accent py-2 text-sm font-medium text-bg hover:opacity-90 disabled:opacity-50"
+            className="flex items-center justify-center gap-2 rounded bg-accent py-2 text-sm font-medium text-bg hover:opacity-90 disabled:opacity-50"
           >
+            {busy && <Spinner className="h-3.5 w-3.5" />}
             {t('add_use_this')}
           </button>
         </div>
@@ -180,8 +182,9 @@ export function AddGameDialog({ onClose }: { onClose: () => void }): React.JSX.E
           <button
             disabled={busy || !manualName.trim()}
             onClick={() => void finish(manualName.trim(), null, null)}
-            className="shrink-0 rounded bg-accent px-4 text-sm font-medium text-bg hover:opacity-90 disabled:opacity-50"
+            className="flex shrink-0 items-center gap-2 rounded bg-accent px-4 text-sm font-medium text-bg hover:opacity-90 disabled:opacity-50"
           >
+            {busy && <Spinner className="h-3.5 w-3.5" />}
             {t('label_add')}
           </button>
         </div>

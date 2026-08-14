@@ -33,3 +33,4 @@ release-dev/
 .measure-tmp/
 .verify-art-tmp/
 .verify-sources-tmp/
+.verify-kso-tmp/

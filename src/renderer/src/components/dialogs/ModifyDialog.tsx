@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Modal } from '../common/Modal'
+import { Spinner } from '../common/Spinner'
 import { useProfilesStore } from '../../state/profilesStore'
 import { toast } from '../common/Toast'
 import { RunningAppPicker } from './RunningAppPicker'
@@ -334,6 +335,7 @@ function AppearanceTab({ profile }: { profile: Profile }): React.JSX.Element {
   // Every candidate image for this game, fetched once when the tab opens.
   // URLs only — nothing is downloaded until one is actually clicked.
   const [art, setArt] = useState<ArtOptions | null>(null)
+  const [refreshingArt, setRefreshingArt] = useState(false)
   const [applying, setApplying] = useState(false)
 
   useEffect(() => {
@@ -356,7 +358,12 @@ function AppearanceTab({ profile }: { profile: Profile }): React.JSX.Element {
     useProfilesStore.getState().upsert(await window.api.profiles.setAutoFetchArt(profile.name, value))
   }
   async function refreshArt(): Promise<void> {
-    useProfilesStore.getState().upsert(await window.api.profiles.refreshArt(profile.name))
+    setRefreshingArt(true)
+    try {
+      useProfilesStore.getState().upsert(await window.api.profiles.refreshArt(profile.name))
+    } finally {
+      setRefreshingArt(false)
+    }
   }
 
   return (
@@ -390,8 +397,10 @@ function AppearanceTab({ profile }: { profile: Profile }): React.JSX.Element {
           </div>
           <button
             onClick={() => void refreshArt()}
-            className="mt-1.5 w-full rounded bg-card py-1.5 text-xs text-subtext hover:text-text"
+            disabled={refreshingArt}
+            className="mt-1.5 flex w-full items-center justify-center gap-2 rounded bg-card py-1.5 text-xs text-subtext hover:text-text disabled:opacity-60"
           >
+            {refreshingArt && <Spinner className="h-3 w-3" />}
             {t('btn_refresh_art')}
           </button>
         </div>

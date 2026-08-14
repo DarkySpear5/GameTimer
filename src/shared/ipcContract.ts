@@ -14,6 +14,7 @@ import type {
   UpdateInfo,
   UpdateProgress
 } from './types'
+import type { DrawingStroke } from './notes'
 
 /**
  * Channel name constants — single source of truth so main/ipc/*.ts and the
@@ -33,13 +34,18 @@ export const IPC = {
     setGenres: 'profiles:setGenres',
     setRating: 'profiles:setRating',
     setFavorite: 'profiles:setFavorite',
-    setNotes: 'profiles:setNotes',
+    createNote: 'profiles:createNote',
+    renameNote: 'profiles:renameNote',
+    deleteNote: 'profiles:deleteNote',
+    updateNoteBody: 'profiles:updateNoteBody',
+    updateNoteDrawing: 'profiles:updateNoteDrawing',
     addRemoveTime: 'profiles:addRemoveTime',
     resetTime: 'profiles:resetTime',
     setIcon: 'profiles:setIcon',
     setBackground: 'profiles:setBackground',
     clearBackground: 'profiles:clearBackground',
-    select: 'profiles:select'
+    select: 'profiles:select',
+    changed: 'profiles:changed'
   },
   timer: {
     start: 'timer:start',
@@ -65,6 +71,17 @@ export const IPC = {
     setTrayEnabled: 'system:setTrayEnabled',
     quit: 'system:quit'
   },
+  notes: {
+    openPopout: 'notes:openPopout',
+    getPopoutState: 'notes:getPopoutState',
+    moveDrawing: 'notes:moveDrawing',
+    setViewedNote: 'notes:setViewedNote',
+    setDropZone: 'notes:setDropZone',
+    closePopoutWithFade: 'notes:closePopoutWithFade',
+    popoutState: 'notes:popoutState',
+    dropDetected: 'notes:dropDetected',
+    dropZoneHover: 'notes:dropZoneHover'
+  },
   window: {
     minimize: 'window:minimize',
     maximizeToggle: 'window:maximizeToggle',
@@ -86,12 +103,32 @@ export const IPC = {
   fonts: {
     list: 'fonts:list'
   },
+  keybinds: {
+    set: 'keybinds:set'
+  },
+  screenshots: {
+    list: 'screenshots:list',
+    open: 'screenshots:open'
+  },
+  overlay: {
+    tick: 'overlay:tick'
+  },
+  toast: {
+    show: 'toast:show'
+  },
+  dev: {
+    triggerKeybind: 'dev:triggerKeybind'
+  },
   detect: {
     listRunning: 'detect:listRunning',
     identify: 'detect:identify',
     search: 'detect:search',
     createGame: 'detect:createGame',
     launch: 'detect:launch',
+    stop: 'detect:stop',
+    openExeDirectory: 'detect:openExeDirectory',
+    openGames: 'detect:openGames',
+    openGamesChanged: 'detect:openGamesChanged',
     setAutoStartTimer: 'detect:setAutoStartTimer',
     classify: 'detect:classify',
     artOptions: 'detect:artOptions',
@@ -112,6 +149,28 @@ export const IPC = {
 
 export interface TimerTickPayload {
   running: Record<string, number>
+}
+
+export interface OverlayTickPayload {
+  seconds: number
+  running: boolean
+  scale: number
+  shadow: boolean
+}
+
+/** Which note's drawing is currently open in the L3 pop-out window, or null if none is. */
+export interface PopoutState {
+  name: string
+  noteId: string
+}
+
+export type KeybindKind = 'startPauseTimer' | 'saveScreenshot' | 'toggleOverlay'
+
+/** Toasts triggered from main (no renderer call site to react to a result — e.g. the global screenshot hotkey) arrive as a code + params, not pre-translated text; main has no i18n instance. */
+export interface ToastBroadcastPayload {
+  code: string
+  kind: 'info' | 'error'
+  params?: Record<string, string>
 }
 
 /**
@@ -136,13 +195,27 @@ export interface GameTimerApi {
     setGenres(name: string, genres: string[]): Promise<Profile>
     setRating(name: string, rating: 0 | 1 | 2 | 3 | 4 | 5): Promise<Profile>
     setFavorite(name: string, favorite: boolean): Promise<Profile>
-    setNotes(name: string, notes: string): Promise<Profile>
-    addRemoveTime(name: string, deltaSeconds: number, note?: string): Promise<Profile>
+    /** L1: a fresh untitled note at the top of the list. */
+    createNote(name: string): Promise<Profile>
+    renameNote(name: string, noteId: string, title: string): Promise<Profile>
+    deleteNote(name: string, noteId: string): Promise<Profile>
+    updateNoteBody(name: string, noteId: string, body: string): Promise<Profile>
+    updateNoteDrawing(name: string, noteId: string, drawing: DrawingStroke[]): Promise<Profile>
+    addRemoveTime(name: string, deltaSeconds: number): Promise<Profile>
     resetTime(name: string): Promise<Profile>
     setIcon(name: string): Promise<Profile | null>
     setBackground(name: string, kind: 'image' | 'color', value: string): Promise<Profile | null>
     clearBackground(name: string): Promise<Profile>
     select(name: string | null): Promise<void>
+    /**
+     * Pushed whenever the MAIN process mutates a profile on its own —
+     * gameWatcher's background poll (auto-pause, launch/openSeconds accrual)
+     * — since that's the only kind of profile change with no natural request/
+     * response round-trip a renderer-initiated action already refreshes
+     * itself with. Every other profiles.* method already returns the updated
+     * Profile directly to whoever called it.
+     */
+    onChanged(cb: (profiles: Profile[]) => void): () => void
   }
   timer: {
     start(name: string): Promise<void>
@@ -170,6 +243,55 @@ export interface GameTimerApi {
     setTrayEnabled(enabled: boolean): Promise<void>
     quit(): Promise<void>
   }
+  /**
+   * L3: the drawing pop-out. Only one can be open at a time — see
+   * drawingPopout.ts. openPopout resolves false if a DIFFERENT note is
+   * already popped out; the caller is expected to have hidden/disabled the
+   * button in that case (see NoteEditor's own popoutState subscription)
+   * rather than needing to handle it as a surprise.
+   */
+  notes: {
+    openPopout(name: string, noteId: string): Promise<{ opened: boolean }>
+    getPopoutState(): Promise<PopoutState | null>
+    /** The two games can differ — dragging onto a DIFFERENT game's note editor is a valid target. The caller must confirm an overwrite with the user before calling this — it performs the move unconditionally. */
+    moveDrawing(
+      fromName: string,
+      fromNoteId: string,
+      toName: string,
+      toNoteId: string
+    ): Promise<{ from: Profile; to: Profile }>
+    /** Which note (if any) the main window's NoteEditor currently has open — lets a drag-drop reattach pick a different note as the target, instead of always reattaching to the pop-out's own. Pass null when leaving the editor. */
+    setViewedNote(target: { name: string; noteId: string } | null): void
+    /**
+     * The screen-space-relative rect of NoteEditor's drawing zone (the live
+     * canvas, or its placeholder when popped out) — main compares the
+     * pop-out's dragged position against this specific rect, not the whole
+     * app window, and adds the main window's own current on-screen position
+     * at comparison time. Coordinates are relative to the main window's
+     * content area (plain getBoundingClientRect() output), NOT absolute
+     * screen coordinates — that conversion only main can do, and only main
+     * knows where its own window currently sits. Pass null when the zone
+     * leaves the DOM (Back, note deleted, dialog closed).
+     */
+    setDropZone(rect: { x: number; y: number; width: number; height: number } | null): void
+    /** Fades the pop-out's opacity out, then closes it — the "merged into the note" animation for a successful drag-drop. Plain window.close() stays the escape hatch (✕ / Escape) precisely because it must NOT depend on this extra step. */
+    closePopoutWithFade(): void
+    onPopoutStateChanged(cb: (state: PopoutState | null) => void): () => void
+    /**
+     * Fired at the pop-out window ONLY, when main detects it's been dropped
+     * on the app after a drag. main decides WHETHER a drop happened and
+     * WHICH note (and which GAME — the main window can be showing a note of
+     * a totally different game from the one popped out) it landed on; the
+     * pop-out's own renderer decides what to do about it (confirm an
+     * overwrite, call moveDrawing, close itself) — reusing the exact same
+     * code path the "Move to note" dropdown already uses, so both ways of
+     * moving a drawing behave identically and a confirm can be
+     * driven/verified as an ordinary web dialog.
+     */
+    onDropDetected(cb: (target: { name: string; noteId: string }) => void): () => void
+    /** Fired at the MAIN window only, while a pop-out is being dragged over the drop zone — drives the hover highlight so the target is discoverable and gives feedback before release. */
+    onDropZoneHover(cb: (hovering: boolean) => void): () => void
+  }
   window: {
     minimize(): void
     maximizeToggle(): void
@@ -192,6 +314,24 @@ export interface GameTimerApi {
     /** Curated fonts merged with every font installed on this PC (incl. third-party), deduped and sorted. */
     list(): Promise<string[]>
   }
+  keybinds: {
+    /** Validates, registers (replacing any previous registration for this kind), and persists in one atomic call — see keybindService.ts. */
+    set(
+      kind: KeybindKind,
+      combo: string
+    ): Promise<{ ok: true; settings: Settings } | { ok: false; error: 'invalid_combo' | 'register_failed' }>
+  }
+  screenshots: {
+    /** Newest-first absolute file paths. */
+    list(name: string): Promise<string[]>
+    open(filePath: string): Promise<void>
+  }
+  overlay: {
+    onTick(cb: (payload: OverlayTickPayload) => void): () => void
+  }
+  toast: {
+    onBroadcast(cb: (payload: ToastBroadcastPayload) => void): () => void
+  }
   detect: {
     /** Running applications with a visible window, likely games first. Read-only. */
     listRunning(): Promise<DetectedApp[]>
@@ -203,6 +343,14 @@ export interface GameTimerApi {
     createGame(name: string, exePath: string | null, steamAppId: number | null): Promise<Profile>
     /** Starts the game via steam://rungameid when an appid is known, else its .exe. Counts the launch. */
     launch(name: string): Promise<{ launched: boolean }>
+    /** Kills every process belonging to this game (same folder/exe match the watcher uses). */
+    stop(name: string): Promise<{ stopped: boolean }>
+    /** Opens Explorer at the game's .exe (selected) or its install folder. False if neither is known or the path no longer exists. */
+    openExeDirectory(name: string): Promise<{ opened: boolean }>
+    /** Names of every game whose process is currently seen running. */
+    openGames(): Promise<string[]>
+    /** Fires whenever a game's process opens or closes. */
+    onOpenGamesChanged(cb: (names: string[]) => void): () => void
     /** null = follow the global setting. */
     setAutoStartTimer(name: string, value: boolean | null): Promise<Profile>
     /** Which of these executables Steam's catalogue confirms are games. Promotion only — a 'no' never hides anything. */

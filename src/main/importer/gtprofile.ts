@@ -11,6 +11,7 @@ import { ICON_MAX_DIMENSION, BACKGROUND_MAX_DIMENSION } from '@shared/constants'
 import { safeImageExt } from './safeExt'
 import { safeFileNameFromTitle } from '../util/safePath'
 import { aggregateFrom, trimSessionLog } from '@shared/sessionStats'
+import { emptyNote } from '@shared/notes'
 import type { GtProfileFile, Profile } from '@shared/types'
 
 /** Single-game export, self-contained (images embedded as base64) — wire-compatible with v1's .gtprofile format. */
@@ -35,6 +36,10 @@ export async function exportProfile(win: BrowserWindow, name: string): Promise<{
     // playtime but silently reset Sessions to zero.
     sessionLog: profile.sessionLog,
     sessionStats: profile.sessionStats,
+    // Same reasoning as sessionLog — without this an export/import round trip
+    // would keep the legacy `notes` string but silently drop every note the
+    // L1 rewrite actually uses.
+    noteList: profile.noteList,
     steamAppId: profile.steamAppId
   }
 
@@ -133,6 +138,12 @@ export async function importProfile(win: BrowserWindow): Promise<Profile | null>
     lastPlayed: imported.lastPlayed ?? null,
     startedDate: imported.startedDate ?? null,
     notes: imported.notes ?? '',
+    // Same reasoning as sessionStats just above: an export from before L1 has
+    // no noteList at all, so the legacy text is folded into one note right
+    // here rather than waiting for the next app restart's migration pass.
+    noteList:
+      imported.noteList ??
+      (imported.notes?.trim() ? [{ ...emptyNote(randomUUID(), 'Note', Date.now()), body: imported.notes }] : []),
     rating: (imported.rating ?? 0) as Profile['rating'],
     // Present only in files written by v3+. A v1/v2 export legitimately has
     // none, and starts with an empty log rather than inventing entries.
@@ -140,6 +151,8 @@ export async function importProfile(win: BrowserWindow): Promise<Profile | null>
     // fold them; a newer one carries the totals for its whole history.
     sessionStats: imported.sessionStats ?? aggregateFrom(imported.sessionLog ?? []),
     sessionLog: trimSessionLog(imported.sessionLog ?? []),
+    // An import is never mid-session, whatever the exporting machine was doing.
+    activeSession: null,
     // Never carried across machines — the exe lives on the exporter's disk.
     exePath: null,
     steamAppId: imported.steamAppId ?? null,

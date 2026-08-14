@@ -35,6 +35,65 @@ describe('sessionLog schema', () => {
   })
 })
 
+describe('activeSession schema', () => {
+  it('defaults to null for every save written before crash recovery existed', () => {
+    const data = parseAppData({ profiles: { Doom: { name: 'Doom', seconds: 10 } } })
+    expect(data.profiles.Doom.activeSession).toBeNull()
+  })
+
+  it('preserves a marker left behind by a crash', () => {
+    const data = parseAppData({
+      profiles: { Doom: { name: 'Doom', activeSession: { startedAt: 1000, lastSeenAt: 5000 } } }
+    })
+    expect(data.profiles.Doom.activeSession).toEqual({ startedAt: 1000, lastSeenAt: 5000 })
+  })
+
+  it('drops a corrupt marker rather than rejecting the profile', () => {
+    const data = parseAppData({
+      profiles: { Doom: { name: 'Doom', seconds: 42, activeSession: { startedAt: 'nope' } } }
+    })
+    expect(data.profiles.Doom.activeSession).toBeNull()
+    expect(data.profiles.Doom.seconds).toBe(42)
+  })
+})
+
+describe('noteList schema', () => {
+  it('defaults to an empty list for a save from before L1', () => {
+    const data = parseAppData({ profiles: { Doom: { name: 'Doom', seconds: 10 } } })
+    expect(data.profiles.Doom.noteList).toEqual([])
+  })
+
+  it('preserves a valid note, including a drawing', () => {
+    const noteList = [
+      {
+        id: 'n1',
+        title: 'Boss fight',
+        body: 'stand left',
+        drawing: [{ points: [{ x: 0.1, y: 0.2 }], color: '#ffffff', width: 2.5 }],
+        createdAt: 1,
+        updatedAt: 2
+      }
+    ]
+    const data = parseAppData({ profiles: { Doom: { name: 'Doom', noteList } } })
+    expect(data.profiles.Doom.noteList).toEqual(noteList)
+  })
+
+  it('drops the whole list rather than rejecting the profile when it is not an array', () => {
+    const data = parseAppData({ profiles: { Doom: { name: 'Doom', seconds: 42, noteList: 'garbage' } } })
+    expect(data.profiles.Doom.noteList).toEqual([])
+    expect(data.profiles.Doom.seconds).toBe(42)
+  })
+
+  it('gives a note missing its id a generated one rather than dropping it', () => {
+    const data = parseAppData({
+      profiles: { Doom: { name: 'Doom', noteList: [{ title: 'No id here' }] } }
+    })
+    expect(data.profiles.Doom.noteList).toHaveLength(1)
+    expect(data.profiles.Doom.noteList[0].id.length).toBeGreaterThan(0)
+    expect(data.profiles.Doom.noteList[0].title).toBe('No id here')
+  })
+})
+
 describe('status schema', () => {
   it('accepts the not_started status added in v3', () => {
     const data = parseAppData({ profiles: { Doom: { name: 'Doom', status: 'not_started' } } })

@@ -141,9 +141,18 @@ const GameListRow = memo(function GameListRow({
 })
 
 /** A labelled control. The three filters used to be bare dropdowns reading "Name (A-Z) / All / All" — three mystery boxes in the first thing a new user sees. */
-function Field({ label, children }: { label: string; children: React.ReactNode }): React.JSX.Element {
+function Field({
+  label,
+  children,
+  className = ''
+}: {
+  label: string
+  children: React.ReactNode
+  /** Only the search field passes this, to make itself the toolbar's flexible element. */
+  className?: string
+}): React.JSX.Element {
   return (
-    <label className="flex flex-col gap-1">
+    <label className={`flex flex-col gap-1 ${className}`}>
       <span className="text-[0.65rem] font-medium tracking-wide text-subtext uppercase">{label}</span>
       {children}
     </label>
@@ -196,89 +205,106 @@ export function LibraryBrowse(): React.JSX.Element {
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
-      <div className="flex flex-wrap items-end gap-3 border-b border-card/60 px-5 py-3">
-        <Field label={t('label_view')}>
-          <div className="flex overflow-hidden rounded bg-card">
-            {(['grid', 'list'] as const).map((mode) => (
-              <button
-                key={mode}
-                onClick={() => void updateSettings({ libraryView: mode })}
-                className={`px-3 py-1 text-xs transition-colors ${
-                  view === mode ? 'bg-accent text-bg' : 'text-subtext hover:text-text'
-                }`}
-              >
-                {t(mode === 'grid' ? 'view_grid' : 'view_list')}
-              </button>
-            ))}
-          </div>
-        </Field>
+      {/*
+       * Add Game keeps its corner; the search box gives up the pixels.
+       *
+       * Everything used to share one flex-wrap row, so Add Game — last in the
+       * line — was the first thing bumped onto a row of its own as soon as the
+       * filters got crowded, which is only a handful of pixels' worth of
+       * crowding. The button is now outside the wrapping group entirely and
+       * never moves. The search input is the one flexible element (see its
+       * min-w-0 + flex-1), so a narrower window shortens the search box by the
+       * few pixels needed instead of rearranging the toolbar.
+       */}
+      <div className="flex items-end gap-3 border-b border-card/60 px-5 py-3">
+        <div className="flex min-w-0 flex-1 flex-wrap items-end gap-3">
+          <Field label={t('label_view')}>
+            <div className="flex overflow-hidden rounded bg-card">
+              {(['grid', 'list'] as const).map((mode) => (
+                <button
+                  key={mode}
+                  onClick={() => void updateSettings({ libraryView: mode })}
+                  className={`px-3 py-1 text-xs transition-colors ${
+                    view === mode ? 'bg-accent text-bg' : 'text-subtext hover:text-text'
+                  }`}
+                >
+                  {t(mode === 'grid' ? 'view_grid' : 'view_list')}
+                </button>
+              ))}
+            </div>
+          </Field>
 
-        <Field label={t('label_sort')}>
-          <select
-            className="rounded bg-card px-2 py-1 text-xs text-text outline-none"
-            value={sortMode}
-            onChange={(e) => void updateSettings({ sortMode: e.target.value as SortMode })}
-          >
-            {SORT_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {t(o.labelKey)}
-              </option>
-            ))}
-          </select>
-        </Field>
+          <Field label={t('label_sort')}>
+            <select
+              className="rounded bg-card px-2 py-1 text-xs text-text outline-none"
+              value={sortMode}
+              onChange={(e) => void updateSettings({ sortMode: e.target.value as SortMode })}
+            >
+              {SORT_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {t(o.labelKey)}
+                </option>
+              ))}
+            </select>
+          </Field>
 
-        <Field label={t('label_status')}>
-          <select
-            className="rounded bg-card px-2 py-1 text-xs text-text outline-none"
-            value={settings?.statusFilter ?? 'All'}
-            onChange={(e) => void updateSettings({ statusFilter: e.target.value as 'All' | Status })}
-          >
-            <option value="All">{t('filter_all')}</option>
-            {(Object.keys(STATUS_LABEL) as Status[]).map((s) => (
-              <option key={s} value={s}>
-                {STATUS_LABEL[s]}
-              </option>
-            ))}
-          </select>
-        </Field>
+          <Field label={t('label_status')}>
+            <select
+              className="rounded bg-card px-2 py-1 text-xs text-text outline-none"
+              value={settings?.statusFilter ?? 'All'}
+              onChange={(e) => void updateSettings({ statusFilter: e.target.value as 'All' | Status })}
+            >
+              <option value="All">{t('filter_all')}</option>
+              {(Object.keys(STATUS_LABEL) as Status[]).map((s) => (
+                <option key={s} value={s}>
+                  {STATUS_LABEL[s]}
+                </option>
+              ))}
+            </select>
+          </Field>
 
-        <Field label={t('label_genre')}>
-          <select
-            className="rounded bg-card px-2 py-1 text-xs text-text outline-none"
-            value={settings?.genreFilter ?? 'All'}
-            onChange={(e) => void updateSettings({ genreFilter: e.target.value })}
-          >
-            <option value="All">{t('filter_all')}</option>
-            {GENRE_OPTIONS.map((g) => (
-              <option key={g} value={g}>
-                {t(g, { ns: 'genres' })}
-              </option>
-            ))}
-          </select>
-        </Field>
+          <Field label={t('label_genre')}>
+            <select
+              className="rounded bg-card px-2 py-1 text-xs text-text outline-none"
+              value={settings?.genreFilter ?? 'All'}
+              onChange={(e) => void updateSettings({ genreFilter: e.target.value })}
+            >
+              <option value="All">{t('filter_all')}</option>
+              {GENRE_OPTIONS.map((g) => (
+                <option key={g} value={g}>
+                  {t(g, { ns: 'genres' })}
+                </option>
+              ))}
+            </select>
+          </Field>
 
-        <Field label={t('label_search')}>
-          <input
-            type="search"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder={t('placeholder_search_games')}
-            className="w-44 rounded bg-card px-2 py-1 text-xs text-text outline-none ring-1 ring-transparent focus:ring-accent"
-          />
-        </Field>
-
-        <div className="ml-auto flex items-end gap-2">
-          <button
-            onClick={() => openDialog('add')}
-            className="rounded bg-accent px-4 py-1.5 text-xs font-medium text-bg transition-opacity hover:opacity-90"
-          >
-            {t('btn_add_game')}
-          </button>
+          {/*
+           * The toolbar's shock absorber. min-w-0 is what actually lets it
+           * shrink — a flex item defaults to min-width:auto and would other-
+           * wise refuse to go below its intrinsic width, pushing the row wider
+           * instead. basis-44 keeps its comfortable size when there is room.
+           */}
+          <Field label={t('label_search')} className="min-w-0 flex-1 basis-44">
+            <input
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={t('placeholder_search_games')}
+              className="w-full min-w-24 rounded bg-card px-2 py-1 text-xs text-text outline-none ring-1 ring-transparent focus:ring-accent"
+            />
+          </Field>
         </div>
+
+        <button
+          onClick={() => openDialog('add')}
+          className="shrink-0 rounded bg-accent px-4 py-1.5 text-xs font-medium text-bg transition-opacity hover:opacity-90"
+        >
+          {t('btn_add_game')}
+        </button>
       </div>
 
       <div
-        className="flex-1 overflow-y-auto px-5 py-4"
+        className="min-h-0 flex-1 overflow-y-auto px-5 py-4"
         onContextMenu={(e) => {
           if (e.target === e.currentTarget) {
             e.preventDefault()

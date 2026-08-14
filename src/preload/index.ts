@@ -1,7 +1,13 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { IPC } from '@shared/ipcContract'
-import type { GameTimerApi, TimerTickPayload } from '@shared/ipcContract'
-import type { UpdateInfo, UpdateProgress } from '@shared/types'
+import type {
+  GameTimerApi,
+  OverlayTickPayload,
+  PopoutState,
+  TimerTickPayload,
+  ToastBroadcastPayload
+} from '@shared/ipcContract'
+import type { Profile, UpdateInfo, UpdateProgress } from '@shared/types'
 
 // Thin pass-through only — no logic belongs here. Every method just forwards
 // to main over IPC; main is the sole owner of state and OS access.
@@ -19,15 +25,25 @@ const api: GameTimerApi = {
     setGenres: (name, genres) => ipcRenderer.invoke(IPC.profiles.setGenres, name, genres),
     setRating: (name, rating) => ipcRenderer.invoke(IPC.profiles.setRating, name, rating),
     setFavorite: (name, favorite) => ipcRenderer.invoke(IPC.profiles.setFavorite, name, favorite),
-    setNotes: (name, notes) => ipcRenderer.invoke(IPC.profiles.setNotes, name, notes),
-    addRemoveTime: (name, deltaSeconds, note) =>
-      ipcRenderer.invoke(IPC.profiles.addRemoveTime, name, deltaSeconds, note),
+    createNote: (name) => ipcRenderer.invoke(IPC.profiles.createNote, name),
+    renameNote: (name, noteId, title) => ipcRenderer.invoke(IPC.profiles.renameNote, name, noteId, title),
+    deleteNote: (name, noteId) => ipcRenderer.invoke(IPC.profiles.deleteNote, name, noteId),
+    updateNoteBody: (name, noteId, body) =>
+      ipcRenderer.invoke(IPC.profiles.updateNoteBody, name, noteId, body),
+    updateNoteDrawing: (name, noteId, drawing) =>
+      ipcRenderer.invoke(IPC.profiles.updateNoteDrawing, name, noteId, drawing),
+    addRemoveTime: (name, deltaSeconds) => ipcRenderer.invoke(IPC.profiles.addRemoveTime, name, deltaSeconds),
     resetTime: (name) => ipcRenderer.invoke(IPC.profiles.resetTime, name),
     setIcon: (name) => ipcRenderer.invoke(IPC.profiles.setIcon, name),
     setBackground: (name, kind, value) =>
       ipcRenderer.invoke(IPC.profiles.setBackground, name, kind, value),
     clearBackground: (name) => ipcRenderer.invoke(IPC.profiles.clearBackground, name),
-    select: (name) => ipcRenderer.invoke(IPC.profiles.select, name)
+    select: (name) => ipcRenderer.invoke(IPC.profiles.select, name),
+    onChanged: (cb) => {
+      const listener = (_event: Electron.IpcRendererEvent, profiles: Profile[]): void => cb(profiles)
+      ipcRenderer.on(IPC.profiles.changed, listener)
+      return () => ipcRenderer.removeListener(IPC.profiles.changed, listener)
+    }
   },
   timer: {
     start: (name) => ipcRenderer.invoke(IPC.timer.start, name),
@@ -57,6 +73,31 @@ const api: GameTimerApi = {
     setRunAtStartup: (enabled) => ipcRenderer.invoke(IPC.system.setRunAtStartup, enabled),
     setTrayEnabled: (enabled) => ipcRenderer.invoke(IPC.system.setTrayEnabled, enabled),
     quit: () => ipcRenderer.invoke(IPC.system.quit)
+  },
+  notes: {
+    openPopout: (name, noteId) => ipcRenderer.invoke(IPC.notes.openPopout, name, noteId),
+    getPopoutState: () => ipcRenderer.invoke(IPC.notes.getPopoutState),
+    moveDrawing: (fromName, fromNoteId, toName, toNoteId) =>
+      ipcRenderer.invoke(IPC.notes.moveDrawing, fromName, fromNoteId, toName, toNoteId),
+    setViewedNote: (target) => ipcRenderer.send(IPC.notes.setViewedNote, target),
+    setDropZone: (rect) => ipcRenderer.send(IPC.notes.setDropZone, rect),
+    closePopoutWithFade: () => ipcRenderer.send(IPC.notes.closePopoutWithFade),
+    onPopoutStateChanged: (cb) => {
+      const listener = (_event: Electron.IpcRendererEvent, state: PopoutState | null): void => cb(state)
+      ipcRenderer.on(IPC.notes.popoutState, listener)
+      return () => ipcRenderer.removeListener(IPC.notes.popoutState, listener)
+    },
+    onDropDetected: (cb) => {
+      const listener = (_event: Electron.IpcRendererEvent, target: { name: string; noteId: string }): void =>
+        cb(target)
+      ipcRenderer.on(IPC.notes.dropDetected, listener)
+      return () => ipcRenderer.removeListener(IPC.notes.dropDetected, listener)
+    },
+    onDropZoneHover: (cb) => {
+      const listener = (_event: Electron.IpcRendererEvent, hovering: boolean): void => cb(hovering)
+      ipcRenderer.on(IPC.notes.dropZoneHover, listener)
+      return () => ipcRenderer.removeListener(IPC.notes.dropZoneHover, listener)
+    }
   },
   window: {
     minimize: () => ipcRenderer.send(IPC.window.minimize),
@@ -96,6 +137,27 @@ const api: GameTimerApi = {
   fonts: {
     list: () => ipcRenderer.invoke(IPC.fonts.list)
   },
+  keybinds: {
+    set: (kind, combo) => ipcRenderer.invoke(IPC.keybinds.set, kind, combo)
+  },
+  screenshots: {
+    list: (name) => ipcRenderer.invoke(IPC.screenshots.list, name),
+    open: (filePath) => ipcRenderer.invoke(IPC.screenshots.open, filePath)
+  },
+  overlay: {
+    onTick: (cb) => {
+      const listener = (_event: Electron.IpcRendererEvent, payload: OverlayTickPayload): void => cb(payload)
+      ipcRenderer.on(IPC.overlay.tick, listener)
+      return () => ipcRenderer.removeListener(IPC.overlay.tick, listener)
+    }
+  },
+  toast: {
+    onBroadcast: (cb) => {
+      const listener = (_event: Electron.IpcRendererEvent, payload: ToastBroadcastPayload): void => cb(payload)
+      ipcRenderer.on(IPC.toast.show, listener)
+      return () => ipcRenderer.removeListener(IPC.toast.show, listener)
+    }
+  },
   detect: {
     listRunning: () => ipcRenderer.invoke(IPC.detect.listRunning),
     identify: (exePath, windowTitle) => ipcRenderer.invoke(IPC.detect.identify, exePath, windowTitle),
@@ -103,6 +165,14 @@ const api: GameTimerApi = {
     createGame: (name, exePath, steamAppId) =>
       ipcRenderer.invoke(IPC.detect.createGame, name, exePath, steamAppId),
     launch: (name) => ipcRenderer.invoke(IPC.detect.launch, name),
+    stop: (name) => ipcRenderer.invoke(IPC.detect.stop, name),
+    openExeDirectory: (name) => ipcRenderer.invoke(IPC.detect.openExeDirectory, name),
+    openGames: () => ipcRenderer.invoke(IPC.detect.openGames),
+    onOpenGamesChanged: (cb) => {
+      const listener = (_event: Electron.IpcRendererEvent, names: string[]): void => cb(names)
+      ipcRenderer.on(IPC.detect.openGamesChanged, listener)
+      return () => ipcRenderer.removeListener(IPC.detect.openGamesChanged, listener)
+    },
     setAutoStartTimer: (name, value) =>
       ipcRenderer.invoke(IPC.detect.setAutoStartTimer, name, value),
     classify: (exePaths) => ipcRenderer.invoke(IPC.detect.classify, exePaths),
@@ -124,3 +194,15 @@ const api: GameTimerApi = {
 }
 
 contextBridge.exposeInMainWorld('api', api)
+
+/**
+ * Real global hotkeys are OS-level input Playwright can't inject — this lets
+ * a verify script call the exact handler a real key press calls (see
+ * keybindService.ts / dev.ipc.ts). The main-process handler only exists when
+ * GAMUT_TEST_APPDATA is set, so this is harmless in a real shipped app —
+ * invoking it just gets "no handler registered" and resolves to undefined.
+ */
+contextBridge.exposeInMainWorld('__gamutTest', {
+  triggerKeybind: (kind: 'startPauseTimer' | 'saveScreenshot') =>
+    ipcRenderer.invoke(IPC.dev.triggerKeybind, kind)
+})

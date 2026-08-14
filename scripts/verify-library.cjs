@@ -147,7 +147,8 @@ function game(name, seconds, extra = {}) {
   await win.waitForTimeout(400)
 
   console.log('\n=== Stats tab renders with the renamed column ===')
-  await win.locator('button:has-text("Stats")').first().click()
+  // "Game Stats", specifically — Profile Stats also contains the word "Stats".
+  await win.locator('button:has-text("Game Stats")').first().click()
   await win.waitForTimeout(400)
   await win.screenshot({ path: path.join(SHOTS, '05-stats.png') })
   check('Time to Beat column is present', await win.locator('text=Time to Beat').first().isVisible(), true)

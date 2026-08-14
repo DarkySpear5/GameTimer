@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Modal } from '../common/Modal'
+import { Spinner } from '../common/Spinner'
 import { toast } from '../common/Toast'
 import { useProfilesStore } from '../../state/profilesStore'
 import type { GameSource, InstalledGame } from '@shared/types'
@@ -108,9 +109,34 @@ export function InstalledGamesDialog({
   })).filter((g) => g.items.length > 0)
 
   return (
-    <Modal title={t('installed_scan_title')} onClose={() => void skip()} width="max-w-lg">
+    <Modal
+      title={t('installed_scan_title')}
+      onClose={() => void skip()}
+      width="max-w-lg"
+      footer={
+        <div className="flex justify-end gap-2">
+          <button
+            onClick={() => void skip()}
+            className="rounded bg-card px-3 py-1.5 text-sm text-text hover:bg-card/70"
+          >
+            {firstRun ? t('installed_scan_not_now') : t('btn_close')}
+          </button>
+          <button
+            onClick={() => void doImport()}
+            disabled={busy || chosen.size === 0}
+            className="flex items-center gap-2 rounded bg-accent px-4 py-1.5 text-sm font-medium text-bg hover:opacity-90 disabled:opacity-40"
+          >
+            {busy && <Spinner className="h-3.5 w-3.5" />}
+            {t('installed_scan_add', { count: chosen.size })}
+          </button>
+        </div>
+      }
+    >
       {games === null ? (
-        <p className="text-sm text-subtext">{t('installed_scan_searching')}</p>
+        <div className="flex items-center gap-2 py-2 text-sm text-subtext">
+          <Spinner className="h-4 w-4" />
+          {t('installed_scan_searching')}
+        </div>
       ) : games.length === 0 ? (
         <p className="text-sm text-subtext">{t('installed_scan_none')}</p>
       ) : (
@@ -223,21 +249,6 @@ export function InstalledGamesDialog({
         )}
       </div>
 
-      <div className="mt-4 flex justify-end gap-2">
-        <button
-          onClick={() => void skip()}
-          className="rounded bg-card px-3 py-1.5 text-sm text-text hover:bg-card/70"
-        >
-          {firstRun ? t('installed_scan_not_now') : t('btn_close')}
-        </button>
-        <button
-          onClick={() => void doImport()}
-          disabled={busy || chosen.size === 0}
-          className="rounded bg-accent px-4 py-1.5 text-sm font-medium text-bg hover:opacity-90 disabled:opacity-40"
-        >
-          {t('installed_scan_add', { count: chosen.size })}
-        </button>
-      </div>
     </Modal>
   )
 }

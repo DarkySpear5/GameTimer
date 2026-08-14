@@ -122,7 +122,7 @@ export function DataTab(): React.JSX.Element {
   const completedCount = list.filter((p) => p.status === 'completed').length
 
   return (
-    <div className="flex-1 overflow-y-auto">
+    <div className="min-h-0 flex-1 overflow-y-auto">
       {/*
        * The zoom lives on this inner wrapper, NOT the scroll container, and
        * the context menu below sits deliberately outside it. CSS zoom scales
@@ -146,11 +146,18 @@ export function DataTab(): React.JSX.Element {
           {t(advanced ? 'detail_simple' : 'detail_advanced')}
         </button>
       </div>
-      <div className="mb-5 flex gap-4">
+      <div className="mb-3 flex gap-4">
         <StatCard label={t('stat_total_time')} value={formatSeconds(totalSeconds)} />
         <StatCard label={t('stat_games_tracked')} value={String(list.length)} />
         <StatCard label={t('stat_games_completed')} value={String(completedCount)} />
       </div>
+      {/*
+       * K3: was below the table, where it needed a scroll past every game to
+       * ever be seen — which is exactly why nobody found it. Between the
+       * totals and the list is the first thing on screen for any table
+       * longer than a handful of rows.
+       */}
+      {list.length > 0 && <div className="mb-3 text-xs text-subtext">{t('hint_right_click')}</div>}
       <div className="overflow-x-auto rounded-lg bg-panel">
         <table className="w-full text-left text-sm">
           <thead>
@@ -250,9 +257,6 @@ export function DataTab(): React.JSX.Element {
         </table>
         {list.length === 0 && <div className="p-6 text-center text-sm text-subtext">{t('empty_no_games')}</div>}
       </div>
-
-      {/* Right-clicking is invisible until someone tries it, and nobody tries it. */}
-      {list.length > 0 && <div className="mt-2 text-xs text-subtext">{t('hint_right_click')}</div>}
       </div>
 
       {menu && (

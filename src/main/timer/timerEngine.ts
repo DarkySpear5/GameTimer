@@ -54,6 +54,8 @@ class TimerEngine {
     }
     this.activeTimers.set(name, Date.now())
     this.sessionStarts.set(name, Date.now())
+    // Written to disk so the session survives a crash — see recoverSessions.
+    profile.activeSession = { startedAt: Date.now(), lastSeenAt: Date.now() }
     profile.lastPlayed = Date.now()
     if (!profile.startedDate) {
       profile.startedDate = todayDateString()
@@ -71,6 +73,8 @@ class TimerEngine {
       const profile = dataStore.get().profiles[name]
       if (profile) {
         profile.seconds += (Date.now() - tickStart) / 1000
+        // The session is ending cleanly, so the crash marker has done its job.
+        profile.activeSession = null
         if (sessionStart !== undefined) {
           const entry = makeSessionEntry(sessionStart, Date.now())
           // The aggregate is the source of truth and is updated first; the log
@@ -93,7 +97,10 @@ class TimerEngine {
     if (tickStart === undefined) return
     const now = Date.now()
     const profile = dataStore.get().profiles[name]
-    if (profile) profile.seconds += (now - tickStart) / 1000
+    if (profile) {
+      profile.seconds += (now - tickStart) / 1000
+      if (profile.activeSession) profile.activeSession.lastSeenAt = now
+    }
     this.activeTimers.set(name, now)
   }
 
@@ -109,6 +116,9 @@ class TimerEngine {
       const start = this.activeTimers.get(name)!
       profile.seconds += (now - start) / 1000
       this.activeTimers.set(name, now)
+      // Advanced in lockstep with the seconds just committed, so recovery can
+      // never credit time that wasn't already durably saved.
+      if (profile.activeSession) profile.activeSession.lastSeenAt = now
       touched = true
     }
     if (touched) void dataStore.save()
@@ -133,11 +143,25 @@ class TimerEngine {
   stopActive(name: string): void {
     this.activeTimers.delete(name)
     this.sessionStarts.delete(name)
+    const profile = dataStore.get().profiles[name]
+    if (profile) profile.activeSession = null
   }
 
-  /** Restarts tick_start without corrupting a running session — used by Reset Time. */
+  /**
+   * Restarts a running timer from zero — used by Reset Time.
+   *
+   * The session in progress restarts too. Carrying the old session start
+   * across a reset would end up writing a session longer than the playtime the
+   * reset just cleared, which is the same class of "the numbers don't add up"
+   * bug the reset was meant to fix.
+   */
   restartActiveIfRunning(name: string): void {
-    if (this.activeTimers.has(name)) this.activeTimers.set(name, Date.now())
+    if (!this.activeTimers.has(name)) return
+    const now = Date.now()
+    this.activeTimers.set(name, now)
+    this.sessionStarts.set(name, now)
+    const profile = dataStore.get().profiles[name]
+    if (profile) profile.activeSession = { startedAt: now, lastSeenAt: now }
   }
 
   onTick(listener: TickListener): () => void {

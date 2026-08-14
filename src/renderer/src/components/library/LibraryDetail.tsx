@@ -2,7 +2,8 @@ import type { CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useProfilesStore } from '../../state/profilesStore'
 import { useTimerStore } from '../../state/timerStore'
-import { useUiStore, launchGame, selectProfile } from '../../state/uiStore'
+import { useUiStore, launchGame, stopGame, selectProfile } from '../../state/uiStore'
+import { useOpenGamesStore } from '../../state/openGamesStore'
 import { formatSeconds } from '@shared/format'
 import { summaryFrom } from '@shared/sessionStats'
 import { GameArt } from './GameArt'
@@ -35,6 +36,7 @@ export function LibraryDetail({ name }: { name: string }): React.JSX.Element {
   const { t } = useTranslation()
   const profile = useProfilesStore((s) => s.profiles[name])
   const liveSeconds = useTimerStore((s) => s.running[name])
+  const isProcessOpen = useOpenGamesStore((s) => s.open.has(name))
   const setLibraryFocus = useUiStore((s) => s.setLibraryFocus)
   const openDialog = useUiStore((s) => s.openDialog)
 
@@ -76,6 +78,11 @@ export function LibraryDetail({ name }: { name: string }): React.JSX.Element {
     useProfilesStore.getState().setAll(await window.api.profiles.list())
   }
 
+  async function handleStop(): Promise<void> {
+    if (!window.confirm(t('confirm_stop_game_msg'))) return
+    await stopGame(name)
+  }
+
   async function toggleComplete(): Promise<void> {
     const next: Status = profile!.status === 'completed' ? 'in_progress' : 'completed'
     useProfilesStore.getState().upsert(await window.api.profiles.setStatus(name, next))
@@ -99,6 +106,12 @@ export function LibraryDetail({ name }: { name: string }): React.JSX.Element {
     if (result) toast.info(t('info_exported_msg', { path: result.path }))
   }
 
+  /** J5: shows the .exe selected in Explorer, or the install folder for a game with none on disk (Steam/Store). */
+  async function handleOpenExeDirectory(): Promise<void> {
+    const { opened } = await window.api.detect.openExeDirectory(name)
+    if (!opened) toast.error(t('err_open_exe_directory'))
+  }
+
   async function handleDelete(): Promise<void> {
     if (!window.confirm(t('confirm_delete_msg', { name }))) return
     await window.api.profiles.delete(name)
@@ -118,145 +131,170 @@ export function LibraryDetail({ name }: { name: string }): React.JSX.Element {
       : { backgroundImage: ACCENT_WASH, backgroundBlendMode: 'color' }
 
   return (
-    <div className="flex h-full flex-col overflow-y-auto">
-      <div className="relative" style={heroStyle}>
-        {/*
-         * The scrim is heavier than a background usually needs because this one
-         * sits under text rather than beside it — a hero image is arbitrary
-         * artwork, and at /50 the back link and the status line were competing
-         * with whatever happened to be behind them.
-         */}
-        <div className="bg-bg/75 px-5 py-4">
-          <button
-            onClick={() => setLibraryFocus(null)}
-            className="mb-4 text-xs text-text/80 transition-colors hover:text-text"
-          >
-            ← {t('btn_back_library')}
-          </button>
+    /*
+     * The action bar is pinned OUTSIDE this scroller, not the last row inside
+     * it. Measured in the real app at the window's 880x560 minimum: the row's
+     * bottom landed at 571.8px in a 560px viewport, so Modify/Delete were
+     * sliced through the middle of their labels — and the only way to reach
+     * them was to notice 28px of available scroll, which reads as the buttons
+     * simply being broken. Managing a game must not depend on how tall the
+     * window happens to be.
+     */
+    <div className="flex h-full flex-col overflow-hidden">
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="relative" style={heroStyle}>
+          {/*
+           * The scrim is heavier than a background usually needs because this one
+           * sits under text rather than beside it — a hero image is arbitrary
+           * artwork, and at /50 the back link and the status line were competing
+           * with whatever happened to be behind them.
+           */}
+          <div className="bg-bg/75 px-5 py-4">
+            <button
+              onClick={() => setLibraryFocus(null)}
+              className="mb-4 text-xs text-text/80 transition-colors hover:text-text"
+            >
+              ← {t('btn_back_library')}
+            </button>
 
-          <div className="flex flex-wrap items-end gap-5">
-            <div className="h-44 w-30 shrink-0 overflow-hidden rounded-lg shadow-lg" style={{ width: 118 }}>
-              <GameArt profile={profile} />
-            </div>
-
-            <div className="flex min-w-0 flex-1 flex-col gap-2">
-              <div className="flex items-center gap-2">
-                <h2 className="min-w-0 text-2xl font-semibold break-words text-text">{profile.name}</h2>
-                <FavoriteStar name={profile.name} favorite={profile.favorite} size={20} />
+            <div className="flex flex-wrap items-end gap-5">
+              <div className="h-44 w-30 shrink-0 overflow-hidden rounded-lg shadow-lg" style={{ width: 118 }}>
+                <GameArt profile={profile} />
               </div>
 
-              <div className={`text-sm ${isRunning ? 'text-green' : 'text-text/70'}`}>
-                {isRunning ? t('status_tracking') : STATUS_LABEL[profile.status]}
-              </div>
+              <div className="flex min-w-0 flex-1 flex-col gap-2">
+                <div className="flex items-center gap-2">
+                  <h2 className="min-w-0 text-2xl font-semibold break-words text-text">{profile.name}</h2>
+                  <FavoriteStar name={profile.name} favorite={profile.favorite} size={20} />
+                </div>
 
-              <div className="font-mono text-4xl font-bold tabular-nums text-text">
-                {formatSeconds(seconds)}
-              </div>
+                <div className={`text-sm ${isRunning ? 'text-green' : 'text-text/70'}`}>
+                  {isRunning ? t('status_tracking') : STATUS_LABEL[profile.status]}
+                </div>
 
-              <div className="flex flex-wrap items-center gap-2 pt-1">
-                {canLaunch && (
+                <div className="font-mono text-4xl font-bold tabular-nums text-text">
+                  {formatSeconds(seconds)}
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                  {canLaunch &&
+                    (isProcessOpen ? (
+                      <button
+                        onClick={() => void handleStop()}
+                        className="rounded-lg bg-red px-4 py-2 text-sm font-medium text-bg transition-opacity hover:opacity-80"
+                      >
+                        {t('btn_stop_game')}
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => void launchGame(profile.name)}
+                        className="rounded-lg bg-card px-4 py-2 text-sm font-medium text-text transition-opacity hover:opacity-80"
+                      >
+                        {t('btn_launch_game')}
+                      </button>
+                    ))}
                   <button
-                    onClick={() => void launchGame(profile.name)}
-                    className="rounded-lg bg-card px-4 py-2 text-sm font-medium text-text transition-opacity hover:opacity-80"
+                    onClick={() => void togglePlay()}
+                    className={`rounded-lg px-5 py-2 text-sm font-semibold text-bg transition-opacity hover:opacity-90 ${
+                      isRunning ? 'bg-red' : 'bg-green'
+                    }`}
                   >
-                    {t('btn_launch_game')}
+                    {isRunning ? t('btn_pause') : t('btn_play')}
                   </button>
-                )}
-                <button
-                  onClick={() => void togglePlay()}
-                  className={`rounded-lg px-5 py-2 text-sm font-semibold text-bg transition-opacity hover:opacity-90 ${
-                    isRunning ? 'bg-red' : 'bg-green'
-                  }`}
-                >
-                  {isRunning ? t('btn_pause') : t('btn_play')}
-                </button>
-                <button
-                  onClick={() => void toggleComplete()}
-                  className={`rounded-lg px-5 py-2 text-sm font-semibold transition-opacity hover:opacity-90 ${
-                    profile.status === 'completed' ? 'bg-accent text-bg' : 'bg-gold text-bg'
-                  }`}
-                >
-                  {t('btn_complete')}
-                </button>
+                  <button
+                    onClick={() => void toggleComplete()}
+                    className={`rounded-lg px-5 py-2 text-sm font-semibold transition-opacity hover:opacity-90 ${
+                      profile.status === 'completed' ? 'bg-accent text-bg' : 'bg-gold text-bg'
+                    }`}
+                  >
+                    {t('btn_complete')}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
 
-      <div className="flex flex-col gap-5 px-5 py-4">
-        <div className="flex flex-wrap gap-x-10 gap-y-4">
-          <Stat label={t('col_time_played')} value={formatSeconds(seconds)} />
-          <Stat label={t('stat_sessions')} value={String(summary.sessions)} />
-          <Stat
-            label={t('stat_avg_session')}
-            value={summary.sessions > 0 ? formatSeconds(summary.averageSeconds) : '—'}
-          />
-          {profile.status === 'completed' && (
+        <div className="flex flex-col gap-5 px-5 py-4">
+          <div className="flex flex-wrap gap-x-10 gap-y-4">
+            <Stat label={t('col_time_played')} value={formatSeconds(seconds)} />
+            <Stat label={t('stat_sessions')} value={String(summary.sessions)} />
             <Stat
-              label={t('col_time_to_beat')}
-              value={profile.statusSeconds != null ? formatSeconds(profile.statusSeconds) : '—'}
+              label={t('stat_avg_session')}
+              value={summary.sessions > 0 ? formatSeconds(summary.averageSeconds) : '—'}
             />
-          )}
-        </div>
-
-        <div className="flex flex-col gap-1.5">
-          <span className="text-[0.65rem] tracking-wide text-subtext uppercase">{t('label_rating')}</span>
-          <div className="flex items-center gap-1">
-            {[1, 2, 3, 4, 5].map((n) => (
-              <button
-                key={n}
-                aria-label={`${n}`}
-                // Clicking the star that's already the rating clears it, so a
-                // rating can be undone without a separate control.
-                onClick={() => void setRating((n === profile.rating ? 0 : n) as 0 | 1 | 2 | 3 | 4 | 5)}
-                className={`text-xl leading-none transition-colors ${
-                  n <= profile.rating ? 'text-gold' : 'text-subtext hover:text-gold'
-                }`}
-              >
-                {n <= profile.rating ? '★' : '☆'}
-              </button>
-            ))}
+            {profile.status === 'completed' && (
+              <Stat
+                label={t('col_time_to_beat')}
+                value={profile.statusSeconds != null ? formatSeconds(profile.statusSeconds) : '—'}
+              />
+            )}
           </div>
-        </div>
 
-        {profile.genres.length > 0 && (
           <div className="flex flex-col gap-1.5">
-            <span className="text-[0.65rem] tracking-wide text-subtext uppercase">{t('col_genres')}</span>
-            <div className="flex flex-wrap gap-1.5">
-              {profile.genres.map((g) => (
-                <span key={g} className="rounded-full bg-card px-2.5 py-0.5 text-xs text-subtext">
-                  {t(g, { ns: 'genres' })}
-                </span>
+            <span className="text-[0.65rem] tracking-wide text-subtext uppercase">{t('label_rating')}</span>
+            <div className="flex items-center gap-1">
+              {[1, 2, 3, 4, 5].map((n) => (
+                <button
+                  key={n}
+                  aria-label={`${n}`}
+                  // Clicking the star that's already the rating clears it, so a
+                  // rating can be undone without a separate control.
+                  onClick={() => void setRating((n === profile.rating ? 0 : n) as 0 | 1 | 2 | 3 | 4 | 5)}
+                  className={`text-xl leading-none transition-colors ${
+                    n <= profile.rating ? 'text-gold' : 'text-subtext hover:text-gold'
+                  }`}
+                >
+                  {n <= profile.rating ? '★' : '☆'}
+                </button>
               ))}
             </div>
           </div>
-        )}
 
-        {/* All management lives in Library, which is what lets the Timer tab's right-click menu shrink to timing actions only. */}
-        <div className="flex flex-wrap gap-2 border-t border-card/60 pt-4">
-          {[
-            { label: t('ctx_modify'), onClick: () => openDialog('modify', name) },
-            { label: t('ctx_info'), onClick: () => openDialog('info', name) },
-            { label: t('ctx_notes'), onClick: () => openDialog('notes', name) },
-            { label: t('ctx_export'), onClick: () => void handleExport() },
-            { label: t('ctx_import'), onClick: () => void handleImport() }
-          ].map((action) => (
-            <button
-              key={action.label}
-              onClick={action.onClick}
-              className="rounded bg-card px-3 py-1.5 text-xs text-text transition-opacity hover:opacity-80"
-            >
-              {action.label}
-            </button>
-          ))}
-          <button
-            onClick={() => void handleDelete()}
-            className="ml-auto rounded px-3 py-1.5 text-xs text-red transition-colors hover:bg-red hover:text-bg"
-          >
-            {t('ctx_delete')}
-          </button>
+          {profile.genres.length > 0 && (
+            <div className="flex flex-col gap-1.5">
+              <span className="text-[0.65rem] tracking-wide text-subtext uppercase">{t('col_genres')}</span>
+              <div className="flex flex-wrap gap-1.5">
+                {profile.genres.map((g) => (
+                  <span key={g} className="rounded-full bg-card px-2.5 py-0.5 text-xs text-subtext">
+                    {t(g, { ns: 'genres' })}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
+      </div>
+
+      {/* All management lives in Library, which is what lets the Timer tab's right-click menu shrink to timing actions only. */}
+      <div className="flex shrink-0 flex-wrap items-center gap-2 border-t border-card/60 bg-panel px-5 py-3">
+        {[
+          { label: t('ctx_modify'), onClick: () => openDialog('modify', name) },
+          { label: t('ctx_info'), onClick: () => openDialog('info', name) },
+          { label: t('ctx_notes'), onClick: () => openDialog('notes', name) },
+          { label: t('ctx_export'), onClick: () => void handleExport() },
+          { label: t('ctx_screenshots'), onClick: () => openDialog('screenshots', name) },
+          { label: t('ctx_import'), onClick: () => void handleImport() },
+          // J5: only shown when there's somewhere for it to go — a manually
+          // added game with no detected exe or install folder has neither.
+          ...(profile.exePath || profile.installDir
+            ? [{ label: t('ctx_open_exe_directory'), onClick: () => void handleOpenExeDirectory() }]
+            : [])
+        ].map((action) => (
+          <button
+            key={action.label}
+            onClick={action.onClick}
+            className="rounded bg-card px-3 py-1.5 text-xs text-text transition-opacity hover:opacity-80"
+          >
+            {action.label}
+          </button>
+        ))}
+        <button
+          onClick={() => void handleDelete()}
+          className="ml-auto rounded px-3 py-1.5 text-xs text-red transition-colors hover:bg-red hover:text-bg"
+        >
+          {t('ctx_delete')}
+        </button>
       </div>
     </div>
   )

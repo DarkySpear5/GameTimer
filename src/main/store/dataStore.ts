@@ -4,6 +4,7 @@ import type { AppData } from '@shared/types'
 import { paths } from './paths'
 import { freshAppData, parseAppData } from './schema'
 import { migrateSessionAggregates } from './migrateSessions'
+import { migrateLegacyNotes } from './migrateNotes'
 
 /**
  * In-memory singleton mirroring v1's single `self.data` dict — every other
@@ -26,9 +27,10 @@ class DataStore {
       const raw = await fs.readFile(paths.dataFile(), 'utf-8')
       this.data = parseAppData(JSON.parse(raw))
       // Folds any pre-aggregate session history into its totals and bounds the
-      // log. Persisted immediately so the conversion happens once, not on
-      // every launch.
-      if (migrateSessionAggregates(this.data)) void this.save()
+      // log, and any pre-L1 single note into a one-item noteList. Persisted
+      // immediately so each conversion happens once, not on every launch.
+      const migrated = migrateSessionAggregates(this.data)
+      if (migrateLegacyNotes(this.data) || migrated) void this.save()
     } catch {
       this.data = freshAppData()
     }

@@ -6,9 +6,21 @@ interface ModalProps {
   onClose: () => void
   children: ReactNode
   width?: string
+  /**
+   * Actions pinned below the scrolling body. A dialog's confirm button must
+   * stay reachable on a short window — left inside `children` it scrolls away
+   * with everything else, which is how "Add 12 games" became unclickable.
+   */
+  footer?: ReactNode
 }
 
-export function Modal({ title, onClose, children, width = 'max-w-md' }: ModalProps): React.JSX.Element {
+export function Modal({
+  title,
+  onClose,
+  children,
+  width = 'max-w-md',
+  footer
+}: ModalProps): React.JSX.Element {
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
       if (e.key === 'Escape') onClose()
@@ -34,7 +46,8 @@ export function Modal({ title, onClose, children, width = 'max-w-md' }: ModalPro
             </svg>
           </button>
         </div>
-        <div className="flex-1 overflow-y-auto px-5 py-4">{children}</div>
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">{children}</div>
+        {footer && <div className="shrink-0 border-t border-card px-5 py-3">{footer}</div>}
       </div>
     </div>
   )

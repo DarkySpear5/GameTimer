@@ -16,6 +16,7 @@ function profile(name: string, overrides: Partial<Profile> = {}): Profile {
     lastPlayed: null,
     startedDate: null,
     notes: '',
+    noteList: [],
     rating: 0,
     sessionStats: {
       count: 0,
@@ -25,6 +26,7 @@ function profile(name: string, overrides: Partial<Profile> = {}): Profile {
       lastPlayedAt: null
     },
     sessionLog: [],
+    activeSession: null,
     exePath: null,
     steamAppId: null,
     autoFetchArt: null,

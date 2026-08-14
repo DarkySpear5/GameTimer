@@ -3,9 +3,11 @@ import { useTranslation } from 'react-i18next'
 import { TitleBar } from './components/titlebar/TitleBar'
 import { LibraryTab } from './components/library/LibraryTab'
 import { DataTab } from './components/datatab/DataTab'
+import { ProfileStatsTab } from './components/datatab/ProfileStatsTab'
 import { AboutTab } from './components/about/AboutTab'
 import { ModifyDialog } from './components/dialogs/ModifyDialog'
 import { NotesDialog } from './components/dialogs/NotesDialog'
+import { ScreenshotsDialog } from './components/dialogs/ScreenshotsDialog'
 import { SettingsDialog } from './components/dialogs/SettingsDialog'
 import { GameInfoDialog } from './components/dialogs/GameInfoDialog'
 import { AddGameDialog } from './components/dialogs/AddGameDialog'
@@ -14,17 +16,25 @@ import { InstalledGamesDialog } from './components/dialogs/InstalledGamesDialog'
 import { AdjustTimeDialog } from './components/dialogs/AdjustTimeDialog'
 import { UpdatePrompt } from './components/dialogs/UpdatePrompt'
 import { ToastHost } from './components/common/Toast'
-import { useProfilesStore } from './state/profilesStore'
+import { useProfilesStore, startProfilesChangeSubscription } from './state/profilesStore'
 import { loadSettings } from './state/settingsStore'
 import { startTimerTickSubscription } from './state/timerStore'
+import { startOpenGamesSubscription } from './state/openGamesStore'
+import { startNotesPopoutSync } from './state/notesPopoutSync'
+import { startToastBroadcastSync } from './state/toastBroadcastSync'
 import { useUiStore } from './state/uiStore'
 
 // The Timer tab is gone. It existed to answer "what am I playing", but a game's
 // Library detail page already shows its clock, its Play/Pause and its Launch —
 // so the tab was a second route to one job, and the app is smaller without it.
+//
+// K1: Stats split into two — Game Stats (per game, this tab's original job)
+// and Profile Stats (account-wide: active/idle time, hours by genre). "Your
+// stats" stopped meaning one thing once there were two answers to it.
 const TAB_KEYS = {
   library: 'tab_library',
   stats: 'tab_stats',
+  profileStats: 'tab_profile_stats',
   about: 'tab_about'
 } as const
 
@@ -46,6 +56,10 @@ function App(): React.JSX.Element {
       }
     })()
     startTimerTickSubscription()
+    startOpenGamesSubscription()
+    startProfilesChangeSubscription()
+    startNotesPopoutSync()
+    startToastBroadcastSync()
   }, [])
 
   return (
@@ -78,12 +92,16 @@ function App(): React.JSX.Element {
       </div>
       {activeTab === 'library' && <LibraryTab />}
       {activeTab === 'stats' && <DataTab />}
+      {activeTab === 'profileStats' && <ProfileStatsTab />}
       {activeTab === 'about' && <AboutTab />}
 
       {dialog === 'modify' && dialogTarget && (
         <ModifyDialog name={dialogTarget} onClose={closeDialog} />
       )}
       {dialog === 'notes' && dialogTarget && <NotesDialog name={dialogTarget} onClose={closeDialog} />}
+      {dialog === 'screenshots' && dialogTarget && (
+        <ScreenshotsDialog name={dialogTarget} onClose={closeDialog} />
+      )}
       {dialog === 'settings' && <SettingsDialog onClose={closeDialog} />}
       {dialog === 'info' && dialogTarget && <GameInfoDialog name={dialogTarget} onClose={closeDialog} />}
       {dialog === 'add' && <AddGameDialog onClose={closeDialog} />}

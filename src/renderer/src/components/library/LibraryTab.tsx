@@ -70,8 +70,12 @@ export function LibraryTab(): React.JSX.Element {
     ]
   }
 
+  // min-h-0 is load-bearing: a flex item defaults to min-height:auto and so
+  // refuses to shrink below its content. Without it this grew past the window
+  // and overflow-hidden clipped the bottom of the detail page — the Delete
+  // button became unreachable, with no scrollbar to get to it.
   return (
-    <div className="relative flex flex-1 flex-col overflow-hidden">
+    <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
       {libraryFocus ? <LibraryDetail name={libraryFocus} /> : <LibraryBrowse />}
 
       {contextMenu && (

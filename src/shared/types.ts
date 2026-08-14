@@ -1,4 +1,5 @@
-import type { SessionAggregate, SessionEntry } from './sessionStats'
+import type { ActiveSession, SessionAggregate, SessionEntry } from './sessionStats'
+import type { Note } from './notes'
 
 export type Status = 'not_started' | 'in_progress' | 'completed' | 'dropped' | 'on_hold'
 
@@ -23,6 +24,8 @@ export interface ThemeColors {
   accent: string
 }
 
+export type OverlayCorner = 'top-left' | 'top-right' | 'top-center' | 'bottom-left' | 'bottom-right' | 'bottom-center'
+
 export interface Profile {
   name: string
   seconds: number
@@ -35,7 +38,9 @@ export interface Profile {
   genres: string[]
   lastPlayed: number | null
   startedDate: string | null
+  /** L1: superseded by noteList, kept only as the pre-L1 export/import shape and migration source — see migrateLegacyNotes. */
   notes: string
+  noteList: Note[]
   rating: 0 | 1 | 2 | 3 | 4 | 5
   /**
    * Running totals over every session ever played. This — not sessionLog — is
@@ -49,6 +54,11 @@ export interface Profile {
    * the schema defaults it to [].
    */
   sessionLog: SessionEntry[]
+  /**
+   * Set while a timer is running, cleared on pause. A non-null value at
+   * startup means the previous run ended without pausing — see recoverSessions.
+   */
+  activeSession: ActiveSession | null
   /** Full path of the .exe this game was detected from, or null if added manually. */
   exePath: string | null
   /** Resolved once, then cached — used for art and for launching via steam://rungameid. */
@@ -171,6 +181,19 @@ export interface Settings {
    * Empty means the feature is off — every other art source is keyless.
    */
   steamGridDbApiKey: string
+  /** M: rebindable global hotkeys. Combo strings are validateCombo's display shape, e.g. "Ctrl+2". */
+  keybinds: {
+    startPauseTimer: string
+    saveScreenshot: string
+    toggleOverlay: string
+  }
+  /** O: the in-game overlay's visibility, position, size, and text-shadow. */
+  overlay: {
+    enabled: boolean
+    corner: OverlayCorner
+    scale: number
+    shadow: boolean
+  }
 }
 
 /** One running application offered in the Add Game picker. */
@@ -286,6 +309,8 @@ export interface GtProfileFile {
    */
   sessionLog?: SessionEntry[]
   sessionStats?: SessionAggregate
+  /** Optional for the same reason as sessionLog — absent from any export written before L1, and simply ignored by any build older than it. */
+  noteList?: Note[]
   steamAppId?: number | null
   iconB64?: string
   iconExt?: string

@@ -22,9 +22,21 @@ export function registerProfilesIpc(win: BrowserWindow): void {
   ipcMain.handle(IPC.profiles.setFavorite, (_e, name: string, favorite: boolean) =>
     profileService.setFavorite(name, Boolean(favorite))
   )
-  ipcMain.handle(IPC.profiles.setNotes, (_e, name, notes) => profileService.setNotes(name, notes))
-  ipcMain.handle(IPC.profiles.addRemoveTime, (_e, name, deltaSeconds, note) =>
-    profileService.addRemoveTime(name, deltaSeconds, note)
+  ipcMain.handle(IPC.profiles.createNote, (_e, name: string) => profileService.createNote(name))
+  ipcMain.handle(IPC.profiles.renameNote, (_e, name: string, noteId: string, title: string) =>
+    profileService.renameNote(name, noteId, title)
+  )
+  ipcMain.handle(IPC.profiles.deleteNote, (_e, name: string, noteId: string) =>
+    profileService.deleteNote(name, noteId)
+  )
+  ipcMain.handle(IPC.profiles.updateNoteBody, (_e, name: string, noteId: string, body: string) =>
+    profileService.updateNoteBody(name, noteId, body)
+  )
+  ipcMain.handle(IPC.profiles.updateNoteDrawing, (_e, name: string, noteId: string, drawing) =>
+    profileService.updateNoteDrawing(name, noteId, drawing)
+  )
+  ipcMain.handle(IPC.profiles.addRemoveTime, (_e, name, deltaSeconds) =>
+    profileService.addRemoveTime(name, deltaSeconds)
   )
   ipcMain.handle(IPC.profiles.resetTime, (_e, name: string) => profileService.resetTime(name))
   ipcMain.handle(IPC.profiles.clearBackground, (_e, name: string) => profileService.clearBackground(name))
