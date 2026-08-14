@@ -16,9 +16,20 @@ overlay shows the same running/focused state M's hotkey acts on.
 
 All three features need to answer the same question at the moment they act: *which
 tracked game, if any, does this apply to right now?* Confirmed definition: the game
-must be both (a) currently detected as running, per the existing `gameWatcher`, and
-(b) the OS-focused window at that instant. If nothing tracked is both running and
-focused — including while Gamut's own window is focused — none of M/N/O act.
+must be both (a) linked to a real exe/install folder Gamut recognizes (the same
+"linked" set the background watcher itself filters to — `profile.exePath ||
+profile.installDir`), and (b) the OS-focused window at that instant.
+
+(b) alone actually proves the process side of (a) is running — a window can't be OS-
+focused unless its owning process is alive — so this needs no dependency on the
+opt-in, off-by-default `gameWatcher` poll, and no dependency on the *timer* already
+being on either. That last point matters: gating on `timerEngine.isRunning()` was an
+earlier draft of this rule, and it was wrong — it would have meant the start/pause
+hotkey could only ever ​pause​ (the gate requires "already running" before anything
+acts), never start a timer that isn't running yet, which defeats half the hotkey's
+purpose. The timer's own state is instead read separately by whichever feature needs
+it: M's hotkey toggles it (start if off, pause if on), O's dot reflects it
+(green/red), and N's capture doesn't care about it at all.
 
 This is deliberately stricter than "whichever game is running": with two tracked
 games open at once, only the one you're actually tabbed into is "current."
@@ -79,11 +90,12 @@ another app) rather than throwing — that failure is surfaced back to the Keybi
 as an inline error, not swallowed, matching the project's established "no silent
 no-ops" rule from the L3 notes-rewrite bug hunts.
 
-**Handler logic**, both hotkeys: call `getForegroundGameWindow()`, check the result
-matches a profile that's also in `gameWatcher.openNames()`. If so, act (see below);
-otherwise no-op. Start/Pause calls `timerEngine.start`/`.pause` exactly like the
-existing `IPC.timer.start`/`pause` handlers do (including the `trayService.refresh()`
-call after). Save Screenshot delegates to the N capture routine.
+**Handler logic**, both hotkeys: call `getForegroundGameWindow()`, match it against
+every *linked* profile (see "the current game" above — not gated on the timer already
+running). No match → no-op. Start/Pause toggles based on the timer's current state
+(`timerEngine.isRunning`) exactly like the existing `IPC.timer.start`/`pause` handlers
+do (including the `trayService.refresh()` call after). Save Screenshot delegates to
+the N capture routine, independent of whether the timer happens to be running.
 
 ## N — Screenshots
 
@@ -126,18 +138,21 @@ click-through. Loads the existing renderer bundle at a new hash route (`#overlay
 the same technique the drawing pop-out uses for `#drawing-popout` — real
 preload/IPC surface for free, no build-config changes.
 
-**Content:** session time (subscribed via the existing `window.api.timer.onTick`,
-already broadcasting live per-game elapsed seconds — no new plumbing needed for the
-number itself) and a colored dot (green = timer running, red = not), both scaled by
-the `scale` setting, with the `shadow` setting toggling a CSS `text-shadow` for
-readability against arbitrary game backgrounds.
+**Content:** session time and a colored dot (green = timer running, red = not), both
+scaled by the `scale` setting, with the `shadow` setting toggling a CSS `text-shadow`
+for readability against arbitrary game backgrounds. Pushed from main to the overlay
+window via a dedicated one-way IPC broadcast rather than the renderer subscribing to
+`timer.onTick` itself — main's poll loop already has to resolve *which* profile is
+current (see below), so it computes the displayed seconds/running state once and
+sends exactly that, instead of the overlay renderer re-deriving the same answer.
 
 **Visibility/positioning:** polls `getForegroundGameWindow()` roughly every 2s while
-`overlay.enabled` is true and reconciles against `gameWatcher.openNames()`. Visible
-and positioned in the configured corner of the display containing the focused
-window's `bounds` only when the focused window belongs to a running, tracked profile;
-hidden otherwise (including whenever Gamut's own window has focus, which falls out of
-this rule for free — Gamut is never itself "the current game").
+`overlay.enabled` is true and matches it against every linked profile — the same
+"current game" rule as M, independent of the timer's own state. Visible and positioned in the
+configured corner of the display containing the focused window's `bounds` only when
+the focused window belongs to a running, tracked profile; hidden otherwise (including
+whenever Gamut's own window has focus, which falls out of this rule for free — Gamut
+is never itself "the current game").
 
 **Documented limitation:** true fullscreen-exclusive games render directly to the
 GPU and cannot be overlaid by an ordinary window — confirmed acceptable. Borderless
