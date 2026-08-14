@@ -331,6 +331,24 @@ alongside each new one.
   computed through the app's own `screenToDipRect` so the test itself
   stays correct on any display scaling — not hardcoded to 100%).
 
+  **Second live bug, same session, bigger than the overlay itself**:
+  Grim Dawn's overlay never showed even after the position fix, and
+  turned out to be true of every Steam-imported game in the library —
+  none of them had ever gotten their Launch/Stop button to flip, or
+  auto-start-timer to fire, either. Root cause pre-dates M/N/O entirely:
+  `scanSteam()` (`src/main/detect/installedSources.ts`) hardcoded
+  `installDir: null` for every Steam import, even though the real path
+  was already resolved upstream and just never passed through. Every
+  feature that correlates a running process to a profile — including
+  today's new keybinds/overlay — matches only on `installDir`/`exePath`,
+  never `steamAppId`, so this silently broke ALL of them for every
+  Steam game, launcher-wide, probably since the scan feature shipped.
+  Fixed (one line) plus a fire-and-forget startup backfill that repairs
+  every already-imported Steam profile in place by re-matching on
+  `steamAppId`, so existing libraries self-heal on next launch with no
+  manual re-linking. Verified against this machine's real Steam library
+  (14 installed games, all now resolve a real `installDir`).
+
 ## P. Naming (found 2026-08-13)
 
 - [ ] **P1. Deep-search trademark/uniqueness on the name "Gamut"** before any
