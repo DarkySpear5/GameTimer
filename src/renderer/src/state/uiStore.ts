@@ -17,6 +17,7 @@ export type DialogKind =
   | 'time'
   | 'subCategoryPrompt'
   | 'completeTimerPicker'
+  | 'profileStatsPerGame'
   | null
 
 /** Which Data-tab column the table is ordered by. Genres is deliberately absent — a set of tags has no meaningful order. */

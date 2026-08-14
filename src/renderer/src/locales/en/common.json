@@ -261,6 +261,8 @@
   "profile_stats_hours_by_genre": "Hours by Genre",
   "profile_stats_idle_time": "Idle Time",
   "profile_stats_no_genre_data": "No genre data yet — tag a game's genres to see it here.",
+  "profile_stats_per_game_title": "{{name}} — time by category",
+  "profile_stats_per_game_untagged": "Untagged",
   "role_accent": "Accent",
   "role_background": "Background",
   "role_cards": "Cards / Buttons",

@@ -16,6 +16,7 @@ import { InstalledGamesDialog } from './components/dialogs/InstalledGamesDialog'
 import { AdjustTimeDialog } from './components/dialogs/AdjustTimeDialog'
 import { SubCategoryPromptDialog } from './components/dialogs/SubCategoryPromptDialog'
 import { CompleteTimerDialog } from './components/dialogs/CompleteTimerDialog'
+import { ProfileStatsPerGameDialog } from './components/dialogs/ProfileStatsPerGameDialog'
 import { UpdatePrompt } from './components/dialogs/UpdatePrompt'
 import { ToastHost } from './components/common/Toast'
 import { useProfilesStore, startProfilesChangeSubscription } from './state/profilesStore'
@@ -114,6 +115,9 @@ function App(): React.JSX.Element {
       )}
       {dialog === 'completeTimerPicker' && dialogTarget && (
         <CompleteTimerDialog name={dialogTarget} onClose={closeDialog} />
+      )}
+      {dialog === 'profileStatsPerGame' && dialogTarget && (
+        <ProfileStatsPerGameDialog name={dialogTarget} onClose={closeDialog} />
       )}
       {dialog === 'installed' && <InstalledGamesDialog onClose={closeDialog} />}
 

@@ -191,8 +191,6 @@ export function DataTab(): React.JSX.Element {
                 onSort={handleSort}
               />
               <SortHeader label={t('col_rating')} sortKey="rating" sort={effectiveSort} onSort={handleSort} />
-              {/* Genres stays plain — a game carries several at once, so there's no one value to order rows by. */}
-              {advanced && <th className="px-3 py-2 font-medium">{t('col_genres')}</th>}
             </tr>
           </thead>
           <tbody>
@@ -245,11 +243,6 @@ export function DataTab(): React.JSX.Element {
                   <td className="px-3 py-2 whitespace-nowrap text-gold">
                     {p.rating > 0 ? '★'.repeat(p.rating) : '—'}
                   </td>
-                  {advanced && (
-                    <td className="px-3 py-2 text-subtext">
-                      {p.genres.map((g) => t(g, { ns: 'genres' })).join(', ')}
-                    </td>
-                  )}
                 </tr>
               )
             })}

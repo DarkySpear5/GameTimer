@@ -71,6 +71,9 @@ export function LibraryTab(): React.JSX.Element {
               .upsert(await window.api.profiles.createSubCategory(name, categoryName))
           })()
       },
+      ...(profile && profile.subCategories.length > 0
+        ? [{ label: t('ctx_show_profile_stats'), onClick: () => openDialog('profileStatsPerGame', name) }]
+        : []),
       {
         label: t(profile?.favorite ? 'ctx_favorite_remove' : 'ctx_favorite_add'),
         onClick: () => void handleToggleFavorite(name)
