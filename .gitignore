@@ -34,3 +34,4 @@ release-dev/
 .verify-art-tmp/
 .verify-sources-tmp/
 .verify-kso-tmp/
+.verify-subcategories-tmp/
