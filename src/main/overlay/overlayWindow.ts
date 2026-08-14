@@ -100,10 +100,17 @@ function positionFor(gameBounds: Electron.Rectangle, corner: OverlayCorner, scal
     'bottom-center': { x: centerX, y: bottom }
   }
   const { x, y } = positions[corner]
-  // Clamped to the work area of whichever display the game is on, so a game
-  // window hanging off the edge of the screen can't drag the overlay to
-  // somewhere the player can't see it either.
-  const area = screen.getDisplayMatching(gameBounds).workArea
+  // Clamped to the full bounds of whichever display the game is on, so a
+  // game window hanging off the edge of the screen can't drag the overlay to
+  // somewhere the player can't see it either. Deliberately `.bounds`, not
+  // `.workArea`: workArea excludes the taskbar's reserved strip, but a
+  // borderless/fullscreen game legitimately covers that strip too (the
+  // taskbar auto-hides behind it) — clamping to workArea pulled a
+  // bottom-anchored overlay up off the game's true bottom edge by exactly
+  // the taskbar's height. Measured live: Grim Dawn borderless at
+  // (0,0)-(2560,1440) on a display whose workArea is only 1392 tall (48px
+  // taskbar) put the overlay 32px above where bottom-right should land.
+  const area = screen.getDisplayMatching(gameBounds).bounds
   return {
     x: Math.max(area.x, Math.min(x, area.x + area.width - width)),
     y: Math.max(area.y, Math.min(y, area.y + area.height - height)),

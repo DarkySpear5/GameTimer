@@ -79,7 +79,7 @@ function ensureBundlePatched() {
  * single-instance lock file, which quits the new instance immediately and
  * leaves app.firstWindow() waiting forever for a window that's never made.
  */
-function seed(label, overlayEnabled) {
+function seed(label, overlayEnabled, corner = 'top-right') {
   const appDataRoot = path.join(ROOT, label)
   const userDataDir = path.join(appDataRoot, USER_DATA_FOLDER)
   const docs = path.join(DOCS, label)
@@ -102,7 +102,7 @@ function seed(label, overlayEnabled) {
         language: 'en',
         autoFetchArt: false,
         keybinds: { startPauseTimer: 'Ctrl+F9', saveScreenshot: 'Ctrl+F10', toggleOverlay: 'Ctrl+F11' },
-        overlay: { enabled: overlayEnabled, corner: 'top-right', scale: 1, shadow: true }
+        overlay: { enabled: overlayEnabled, corner, scale: 1, shadow: true }
       }
     })
   )
@@ -129,9 +129,9 @@ function withTimeout(promise, ms, label) {
   ])
 }
 
-async function launch(label, foreground, overlayEnabled) {
+async function launch(label, foreground, overlayEnabled, corner = 'top-right') {
   console.log(`  [${label}] seeding...`)
-  const { appDataRoot, docs } = seed(label, overlayEnabled)
+  const { appDataRoot, docs } = seed(label, overlayEnabled, corner)
   console.log(`  [${label}] electron.launch()...`)
   const app = await withTimeout(
     electron.launch({
@@ -287,6 +287,46 @@ async function overlayBounds(app) {
     check('overlay hidden once disabled via settings', await overlayVisible(app), false)
 
     await closeApp('overlay', app)
+  }
+
+  console.log('\n=== O: bottom-anchored overlay clamps to the full display, not the taskbar work-area ===')
+  {
+    // Real bug, found live on the user's own machine: a borderless game
+    // covering the WHOLE display (taskbar auto-hidden behind it, same as
+    // Grim Dawn) got its bottom-right-anchored overlay pulled 32px up off
+    // the game's true bottom edge, because the clamp used
+    // getDisplayMatching().workArea (which excludes the taskbar's reserved
+    // strip) instead of .bounds. Reproduced here by faking a "game" window
+    // exactly as large as the real primary display.
+    const probe = await launch('display-probe', '', false)
+    const display = await probe.app.evaluate(({ screen }) => {
+      const d = screen.getPrimaryDisplay()
+      return { bounds: d.bounds, workArea: d.workArea, physical: screen.dipToScreenRect(null, d.bounds) }
+    })
+    await closeApp('display-probe', probe.app)
+
+    if (display.workArea.height >= display.bounds.height && display.workArea.width >= display.bounds.width) {
+      console.log('  SKIP  this display reserves no taskbar strip — the bug is not exercisable here')
+    } else {
+      const FULLSCREEN_GAME = JSON.stringify({
+        ExePath: 'C:\\Games\\FocusedGame\\game.exe',
+        Title: 'Focused Game Fullscreen',
+        X: display.physical.x,
+        Y: display.physical.y,
+        Width: display.physical.width,
+        Height: display.physical.height
+      })
+      const { app: app2, win: win2 } = await launch('overlay-taskbar', FULLSCREEN_GAME, true, 'bottom-right')
+      await win2.waitForTimeout(2500) // overlayWindow polls every 2s
+      const expected = {
+        x: display.bounds.x + display.bounds.width - 330 - 16,
+        y: display.bounds.y + display.bounds.height - 84 - 16,
+        width: 330,
+        height: 84
+      }
+      check('overlay bottom-right lands on the display\'s true edge, not the work-area-clamped one', await overlayBounds(app2), expected)
+      await closeApp('overlay-taskbar', app2)
+    }
   }
 
   console.log(`\n${failures === 0 ? 'ALL CHECKS PASSED' : `${failures} CHECK(S) FAILED`}`)
