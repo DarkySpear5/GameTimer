@@ -25,6 +25,17 @@ class TimerEngine {
    * silently restart the session on every checkpoint if the two shared a map.
    */
   private sessionStarts = new Map<string, number>()
+  /**
+   * name -> profile.seconds at the exact moment this session started.
+   * Deliberately separate from sessionStarts (a wall-clock timestamp): this is
+   * a SECONDS snapshot, used only to compute "how much has the main total
+   * grown since this session began" whenever the sub-category prompt is
+   * eventually answered — which can be well after pause() has already run and
+   * cleared activeSession. Not persisted: if the app closes before the prompt
+   * is answered, that's the same outcome as answering None (see the design
+   * spec), so there's nothing to recover.
+   */
+  private pendingCategoryStart = new Map<string, number>()
   private lastCheckpoint = Date.now()
   private lastStatusLog = Date.now()
   private lastBackupDay = ''
@@ -54,6 +65,7 @@ class TimerEngine {
     }
     this.activeTimers.set(name, Date.now())
     this.sessionStarts.set(name, Date.now())
+    this.pendingCategoryStart.set(name, profile.seconds)
     // Written to disk so the session survives a crash — see recoverSessions.
     profile.activeSession = { startedAt: Date.now(), lastSeenAt: Date.now() }
     profile.lastPlayed = Date.now()
@@ -137,12 +149,28 @@ class TimerEngine {
       this.sessionStarts.delete(oldName)
       this.sessionStarts.set(newName, sessionStart)
     }
+    // Same reasoning: a pending sub-category prompt for this session must
+    // still resolve correctly under the new name.
+    const categoryStart = this.pendingCategoryStart.get(oldName)
+    if (categoryStart !== undefined) {
+      this.pendingCategoryStart.delete(oldName)
+      this.pendingCategoryStart.set(newName, categoryStart)
+    }
+  }
+
+  getPendingCategoryStart(name: string): number | undefined {
+    return this.pendingCategoryStart.get(name)
+  }
+
+  clearPendingCategoryStart(name: string): void {
+    this.pendingCategoryStart.delete(name)
   }
 
   /** Drops a profile's timer without committing — used right before it's deleted. */
   stopActive(name: string): void {
     this.activeTimers.delete(name)
     this.sessionStarts.delete(name)
+    this.pendingCategoryStart.delete(name)
     const profile = dataStore.get().profiles[name]
     if (profile) profile.activeSession = null
   }
@@ -161,7 +189,13 @@ class TimerEngine {
     this.activeTimers.set(name, now)
     this.sessionStarts.set(name, now)
     const profile = dataStore.get().profiles[name]
-    if (profile) profile.activeSession = { startedAt: now, lastSeenAt: now }
+    if (profile) {
+      profile.activeSession = { startedAt: now, lastSeenAt: now }
+      // Reset Time already zeroed profile.seconds — re-snapshot from that new
+      // baseline, or a still-pending sub-category prompt would compute a
+      // negative delta against the pre-reset total once answered.
+      this.pendingCategoryStart.set(name, profile.seconds)
+    }
   }
 
   onTick(listener: TickListener): () => void {
