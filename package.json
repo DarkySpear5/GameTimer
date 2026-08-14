@@ -4,7 +4,7 @@
   "description": "Gamut — a game playtime tracker",
   "main": "./out/main/index.js",
   "author": "DarkySpear5",
-  "license": "MIT",
+  "license": "GPL-3.0-or-later",
   "private": true,
   "scripts": {
     "dev": "electron-vite dev",
