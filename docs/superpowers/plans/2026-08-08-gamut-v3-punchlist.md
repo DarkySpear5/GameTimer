@@ -290,6 +290,10 @@ alongside each new one.
   `docs/superpowers/specs/2026-08-13-keybinds-screenshots-overlay-design.md`
   and `docs/superpowers/plans/2026-08-13-keybinds-screenshots-overlay.md`.
 
+  **M2 extended same day**: a third keybind, Toggle Overlay (default
+  `Ctrl+F11`), added live while diagnosing the O1 bug below — the user
+  wanted a fast way to flip the overlay without going through Settings.
+
 ## N. Screenshots (found 2026-08-13) — DONE 2026-08-14
 
 - [x] **N1. Per-game Screenshot button next to Export/Import**, opening a
@@ -312,6 +316,20 @@ alongside each new one.
   uses), which cannot and does not appear over true fullscreen-exclusive
   games. No DLL injection: the user explicitly asked about it and agreed it
   wasn't worth the anti-cheat risk once the trade-off was laid out.
+
+  **Real bug found and fixed same day, on a live test with Forager** (a
+  real windowed GOG game): the overlay correctly detected the focused game
+  and correctly showed itself, but positioned itself relative to the
+  *display's* corner instead of the *game window's* corner — invisible on
+  a large desktop with a small windowed game nowhere near the screen edge.
+  Also needed `screen.screenToDipRect()`: the foreground probe reports
+  physical pixels, every Electron window API speaks DIP, and the two only
+  diverge on a scaled display (this bit at 150%, would pass silently at
+  100%). Also bumped `alwaysOnTop` from the default `'floating'` level to
+  `'screen-saver'` — floating can lose to a game's own topmost window.
+  Fixed and covered by two new E2E checks (game-anchored position,
+  computed through the app's own `screenToDipRect` so the test itself
+  stays correct on any display scaling — not hardcoded to 100%).
 
 ## P. Naming (found 2026-08-13)
 
