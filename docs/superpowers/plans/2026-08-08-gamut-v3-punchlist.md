@@ -274,25 +274,44 @@ works normally after toggling the eraser back off. 34 + 9 + 10 = 53 checks
 across all four passes of L3 today; every earlier pass's suite re-run clean
 alongside each new one.
 
-## M. Keybinds (found 2026-08-13)
+## M. Keybinds (found 2026-08-13) — DONE 2026-08-14
 
-- [ ] **M1. Settings → Keybinds tab.**
-- [ ] **M2. Rebindable commands: start/pause timer, save screenshot.** Combos
+- [x] **M1. Settings → Keybinds tab.**
+- [x] **M2. Rebindable commands: start/pause timer, save screenshot.** Combos
   only (never a single key) — first key forced to Shift/Ctrl/Alt/Tab, e.g.
   `Ctrl+2`, `Alt+F1`, `Alt+Home`; a 3-key combo is allowed if it starts
   `Ctrl+Tab+…`-style with the first two fixed.
 
-## N. Screenshots (found 2026-08-13)
+  Global (system-wide) hotkeys via `globalShortcut`, acting on whichever
+  tracked, linked game's window currently has OS focus — resolved via a new
+  `foregroundWindow.ts` (single PowerShell shell-out for exe path/title/
+  bounds, same `execFile` pattern `processes.ts` already used) shared by M,
+  N, and O alike. Design spec + implementation plan at
+  `docs/superpowers/specs/2026-08-13-keybinds-screenshots-overlay-design.md`
+  and `docs/superpowers/plans/2026-08-13-keybinds-screenshots-overlay.md`.
 
-- [ ] **N1. Per-game Screenshot button next to Export/Import**, opening a
+## N. Screenshots (found 2026-08-13) — DONE 2026-08-14
+
+- [x] **N1. Per-game Screenshot button next to Export/Import**, opening a
   window listing that game's screenshots, saved to a local subfolder under
   Documents. Bound to the M2 keybind.
 
-## O. Overlay (found 2026-08-13)
+  Captures the focused game's own OS window via `desktopCapturer`, falling
+  back to the full screen (never silently) if no window-title match is
+  found. Gallery served through a new `gt-asset://screenshots/<profile>/
+  <file>` route on the existing protocol handler.
 
-- [ ] **O1. In-game overlay** showing session time and a recording-state dot
+## O. Overlay (found 2026-08-13) — DONE 2026-08-14
+
+- [x] **O1. In-game overlay** showing session time and a recording-state dot
   (green = tracking, red = not). Position on screen and what it shows are both
   configurable from a new Overlay settings section.
+
+  Best-effort only, by design — a transparent, click-through, always-on-top
+  `BrowserWindow` (same hash-routed-second-window trick `drawingPopout.ts`
+  uses), which cannot and does not appear over true fullscreen-exclusive
+  games. No DLL injection: the user explicitly asked about it and agreed it
+  wasn't worth the anti-cheat risk once the trade-off was laid out.
 
 ## P. Naming (found 2026-08-13)
 
