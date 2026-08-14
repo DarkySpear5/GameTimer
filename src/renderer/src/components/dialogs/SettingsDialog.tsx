@@ -18,7 +18,7 @@ import {
 } from '@shared/constants'
 import type { Settings, ThemeColors, ThemeName } from '@shared/types'
 
-type Tab = 'general' | 'games' | 'launchers' | 'keybinds' | 'overlay' | 'appearance' | 'language'
+type Tab = 'general' | 'games' | 'launchers' | 'keybinds' | 'overlay' | 'appearance'
 
 const ROLE_KEYS: Record<keyof ThemeColors, string> = {
   bg: 'role_background',
@@ -40,19 +40,17 @@ export function SettingsDialog({ onClose }: { onClose: () => void }): React.JSX.
     { id: 'general', label: t('tab_general') },
     // Everything about detecting and decorating games in one place — these
     // were scattered across General before and read as unrelated switches.
-
+    { id: 'games', label: t('tab_games') },
     // Detection sources get their own tab: they are about where games COME
     // FROM, which is a different question from how they behave once added.
     { id: 'launchers', label: t('tab_launchers') },
-    { id: 'games', label: t('tab_games') },
     { id: 'keybinds', label: t('tab_keybinds') },
     { id: 'overlay', label: t('tab_overlay') },
-    { id: 'appearance', label: t('tab_appearance') },
-    { id: 'language', label: t('tab_language') }
+    { id: 'appearance', label: t('tab_appearance') }
   ]
 
   return (
-    <Modal title={t('settings_title')} onClose={onClose} width="max-w-lg">
+    <Modal title={t('settings_title')} onClose={onClose} width="max-w-2xl">
       <div className="mb-4 flex gap-1 border-b border-card">
         {TABS.map((tb) => (
           <button
@@ -84,6 +82,24 @@ export function SettingsDialog({ onClose }: { onClose: () => void }): React.JSX.
             checked={settings.checkForUpdates}
             onChange={(v) => void updateSettings({ checkForUpdates: v })}
           />
+
+          {/* Folded in from its own tab — one language picker didn't earn a whole tab of its own once the tab bar had six others to fit alongside it. */}
+          <div className="border-t border-card pt-4">
+            <div className="mb-2 text-xs font-medium tracking-wide text-subtext">{t('tab_language')}</div>
+            <div className="grid grid-cols-2 gap-1.5">
+              {LANGUAGE_ORDER.map((code) => (
+                <button
+                  key={code}
+                  onClick={() => void updateSettings({ language: code })}
+                  className={`rounded px-3 py-1.5 text-left text-sm ${
+                    settings.language === code ? 'bg-accent text-bg' : 'bg-card text-text hover:bg-card/70'
+                  }`}
+                >
+                  {LANGUAGE_NAMES[code]}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       )}
 
@@ -142,22 +158,6 @@ export function SettingsDialog({ onClose }: { onClose: () => void }): React.JSX.
             <div className="mb-3 text-xs font-medium tracking-wide text-subtext">{t('tab_ui')}</div>
             <UiTab settings={settings} />
           </div>
-        </div>
-      )}
-
-      {tab === 'language' && (
-        <div className="grid grid-cols-2 gap-1.5">
-          {LANGUAGE_ORDER.map((code) => (
-            <button
-              key={code}
-              onClick={() => void updateSettings({ language: code })}
-              className={`rounded px-3 py-1.5 text-left text-sm ${
-                settings.language === code ? 'bg-accent text-bg' : 'bg-card text-text hover:bg-card/70'
-              }`}
-            >
-              {LANGUAGE_NAMES[code]}
-            </button>
-          ))}
         </div>
       )}
     </Modal>
