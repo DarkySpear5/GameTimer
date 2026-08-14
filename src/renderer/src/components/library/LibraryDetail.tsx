@@ -273,6 +273,7 @@ export function LibraryDetail({ name }: { name: string }): React.JSX.Element {
           { label: t('ctx_info'), onClick: () => openDialog('info', name) },
           { label: t('ctx_notes'), onClick: () => openDialog('notes', name) },
           { label: t('ctx_export'), onClick: () => void handleExport() },
+          { label: t('ctx_screenshots'), onClick: () => openDialog('screenshots', name) },
           { label: t('ctx_import'), onClick: () => void handleImport() },
           // J5: only shown when there's somewhere for it to go — a manually
           // added game with no detected exe or install folder has neither.

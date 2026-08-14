@@ -8,6 +8,7 @@ export type MainTab = 'library' | 'stats' | 'profileStats' | 'about'
 export type DialogKind =
   | 'modify'
   | 'notes'
+  | 'screenshots'
   | 'settings'
   | 'info'
   | 'add'

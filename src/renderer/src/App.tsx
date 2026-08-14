@@ -7,6 +7,7 @@ import { ProfileStatsTab } from './components/datatab/ProfileStatsTab'
 import { AboutTab } from './components/about/AboutTab'
 import { ModifyDialog } from './components/dialogs/ModifyDialog'
 import { NotesDialog } from './components/dialogs/NotesDialog'
+import { ScreenshotsDialog } from './components/dialogs/ScreenshotsDialog'
 import { SettingsDialog } from './components/dialogs/SettingsDialog'
 import { GameInfoDialog } from './components/dialogs/GameInfoDialog'
 import { AddGameDialog } from './components/dialogs/AddGameDialog'
@@ -97,6 +98,9 @@ function App(): React.JSX.Element {
         <ModifyDialog name={dialogTarget} onClose={closeDialog} />
       )}
       {dialog === 'notes' && dialogTarget && <NotesDialog name={dialogTarget} onClose={closeDialog} />}
+      {dialog === 'screenshots' && dialogTarget && (
+        <ScreenshotsDialog name={dialogTarget} onClose={closeDialog} />
+      )}
       {dialog === 'settings' && <SettingsDialog onClose={closeDialog} />}
       {dialog === 'info' && dialogTarget && <GameInfoDialog name={dialogTarget} onClose={closeDialog} />}
       {dialog === 'add' && <AddGameDialog onClose={closeDialog} />}
