@@ -366,6 +366,30 @@ alongside each new one.
   both ways, displayed time is correct immediately after close with no
   reload.
 
+  **Fourth live bug, 2026-08-14**: bottom-right overlay on Grim Dawn
+  (borderless, covering the full primary display at (0,0)-(2560,1440))
+  still wasn't landing in the corner — measured live via `EnumWindows`
+  (title/process-name based, not focus-based, so it doesn't steal focus
+  away from the actual game while probing): the overlay sat at
+  (1884,1224)-(2544,1392). X matched the `positionFor()` formula exactly;
+  Y was short by precisely 32px, and 32 is exactly this display's
+  `workArea` height (1392) subtracted from its full `bounds` height
+  (1440) — the taskbar's reserved strip. Root cause: the position clamp
+  used `screen.getDisplayMatching(gameBounds).workArea`, which excludes
+  that reserved strip, but a borderless/fullscreen game legitimately
+  covers it too (the taskbar auto-hides behind it) — so a bottom-anchored
+  overlay got pulled up off the game's true bottom edge by the taskbar's
+  own height. Fixed by clamping to `.bounds` instead of `.workArea`
+  (`overlayWindow.ts`'s `positionFor`), consistent with the same
+  anchor-to-the-game-not-the-desktop principle the first live bug already
+  established. Covered by a new E2E check in
+  `verify-keybinds-screenshots-overlay.cjs` that fakes a game window
+  exactly as large as the real primary display and asserts the
+  bottom-right overlay lands on `.bounds`'s edge, not `.workArea`'s —
+  self-adapting to whatever display actually hosts the check (skips if
+  that display reserves no taskbar strip). All prior M/N/O checks re-run
+  clean alongside it.
+
 ## P. Naming (found 2026-08-13)
 
 - [ ] **P1. Deep-search trademark/uniqueness on the name "Gamut"** before any
