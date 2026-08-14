@@ -21,7 +21,10 @@ import { resolveAsset } from '../util/env'
 // keeps 1.0x meaning "the size most people will actually leave it at."
 const BASE_WIDTH = 330
 const BASE_HEIGHT = 84
-const MARGIN = 16
+// User feedback after trying it live: 16px read as "not close enough to the
+// corner" next to Grim Dawn's own corner-hugging FPS counter — tightened to
+// match that reference.
+const MARGIN = 8
 const POLL_MS = 2000
 
 let win: BrowserWindow | null = null
