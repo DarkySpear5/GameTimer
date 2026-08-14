@@ -135,7 +135,8 @@ function normalizeLegacySettings(raw: Record<string, unknown> | undefined): Sett
     launcherFolders: {},
     steamGridDbApiKey: '',
     // v1 has no equivalent concept either — same defaults a fresh install gets.
-    keybinds: { startPauseTimer: 'Ctrl+F9', saveScreenshot: 'Ctrl+F10' }
+    keybinds: { startPauseTimer: 'Ctrl+F9', saveScreenshot: 'Ctrl+F10' },
+    overlay: { enabled: false, corner: 'top-right', scale: 1.0, shadow: true }
   }
 }
 

@@ -10,6 +10,7 @@ import { registerMainWindow, showWindow, quitApp } from './appLifecycle'
 import { registerUpdaterWindow, checkForUpdatesOnLaunch } from './updater/autoUpdater'
 import { gameWatcher } from './detect/gameWatcher'
 import { keybindService } from './keybinds/keybindService'
+import { overlayWindow } from './overlay/overlayWindow'
 import { USER_DATA_FOLDER, APP_USER_MODEL_ID } from '@shared/channel'
 
 let mainWindow: BrowserWindow | null = null
@@ -44,6 +45,7 @@ if (!acquireSingleInstanceLock(() => showWindow())) {
     // No-op unless the user opted into background watching — see gameWatcher.shouldRun.
     gameWatcher.sync()
     keybindService.registerAll()
+    overlayWindow.start()
 
     if (dataStore.get().settings.checkForUpdates) {
       void checkForUpdatesOnLaunch()
@@ -58,7 +60,10 @@ if (!acquireSingleInstanceLock(() => showWindow())) {
     if (!mainWindow || mainWindow.isDestroyed()) void quitApp()
   })
 
-  // An unregistered global hotkey would otherwise keep intercepting its
-  // combo system-wide after the app has closed.
-  app.on('will-quit', () => keybindService.unregisterAll())
+  app.on('will-quit', () => {
+    // An unregistered global hotkey would otherwise keep intercepting its
+    // combo system-wide after the app has closed.
+    keybindService.unregisterAll()
+    overlayWindow.stop()
+  })
 }

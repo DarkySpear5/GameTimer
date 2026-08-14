@@ -1,6 +1,12 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { IPC } from '@shared/ipcContract'
-import type { GameTimerApi, PopoutState, TimerTickPayload, ToastBroadcastPayload } from '@shared/ipcContract'
+import type {
+  GameTimerApi,
+  OverlayTickPayload,
+  PopoutState,
+  TimerTickPayload,
+  ToastBroadcastPayload
+} from '@shared/ipcContract'
 import type { UpdateInfo, UpdateProgress } from '@shared/types'
 
 // Thin pass-through only — no logic belongs here. Every method just forwards
@@ -132,6 +138,13 @@ const api: GameTimerApi = {
   screenshots: {
     list: (name) => ipcRenderer.invoke(IPC.screenshots.list, name),
     open: (filePath) => ipcRenderer.invoke(IPC.screenshots.open, filePath)
+  },
+  overlay: {
+    onTick: (cb) => {
+      const listener = (_event: Electron.IpcRendererEvent, payload: OverlayTickPayload): void => cb(payload)
+      ipcRenderer.on(IPC.overlay.tick, listener)
+      return () => ipcRenderer.removeListener(IPC.overlay.tick, listener)
+    }
   },
   toast: {
     onBroadcast: (cb) => {

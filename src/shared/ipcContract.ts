@@ -109,6 +109,9 @@ export const IPC = {
     list: 'screenshots:list',
     open: 'screenshots:open'
   },
+  overlay: {
+    tick: 'overlay:tick'
+  },
   toast: {
     show: 'toast:show'
   },
@@ -145,6 +148,13 @@ export const IPC = {
 
 export interface TimerTickPayload {
   running: Record<string, number>
+}
+
+export interface OverlayTickPayload {
+  seconds: number
+  running: boolean
+  scale: number
+  shadow: boolean
 }
 
 /** Which note's drawing is currently open in the L3 pop-out window, or null if none is. */
@@ -305,6 +315,9 @@ export interface GameTimerApi {
     /** Newest-first absolute file paths. */
     list(name: string): Promise<string[]>
     open(filePath: string): Promise<void>
+  }
+  overlay: {
+    onTick(cb: (payload: OverlayTickPayload) => void): () => void
   }
   toast: {
     onBroadcast(cb: (payload: ToastBroadcastPayload) => void): () => void

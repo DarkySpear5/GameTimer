@@ -75,6 +75,9 @@ export const FONT_CHOICES = [
 export const FONT_SCALE_MIN = 0.7
 export const FONT_SCALE_MAX = 1.5
 
+export const OVERLAY_SCALE_MIN = 0.5
+export const OVERLAY_SCALE_MAX = 2.0
+
 export const ICON_SIZE_OPTIONS: Record<string, number> = {
   Small: 24,
   Medium: 36,

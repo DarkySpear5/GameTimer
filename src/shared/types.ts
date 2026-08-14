@@ -24,6 +24,8 @@ export interface ThemeColors {
   accent: string
 }
 
+export type OverlayCorner = 'top-left' | 'top-right' | 'top-center' | 'bottom-left' | 'bottom-right' | 'bottom-center'
+
 export interface Profile {
   name: string
   seconds: number
@@ -183,6 +185,13 @@ export interface Settings {
   keybinds: {
     startPauseTimer: string
     saveScreenshot: string
+  }
+  /** O: the in-game overlay's visibility, position, size, and text-shadow. */
+  overlay: {
+    enabled: boolean
+    corner: OverlayCorner
+    scale: number
+    shadow: boolean
   }
 }
 

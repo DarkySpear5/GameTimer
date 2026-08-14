@@ -117,6 +117,19 @@ const KeybindsSchema = z
   })
   .catch({ startPauseTimer: 'Ctrl+F9', saveScreenshot: 'Ctrl+F10' })
 
+const OverlayCornerSchema = z
+  .enum(['top-left', 'top-right', 'top-center', 'bottom-left', 'bottom-right', 'bottom-center'])
+  .catch('top-right')
+
+const OverlaySchema = z
+  .object({
+    enabled: z.boolean().catch(false),
+    corner: OverlayCornerSchema,
+    scale: z.number().catch(1.0),
+    shadow: z.boolean().catch(true)
+  })
+  .catch({ enabled: false, corner: 'top-right', scale: 1.0, shadow: true })
+
 const ThemeNameSchema = z
   .enum(['Midnight Blue', 'Paper White', 'Slate Grey', 'Rose', 'Retro Terminal', 'Custom'])
   .catch('Midnight Blue')
@@ -168,7 +181,8 @@ const SettingsSchema = z.object({
   // The user's OWN SteamGridDB key. Empty = the feature is simply off. See the
   // exception note at the top of art/steamGridDb.ts.
   steamGridDbApiKey: z.string().catch(''),
-  keybinds: KeybindsSchema
+  keybinds: KeybindsSchema,
+  overlay: OverlaySchema
 })
 
 const AppDataSchema = z.object({
