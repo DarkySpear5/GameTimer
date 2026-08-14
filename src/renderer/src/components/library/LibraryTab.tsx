@@ -61,6 +61,17 @@ export function LibraryTab(): React.JSX.Element {
       { label: t('ctx_info'), onClick: () => openDialog('info', name) },
       { label: t('ctx_notes'), onClick: () => openDialog('notes', name) },
       {
+        label: t('ctx_new_subcategory'),
+        onClick: () =>
+          void (async () => {
+            const categoryName = window.prompt(t('subcat_new_name_prompt'))
+            if (!categoryName || !categoryName.trim()) return
+            useProfilesStore
+              .getState()
+              .upsert(await window.api.profiles.createSubCategory(name, categoryName))
+          })()
+      },
+      {
         label: t(profile?.favorite ? 'ctx_favorite_remove' : 'ctx_favorite_add'),
         onClick: () => void handleToggleFavorite(name)
       },

@@ -92,6 +92,26 @@ export function LibraryDetail({ name }: { name: string }): React.JSX.Element {
     useProfilesStore.getState().upsert(await window.api.profiles.setRating(name, rating))
   }
 
+  async function addSubCategory(): Promise<void> {
+    const categoryName = window.prompt(t('subcat_new_name_prompt'))
+    if (!categoryName || !categoryName.trim()) return
+    useProfilesStore.getState().upsert(await window.api.profiles.createSubCategory(name, categoryName))
+  }
+
+  async function renameSubCategory(categoryId: string, currentName: string): Promise<void> {
+    const newName = window.prompt(t('subcat_new_name_prompt'), currentName)
+    if (!newName || !newName.trim() || newName === currentName) return
+    useProfilesStore
+      .getState()
+      .upsert(await window.api.profiles.renameSubCategory(name, categoryId, newName))
+  }
+
+  async function deleteSubCategory(categoryId: string, categoryName: string, seconds: number): Promise<void> {
+    if (!window.confirm(t('subcat_delete_confirm', { name: categoryName, time: formatSeconds(seconds) })))
+      return
+    useProfilesStore.getState().upsert(await window.api.profiles.deleteSubCategory(name, categoryId))
+  }
+
   /** D4: the counterpart to Export — pulls a .gtprofile in as a new game. */
   async function handleImport(): Promise<void> {
     const imported = await window.api.importExport.importProfile()
@@ -250,6 +270,59 @@ export function LibraryDetail({ name }: { name: string }): React.JSX.Element {
               ))}
             </div>
           </div>
+
+          {profile.subCategories.length > 0 && (
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[0.65rem] tracking-wide text-subtext uppercase">
+                  {t('subcat_heading')}
+                </span>
+                <button
+                  onClick={() => void addSubCategory()}
+                  className="text-xs text-accent hover:underline"
+                >
+                  {t('subcat_new')}
+                </button>
+              </div>
+              <div className="flex max-h-40 flex-col gap-0.5 overflow-y-auto rounded-lg bg-card p-1.5">
+                {profile.subCategories.map((c) => (
+                  <div key={c.id} className="flex items-center justify-between rounded px-2 py-1 hover:bg-panel">
+                    <button
+                      onClick={() => void renameSubCategory(c.id, c.name)}
+                      className="truncate text-left text-sm text-text hover:underline"
+                    >
+                      {c.name}
+                    </button>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <span className="text-xs tabular-nums text-subtext">{formatSeconds(c.seconds)}</span>
+                      <button
+                        onClick={() => void deleteSubCategory(c.id, c.name, c.seconds)}
+                        className="text-xs text-red hover:underline"
+                      >
+                        {t('ctx_delete')}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <label className="flex items-center gap-2 text-xs text-subtext">
+                <input
+                  type="checkbox"
+                  checked={profile.subCategoriesEnabled ?? true}
+                  onChange={(e) =>
+                    void (async () => {
+                      useProfilesStore
+                        .getState()
+                        .upsert(
+                          await window.api.profiles.setSubCategoriesEnabled(name, e.target.checked)
+                        )
+                    })()
+                  }
+                />
+                {t('subcat_enable_toggle')}
+              </label>
+            </div>
+          )}
 
           {profile.genres.length > 0 && (
             <div className="flex flex-col gap-1.5">
