@@ -44,7 +44,8 @@ export const IPC = {
     setIcon: 'profiles:setIcon',
     setBackground: 'profiles:setBackground',
     clearBackground: 'profiles:clearBackground',
-    select: 'profiles:select'
+    select: 'profiles:select',
+    changed: 'profiles:changed'
   },
   timer: {
     start: 'timer:start',
@@ -206,6 +207,15 @@ export interface GameTimerApi {
     setBackground(name: string, kind: 'image' | 'color', value: string): Promise<Profile | null>
     clearBackground(name: string): Promise<Profile>
     select(name: string | null): Promise<void>
+    /**
+     * Pushed whenever the MAIN process mutates a profile on its own —
+     * gameWatcher's background poll (auto-pause, launch/openSeconds accrual)
+     * — since that's the only kind of profile change with no natural request/
+     * response round-trip a renderer-initiated action already refreshes
+     * itself with. Every other profiles.* method already returns the updated
+     * Profile directly to whoever called it.
+     */
+    onChanged(cb: (profiles: Profile[]) => void): () => void
   }
   timer: {
     start(name: string): Promise<void>

@@ -16,7 +16,7 @@ import { InstalledGamesDialog } from './components/dialogs/InstalledGamesDialog'
 import { AdjustTimeDialog } from './components/dialogs/AdjustTimeDialog'
 import { UpdatePrompt } from './components/dialogs/UpdatePrompt'
 import { ToastHost } from './components/common/Toast'
-import { useProfilesStore } from './state/profilesStore'
+import { useProfilesStore, startProfilesChangeSubscription } from './state/profilesStore'
 import { loadSettings } from './state/settingsStore'
 import { startTimerTickSubscription } from './state/timerStore'
 import { startOpenGamesSubscription } from './state/openGamesStore'
@@ -57,6 +57,7 @@ function App(): React.JSX.Element {
     })()
     startTimerTickSubscription()
     startOpenGamesSubscription()
+    startProfilesChangeSubscription()
     startNotesPopoutSync()
     startToastBroadcastSync()
   }, [])

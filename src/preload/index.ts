@@ -7,7 +7,7 @@ import type {
   TimerTickPayload,
   ToastBroadcastPayload
 } from '@shared/ipcContract'
-import type { UpdateInfo, UpdateProgress } from '@shared/types'
+import type { Profile, UpdateInfo, UpdateProgress } from '@shared/types'
 
 // Thin pass-through only — no logic belongs here. Every method just forwards
 // to main over IPC; main is the sole owner of state and OS access.
@@ -38,7 +38,12 @@ const api: GameTimerApi = {
     setBackground: (name, kind, value) =>
       ipcRenderer.invoke(IPC.profiles.setBackground, name, kind, value),
     clearBackground: (name) => ipcRenderer.invoke(IPC.profiles.clearBackground, name),
-    select: (name) => ipcRenderer.invoke(IPC.profiles.select, name)
+    select: (name) => ipcRenderer.invoke(IPC.profiles.select, name),
+    onChanged: (cb) => {
+      const listener = (_event: Electron.IpcRendererEvent, profiles: Profile[]): void => cb(profiles)
+      ipcRenderer.on(IPC.profiles.changed, listener)
+      return () => ipcRenderer.removeListener(IPC.profiles.changed, listener)
+    }
   },
   timer: {
     start: (name) => ipcRenderer.invoke(IPC.timer.start, name),

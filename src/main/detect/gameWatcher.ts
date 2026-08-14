@@ -2,6 +2,7 @@ import { isGameRunning } from './watchMatch'
 import { listRunningProcesses } from './processes'
 import { dataStore } from '../store/dataStore'
 import { timerEngine } from '../timer/timerEngine'
+import type { Profile } from '@shared/types'
 
 /**
  * How often the running-process list is re-read. Ten seconds is a deliberate
@@ -25,6 +26,21 @@ let handle: ReturnType<typeof setInterval> | null = null
 /** Fired with the full set of currently-open game names whenever a poll changes it — the Launch/Stop button listens for this. */
 const changeListeners = new Set<(names: string[]) => void>()
 
+/**
+ * Fired with whichever profiles this module itself just mutated (auto-pause,
+ * openSeconds accrual, launch count) — the renderer's own profile cache has
+ * no other way to learn about a change that originated here rather than from
+ * one of its own IPC calls. Separate from `changeListeners`: that one only
+ * ever carries names (open/closed), never the profile DATA a change like
+ * `seconds` or `openSeconds` actually needs.
+ */
+const profileChangeListeners = new Set<(profiles: Profile[]) => void>()
+
+function broadcastProfiles(profiles: Profile[]): void {
+  if (profiles.length === 0) return
+  for (const cb of profileChangeListeners) cb(profiles)
+}
+
 /** Just the executable paths — no window titles, no icons. Polled, so it must stay cheap. */
 async function runningExePaths(): Promise<Set<string>> {
   return new Set((await listRunningProcesses()).map((p) => p.path))
@@ -44,6 +60,7 @@ async function poll(): Promise<void> {
 
   const running = await runningExePaths()
   let touched = false
+  const changedProfiles: Profile[] = []
 
   for (const profile of linked) {
     const isRunning = isGameRunning(profile, running)
@@ -51,13 +68,21 @@ async function poll(): Promise<void> {
 
     if (isRunning && !wasOpen) {
       open.set(profile.name, Date.now())
-      // A launch we performed ourselves was already counted at launch time.
+      // A launch we performed ourselves was already counted at launch time —
+      // but the open-set itself still changed just now, either way, and the
+      // Launch/Stop button needs to hear about THAT regardless of who gets
+      // credited with the launch count. This used to only flip `touched` in
+      // the else branch, so a game Gamut itself launched (the common case —
+      // noteLaunched() already added it to selfLaunched) never told the
+      // button it had opened, even though timerEngine.start() below ran fine
+      // and made the Play/Pause button look right.
+      touched = true
       if (selfLaunched.has(profile.name)) {
         selfLaunched.delete(profile.name)
       } else {
         profile.launches += 1
-        touched = true
       }
+      changedProfiles.push(profile)
       if (autoStartEnabled(profile.name) && !timerEngine.isRunning(profile.name)) {
         timerEngine.start(profile.name)
       }
@@ -69,6 +94,7 @@ async function poll(): Promise<void> {
       if (autoStartEnabled(profile.name) && timerEngine.isRunning(profile.name)) {
         timerEngine.pause(profile.name)
       }
+      changedProfiles.push(profile)
     }
   }
 
@@ -76,6 +102,7 @@ async function poll(): Promise<void> {
     await dataStore.safeSave()
     const names = [...open.keys()]
     for (const cb of changeListeners) cb(names)
+    broadcastProfiles(changedProfiles)
   }
 }
 
@@ -131,12 +158,22 @@ export const gameWatcher = {
     if (timerEngine.isRunning(name)) timerEngine.pause(name)
     const names = this.openNames()
     for (const cb of changeListeners) cb(names)
+    // Same staleness gap as poll()'s auto-pause branch: pausing just updated
+    // profile.seconds, and nothing else in this call path refreshes the
+    // renderer's own cached copy of it.
+    if (profile) broadcastProfiles([profile])
   },
 
   /** Subscribes to the open-games list changing. Returns an unsubscribe function. */
   onChange(cb: (names: string[]) => void): () => void {
     changeListeners.add(cb)
     return () => changeListeners.delete(cb)
+  },
+
+  /** Subscribes to profiles this module mutated itself (auto-pause, launch/openSeconds accrual) — see profileChangeListeners' doc comment. */
+  onProfilesChanged(cb: (profiles: Profile[]) => void): () => void {
+    profileChangeListeners.add(cb)
+    return () => profileChangeListeners.delete(cb)
   },
 
   stop(): void {

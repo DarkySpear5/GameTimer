@@ -49,6 +49,11 @@ export function registerMainWindow(win: BrowserWindow): void {
     win.webContents.send(IPC.detect.openGamesChanged, names)
   })
 
+  gameWatcher.onProfilesChanged((profiles) => {
+    if (win.isDestroyed() || win.webContents.isDestroyed()) return
+    win.webContents.send(IPC.profiles.changed, profiles)
+  })
+
   if (dataStore.get().settings.trayEnabled) {
     trayService.start(trayCallbacks)
   }
