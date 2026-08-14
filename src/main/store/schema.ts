@@ -65,6 +65,12 @@ const SessionAggregateSchema = z
   })
   .catch({ count: 0, totalSeconds: 0, longestSeconds: 0, firstPlayedAt: null, lastPlayedAt: null })
 
+const SubCategorySchema = z.object({
+  id: z.string().min(1).catch(() => Math.random().toString(36).slice(2)),
+  name: z.string().catch(''),
+  seconds: z.number().catch(0)
+})
+
 const ProfileSchema = z
   .object({
     name: z.string().catch(''),
@@ -107,7 +113,9 @@ const ProfileSchema = z
     favorite: z.boolean().catch(false),
     coverFile: z.string().nullable().catch(null),
     launchUri: z.string().nullable().catch(null),
-    installDir: z.string().nullable().catch(null)
+    installDir: z.string().nullable().catch(null),
+    subCategories: z.array(SubCategorySchema).catch([]),
+    subCategoriesEnabled: z.boolean().nullable().catch(null)
   })
 
 const KeybindsSchema = z
@@ -169,6 +177,7 @@ const SettingsSchema = z.object({
   dataTableScale: z.number().catch(1.15),
   watchForGames: z.boolean().catch(false),
   autoStartTimer: z.boolean().catch(false),
+  subCategoriesEnabled: z.boolean().catch(true),
   libraryView: z.enum(['grid', 'list']).catch('grid'),
   // Simple by default so a first-time user gets the uncluttered version
   // without having to discover a setting to get it.

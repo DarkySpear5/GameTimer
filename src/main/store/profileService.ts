@@ -46,7 +46,9 @@ function freshProfile(name: string): Profile {
     autoStartTimer: null,
     genresFromDetection: false,
     favorite: false,
-    coverFile: null
+    coverFile: null,
+    subCategories: [],
+    subCategoriesEnabled: null
   }
 }
 
@@ -195,7 +197,12 @@ export const profileService = {
       autoStartTimer: original.autoStartTimer,
       genresFromDetection: original.genresFromDetection,
       favorite: original.favorite,
-      coverFile: newCoverFile
+      coverFile: newCoverFile,
+      // Copied, not reset — same reasoning as sessionStats/sessionLog above:
+      // the copy inherits the same playtime history. Mapped rather than
+      // spread so the two profiles never share the same SubCategory objects.
+      subCategories: original.subCategories.map((c) => ({ ...c })),
+      subCategoriesEnabled: original.subCategoriesEnabled
     }
     data.profiles[newName] = copy
     await dataStore.safeSave()

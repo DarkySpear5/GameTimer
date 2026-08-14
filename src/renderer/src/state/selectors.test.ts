@@ -38,6 +38,8 @@ function profile(name: string, overrides: Partial<Profile> = {}): Profile {
     coverFile: null,
     launchUri: null,
     installDir: null,
+    subCategories: [],
+    subCategoriesEnabled: null,
     ...overrides
   }
 }
