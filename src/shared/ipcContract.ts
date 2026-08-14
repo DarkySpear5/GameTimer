@@ -201,7 +201,8 @@ export interface GameTimerApi {
     setGenres(name: string, genres: string[]): Promise<Profile>
     setRating(name: string, rating: 0 | 1 | 2 | 3 | 4 | 5): Promise<Profile>
     setFavorite(name: string, favorite: boolean): Promise<Profile>
-    createSubCategory(name: string, categoryName: string): Promise<Profile>
+    /** categoryName omitted = a default placeholder, renamed inline afterward — see profileService.createSubCategory. */
+    createSubCategory(name: string, categoryName?: string): Promise<Profile>
     renameSubCategory(name: string, categoryId: string, newName: string): Promise<Profile>
     deleteSubCategory(name: string, categoryId: string): Promise<Profile>
     /** null = follow the global setting; true/false override it for this game. Never deletes existing sub-category data. */

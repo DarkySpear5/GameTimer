@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import type { CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useProfilesStore } from '../../state/profilesStore'
@@ -9,7 +10,7 @@ import { summaryFrom } from '@shared/sessionStats'
 import { GameArt } from './GameArt'
 import { FavoriteStar } from './FavoriteStar'
 import { toast } from '../common/Toast'
-import type { Status } from '@shared/types'
+import type { Status, SubCategory } from '@shared/types'
 
 /** Same wash as the Timer view — see SelectedGameView for why it's a background layer rather than an overlay. */
 const ACCENT_WASH =
@@ -20,6 +21,85 @@ function Stat({ label, value }: { label: string; value: string }): React.JSX.Ele
     <div className="flex flex-col gap-0.5">
       <span className="text-[0.65rem] tracking-wide text-subtext uppercase">{label}</span>
       <span className="text-sm text-text tabular-nums">{value}</span>
+    </div>
+  )
+}
+
+/**
+ * One row in the sub-category list. Renaming is inline-edit (a real
+ * <input>), the same pattern NoteEditor's title already uses — never
+ * window.prompt(), which Electron does not implement (see addSubCategory's
+ * comment above).
+ */
+function SubCategoryRow({
+  gameName,
+  category
+}: {
+  gameName: string
+  category: SubCategory
+}): React.JSX.Element {
+  const { t } = useTranslation()
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(category.name)
+
+  async function commit(): Promise<void> {
+    setEditing(false)
+    const trimmed = draft.trim()
+    if (!trimmed || trimmed === category.name) {
+      setDraft(category.name)
+      return
+    }
+    try {
+      useProfilesStore
+        .getState()
+        .upsert(await window.api.profiles.renameSubCategory(gameName, category.id, trimmed))
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : String(err))
+      setDraft(category.name)
+    }
+  }
+
+  async function handleDelete(): Promise<void> {
+    if (
+      !window.confirm(
+        t('subcat_delete_confirm', { name: category.name, time: formatSeconds(category.seconds) })
+      )
+    )
+      return
+    useProfilesStore.getState().upsert(await window.api.profiles.deleteSubCategory(gameName, category.id))
+  }
+
+  return (
+    <div className="flex items-center justify-between rounded px-2 py-1 hover:bg-panel">
+      {editing ? (
+        <input
+          autoFocus
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={() => void commit()}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') e.currentTarget.blur()
+            if (e.key === 'Escape') {
+              setDraft(category.name)
+              setEditing(false)
+            }
+          }}
+          className="min-w-0 flex-1 rounded bg-panel px-1.5 py-0.5 text-sm text-text outline-none ring-1 ring-accent"
+        />
+      ) : (
+        <button
+          onClick={() => setEditing(true)}
+          className="min-w-0 flex-1 truncate text-left text-sm text-text hover:underline"
+        >
+          {category.name}
+        </button>
+      )}
+      <div className="flex shrink-0 items-center gap-2">
+        <span className="text-xs tabular-nums text-subtext">{formatSeconds(category.seconds)}</span>
+        <button onClick={() => void handleDelete()} className="text-xs text-red hover:underline">
+          {t('ctx_delete')}
+        </button>
+      </div>
     </div>
   )
 }
@@ -96,24 +176,15 @@ export function LibraryDetail({ name }: { name: string }): React.JSX.Element {
     useProfilesStore.getState().upsert(await window.api.profiles.setRating(name, rating))
   }
 
+  /**
+   * No name is collected up front — window.prompt() does not work in
+   * Electron (returns null, no dialog ever shown; measured live, not
+   * assumed). Creates with a placeholder and lets SubCategoryRow's inline
+   * edit (a real <input>, same pattern NoteEditor's title already uses)
+   * handle renaming, exactly like "+ New note" does for Notes.
+   */
   async function addSubCategory(): Promise<void> {
-    const categoryName = window.prompt(t('subcat_new_name_prompt'))
-    if (!categoryName || !categoryName.trim()) return
-    useProfilesStore.getState().upsert(await window.api.profiles.createSubCategory(name, categoryName))
-  }
-
-  async function renameSubCategory(categoryId: string, currentName: string): Promise<void> {
-    const newName = window.prompt(t('subcat_new_name_prompt'), currentName)
-    if (!newName || !newName.trim() || newName === currentName) return
-    useProfilesStore
-      .getState()
-      .upsert(await window.api.profiles.renameSubCategory(name, categoryId, newName))
-  }
-
-  async function deleteSubCategory(categoryId: string, categoryName: string, seconds: number): Promise<void> {
-    if (!window.confirm(t('subcat_delete_confirm', { name: categoryName, time: formatSeconds(seconds) })))
-      return
-    useProfilesStore.getState().upsert(await window.api.profiles.deleteSubCategory(name, categoryId))
+    useProfilesStore.getState().upsert(await window.api.profiles.createSubCategory(name))
   }
 
   /** D4: the counterpart to Export — pulls a .gtprofile in as a new game. */
@@ -290,23 +361,7 @@ export function LibraryDetail({ name }: { name: string }): React.JSX.Element {
               </div>
               <div className="flex max-h-40 flex-col gap-0.5 overflow-y-auto rounded-lg bg-card p-1.5">
                 {profile.subCategories.map((c) => (
-                  <div key={c.id} className="flex items-center justify-between rounded px-2 py-1 hover:bg-panel">
-                    <button
-                      onClick={() => void renameSubCategory(c.id, c.name)}
-                      className="truncate text-left text-sm text-text hover:underline"
-                    >
-                      {c.name}
-                    </button>
-                    <div className="flex shrink-0 items-center gap-2">
-                      <span className="text-xs tabular-nums text-subtext">{formatSeconds(c.seconds)}</span>
-                      <button
-                        onClick={() => void deleteSubCategory(c.id, c.name, c.seconds)}
-                        className="text-xs text-red hover:underline"
-                      >
-                        {t('ctx_delete')}
-                      </button>
-                    </div>
-                  </div>
+                  <SubCategoryRow key={c.id} gameName={name} category={c} />
                 ))}
               </div>
               <label className="flex items-center gap-2 text-xs text-subtext">

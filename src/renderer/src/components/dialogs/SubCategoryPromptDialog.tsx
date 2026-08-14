@@ -39,12 +39,14 @@ export function SubCategoryPromptDialog({
     }
   }
 
+  // No name is collected up front — window.prompt() does not work in
+  // Electron. Creates with a placeholder, immediately credits this session
+  // to it, and it's ready to rename inline from the game's own page
+  // afterward — same reasoning as LibraryDetail.tsx's addSubCategory.
   async function createAndChoose(): Promise<void> {
-    const categoryName = window.prompt(t('subcat_new_name_prompt'))
-    if (!categoryName || !categoryName.trim()) return
     setBusy(true)
     try {
-      const updated = await window.api.profiles.createSubCategory(name, categoryName)
+      const updated = await window.api.profiles.createSubCategory(name)
       useProfilesStore.getState().upsert(updated)
       const created = updated.subCategories[updated.subCategories.length - 1]
       await choose(created.id)

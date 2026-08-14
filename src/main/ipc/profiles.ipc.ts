@@ -24,7 +24,7 @@ export function registerProfilesIpc(win: BrowserWindow): void {
   ipcMain.handle(IPC.profiles.setFavorite, (_e, name: string, favorite: boolean) =>
     profileService.setFavorite(name, Boolean(favorite))
   )
-  ipcMain.handle(IPC.profiles.createSubCategory, (_e, name: string, categoryName: string) =>
+  ipcMain.handle(IPC.profiles.createSubCategory, (_e, name: string, categoryName?: string) =>
     profileService.createSubCategory(name, categoryName)
   )
   ipcMain.handle(

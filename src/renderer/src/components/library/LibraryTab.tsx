@@ -61,14 +61,15 @@ export function LibraryTab(): React.JSX.Element {
       { label: t('ctx_info'), onClick: () => openDialog('info', name) },
       { label: t('ctx_notes'), onClick: () => openDialog('notes', name) },
       {
+        // No name is collected up front — window.prompt() does not work in
+        // Electron. Creates with a placeholder and opens the game's own
+        // page, where the new row is right there ready to rename inline —
+        // same reasoning as LibraryDetail.tsx's addSubCategory.
         label: t('ctx_new_subcategory'),
         onClick: () =>
           void (async () => {
-            const categoryName = window.prompt(t('subcat_new_name_prompt'))
-            if (!categoryName || !categoryName.trim()) return
-            useProfilesStore
-              .getState()
-              .upsert(await window.api.profiles.createSubCategory(name, categoryName))
+            useProfilesStore.getState().upsert(await window.api.profiles.createSubCategory(name))
+            setLibraryFocus(name)
           })()
       },
       ...(profile && profile.subCategories.length > 0

@@ -377,9 +377,17 @@ export const profileService = {
     return profile
   },
 
-  async createSubCategory(name: string, categoryName: string): Promise<Profile> {
-    const trimmed = categoryName.trim()
-    if (!trimmed) throw new Error('Name cannot be empty')
+  /**
+   * categoryName defaults to a plain-English placeholder — main has no i18n
+   * access, same reasoning as createNote's "Untitled Note" default — because
+   * every renderer call site creates first and lets the user rename inline
+   * afterward (see LibraryDetail.tsx's SubCategoryRow) rather than prompting
+   * for a name up front. window.prompt() does not work in Electron: it
+   * returns null with no dialog ever shown, unlike alert()/confirm() which
+   * this app already uses successfully — measured live, not assumed.
+   */
+  async createSubCategory(name: string, categoryName?: string): Promise<Profile> {
+    const trimmed = (categoryName ?? '').trim() || 'New Category'
     const profile = requireProfile(name)
     profile.subCategories = [...profile.subCategories, newSubCategory(randomUUID(), trimmed)]
     await dataStore.safeSave()
