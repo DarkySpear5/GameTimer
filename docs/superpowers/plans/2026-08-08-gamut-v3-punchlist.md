@@ -392,10 +392,40 @@ alongside each new one.
 
 ## P. Naming (found 2026-08-13)
 
-- [ ] **P1. Deep-search trademark/uniqueness on the name "Gamut"** before any
-  more branding investment — the color-word approach felt like a mismatch for
-  a game-time launcher anyway. Rename candidate: "Gameplats" (pending the
-  search).
+- [x] **P1. Deep-search trademark/uniqueness on the name "Gamut"** — done
+  2026-08-14, researched via USPTO/Justia/Trademarkia records and general web
+  search (no access to a paid full-clearance search, so this is a strong
+  signal, not a legal opinion). Findings:
+  - No live US trademark for "GAMUT" alone in the video-game/entertainment
+    software space (classes 9/41/42) turned up. The closest historical hit is
+    "Gamut of Games, Inc.", a 1970s board-game publisher whose only
+    registration ("DIAMOND HEAD") was cancelled in 1982 and is long dead.
+  - The one genuinely close LIVE hit: **W.W. Grainger's "GAMUT" trademark**
+    (Reg. No. 5581565, registered 2017, still live), covering "computer
+    software and hardware for enabling users to order, purchase and obtain
+    information regarding industrial/commercial/janitorial equipment" — for
+    Gamut.com, their B2B e-commerce platform. Different market (industrial
+    supply, not gaming) but the registration's own goods description
+    explicitly claims "computer software," which is close enough to be a
+    real, documented risk factor rather than a false alarm.
+  - **Gamut InfoSystems Limited** is a real, currently active software
+    company (Indian real-estate ERP) publishing dozens of apps under the
+    "Gamut" name on both the Apple App Store and Google Play — not gaming,
+    but enough of an existing app-store footprint to cause search/SEO
+    confusion for a product also asking to be found by that name.
+  - The word itself is weak/descriptive for this use ("a full gamut of
+    games") — Sid Sackson's 1969 game-design book *A Gamut of Games* already
+    owns that exact phrase in the tabletop-game world, which is the opposite
+    of a distinctive, defensible brand.
+  - **"Gameplats"** (the standing rename candidate) came back clean: no
+    trademark hits, no existing product, no domain or GitHub presence found
+    anywhere in the search.
+  - Net read: nothing forces an immediate rename, but nothing here
+    contradicts the original "Gamut felt like a mismatch" instinct either —
+    Grainger's live software-class registration plus Gamut InfoSystems' app-
+    store footprint are real, if modest, reasons not to invest further in the
+    name. Rename decision itself intentionally left to the user, not made
+    here.
 
 ## Y. Low priority — needs live repro, do last before Linux
 
