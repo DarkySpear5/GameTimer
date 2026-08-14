@@ -4,6 +4,7 @@ import { Modal } from '../common/Modal'
 import { EyedropperButton } from '../common/EyedropperButton'
 import { useSettingsStore, updateSettings, updateSettingsOptimistic } from '../../state/settingsStore'
 import { LauncherSettings } from './LauncherSettings'
+import { KeybindsSettings } from './KeybindsSettings'
 import {
   THEMES,
   THEME_ORDER,
@@ -16,7 +17,7 @@ import {
 } from '@shared/constants'
 import type { Settings, ThemeColors, ThemeName } from '@shared/types'
 
-type Tab = 'general' | 'games' | 'launchers' | 'appearance' | 'language'
+type Tab = 'general' | 'games' | 'launchers' | 'keybinds' | 'appearance' | 'language'
 
 const ROLE_KEYS: Record<keyof ThemeColors, string> = {
   bg: 'role_background',
@@ -43,6 +44,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }): React.JSX.
     // FROM, which is a different question from how they behave once added.
     { id: 'launchers', label: t('tab_launchers') },
     { id: 'games', label: t('tab_games') },
+    { id: 'keybinds', label: t('tab_keybinds') },
     { id: 'appearance', label: t('tab_appearance') },
     { id: 'language', label: t('tab_language') }
   ]
@@ -124,6 +126,8 @@ export function SettingsDialog({ onClose }: { onClose: () => void }): React.JSX.
 
       {/* Where games are found, and how to correct it — see LauncherSettings. */}
       {tab === 'launchers' && <LauncherSettings />}
+
+      {tab === 'keybinds' && <KeybindsSettings />}
 
       {tab === 'appearance' && (
         <div className="flex flex-col gap-6">
@@ -292,7 +296,7 @@ function sizeKeyFor(label: string): string {
   }
 }
 
-function ToggleRow({
+export function ToggleRow({
   label,
   checked,
   onChange
