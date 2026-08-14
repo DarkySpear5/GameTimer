@@ -5,6 +5,7 @@ import { EyedropperButton } from '../common/EyedropperButton'
 import { useSettingsStore, updateSettings, updateSettingsOptimistic } from '../../state/settingsStore'
 import { LauncherSettings } from './LauncherSettings'
 import { KeybindsSettings } from './KeybindsSettings'
+import { OverlaySettings } from './OverlaySettings'
 import {
   THEMES,
   THEME_ORDER,
@@ -17,7 +18,7 @@ import {
 } from '@shared/constants'
 import type { Settings, ThemeColors, ThemeName } from '@shared/types'
 
-type Tab = 'general' | 'games' | 'launchers' | 'keybinds' | 'appearance' | 'language'
+type Tab = 'general' | 'games' | 'launchers' | 'keybinds' | 'overlay' | 'appearance' | 'language'
 
 const ROLE_KEYS: Record<keyof ThemeColors, string> = {
   bg: 'role_background',
@@ -45,6 +46,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }): React.JSX.
     { id: 'launchers', label: t('tab_launchers') },
     { id: 'games', label: t('tab_games') },
     { id: 'keybinds', label: t('tab_keybinds') },
+    { id: 'overlay', label: t('tab_overlay') },
     { id: 'appearance', label: t('tab_appearance') },
     { id: 'language', label: t('tab_language') }
   ]
@@ -128,6 +130,8 @@ export function SettingsDialog({ onClose }: { onClose: () => void }): React.JSX.
       {tab === 'launchers' && <LauncherSettings />}
 
       {tab === 'keybinds' && <KeybindsSettings />}
+
+      {tab === 'overlay' && <OverlaySettings />}
 
       {tab === 'appearance' && (
         <div className="flex flex-col gap-6">
