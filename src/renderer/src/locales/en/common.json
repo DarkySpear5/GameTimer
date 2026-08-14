@@ -213,6 +213,8 @@
   "label_status_snapshot": "Set on {{date}} — {{time}} played at the time.",
   "label_steamgriddb_key": "SteamGridDB API key",
   "label_steamgriddb_key_note": "For fetching icons and backgrounds for non-Steam games from SteamGridDB. Optional — everything else works without it.",
+  "label_subcategories_enabled": "Enable sub-categories",
+  "label_subcategories_enabled_hint": "Lets a game's time be broken down into named categories (e.g. a completionist run vs. a casual replay). Off doesn't delete any category's tracked time — it only stops new sessions from asking which one to credit.",
   "label_system_tray": "System Tray",
   "label_table_size": "Stats table size",
   "label_theme": "Theme",

@@ -149,6 +149,14 @@ export function SettingsDialog({ onClose }: { onClose: () => void }): React.JSX.
             onChange={(v) => void updateSettings({ autoStartTimer: v })}
           />
 
+          <div>
+            <ToggleRow
+              label={t('label_subcategories_enabled')}
+              checked={settings.subCategoriesEnabled}
+              onChange={(v) => void updateSettings({ subCategoriesEnabled: v })}
+            />
+            <div className="mt-1 text-xs text-subtext">{t('label_subcategories_enabled_hint')}</div>
+          </div>
         </div>
       )}
 
