@@ -41,6 +41,19 @@ export function registerAssetProtocolHandler(): void {
       return net.fetch(parsed.toString())
     }
 
+    if (kind === 'screenshots') {
+      const segments = url.pathname
+        .replace(/^\/+/, '')
+        .split('/')
+        .map((s) => decodeURIComponent(s))
+      if (segments.length !== 2) return new Response('Not found', { status: 404 })
+      const [profileName, fileName] = segments
+      const dir = paths.screenshotsDir(profileName)
+      const full = join(dir, fileName)
+      if (!isInside(dir, full)) return new Response('Not found', { status: 404 })
+      return net.fetch(pathToFileURL(full).toString())
+    }
+
     const fileName = decodeURIComponent(url.pathname.replace(/^\/+/, ''))
     const dir =
       kind === 'icons'

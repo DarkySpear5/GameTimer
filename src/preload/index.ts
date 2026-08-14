@@ -129,6 +129,10 @@ const api: GameTimerApi = {
   keybinds: {
     set: (kind, combo) => ipcRenderer.invoke(IPC.keybinds.set, kind, combo)
   },
+  screenshots: {
+    list: (name) => ipcRenderer.invoke(IPC.screenshots.list, name),
+    open: (filePath) => ipcRenderer.invoke(IPC.screenshots.open, filePath)
+  },
   toast: {
     onBroadcast: (cb) => {
       const listener = (_event: Electron.IpcRendererEvent, payload: ToastBroadcastPayload): void => cb(payload)

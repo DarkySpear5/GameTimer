@@ -105,6 +105,10 @@ export const IPC = {
   keybinds: {
     set: 'keybinds:set'
   },
+  screenshots: {
+    list: 'screenshots:list',
+    open: 'screenshots:open'
+  },
   toast: {
     show: 'toast:show'
   },
@@ -296,6 +300,11 @@ export interface GameTimerApi {
       kind: KeybindKind,
       combo: string
     ): Promise<{ ok: true; settings: Settings } | { ok: false; error: 'invalid_combo' | 'register_failed' }>
+  }
+  screenshots: {
+    /** Newest-first absolute file paths. */
+    list(name: string): Promise<string[]>
+    open(filePath: string): Promise<void>
   }
   toast: {
     onBroadcast(cb: (payload: ToastBroadcastPayload) => void): () => void
