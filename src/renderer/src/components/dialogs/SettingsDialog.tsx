@@ -49,8 +49,18 @@ export function SettingsDialog({ onClose }: { onClose: () => void }): React.JSX.
     { id: 'appearance', label: t('tab_appearance') }
   ]
 
+  /*
+   * width is sized to the tab row's own content (measured: ~31.4rem for all
+   * six labels at default scale), not a generic Tailwind max-w-* step —
+   * those either overflowed into a scrollbar (max-w-lg) or left the row's
+   * trailing edge ("Appearance") sitting much further from the right border
+   * than "General" sits from the left, since the row is left-aligned and any
+   * extra cap width shows up entirely on one side. Stays rem-based (not a
+   * fixed px value) so it keeps scaling with the user's font-size setting
+   * the same way Tailwind's own max-w-* would.
+   */
   return (
-    <Modal title={t('settings_title')} onClose={onClose} width="max-w-2xl">
+    <Modal title={t('settings_title')} onClose={onClose} width="max-w-[34rem]">
       <div className="mb-4 flex gap-1 border-b border-card">
         {TABS.map((tb) => (
           <button
