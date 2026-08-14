@@ -85,6 +85,10 @@ export function LibraryDetail({ name }: { name: string }): React.JSX.Element {
 
   async function toggleComplete(): Promise<void> {
     const next: Status = profile!.status === 'completed' ? 'in_progress' : 'completed'
+    if (next === 'completed' && profile!.subCategories.length > 0) {
+      openDialog('completeTimerPicker', name)
+      return
+    }
     useProfilesStore.getState().upsert(await window.api.profiles.setStatus(name, next))
   }
 

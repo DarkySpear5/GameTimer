@@ -16,6 +16,7 @@ export type DialogKind =
   /** Add/Remove time alone — the Timer tab's one editing action. See AdjustTimeDialog. */
   | 'time'
   | 'subCategoryPrompt'
+  | 'completeTimerPicker'
   | null
 
 /** Which Data-tab column the table is ordered by. Genres is deliberately absent — a set of tags has no meaningful order. */

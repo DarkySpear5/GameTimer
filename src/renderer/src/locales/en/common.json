@@ -71,6 +71,8 @@
   "col_status": "Status",
   "col_time_played": "Time Played",
   "col_time_to_beat": "Time to Beat",
+  "complete_timer_picker_main": "Main",
+  "complete_timer_picker_title": "Which timer's time counts as the completion time?",
   "confirm_clear_completion_msg": "Permanently delete {{name}}'s completion date and the playtime it was completed at?\n\nThis cannot be undone.",
   "confirm_delete_msg": "Delete '{{name}}' and its tracked time? This cannot be undone.",
   "confirm_delete_note_msg": "Delete the note '{{title}}'? This cannot be undone.",
