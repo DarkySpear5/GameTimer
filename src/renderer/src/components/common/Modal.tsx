@@ -39,7 +39,10 @@ export function Modal({
       <div className={`flex max-h-[85vh] w-full ${width} flex-col rounded-xl bg-panel shadow-2xl`}>
         <div className="flex items-center justify-between border-b border-card px-5 py-3.5">
           <div className="text-sm font-semibold text-text">{title}</div>
-          <button onClick={onClose} className="text-subtext hover:text-text" aria-label="Close">
+          {/* p-2 -m-2: grows the hit target well past the tiny 14x14 icon
+              (reported hard to click) without shifting it visually — the
+              negative margin cancels the padding's outward push. */}
+          <button onClick={onClose} className="-m-2 p-2 text-subtext hover:text-text" aria-label="Close">
             <svg width="14" height="14" viewBox="0 0 10 10">
               <line x1="0.5" y1="0.5" x2="9.5" y2="9.5" stroke="currentColor" strokeWidth="1.2" />
               <line x1="9.5" y1="0.5" x2="0.5" y2="9.5" stroke="currentColor" strokeWidth="1.2" />

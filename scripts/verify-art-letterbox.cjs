@@ -124,12 +124,30 @@ async function closeApp(app) {
   await win.waitForTimeout(500)
   await win.screenshot({ path: path.join(SCRATCH, 'grid-with-real-art.png') })
 
-  // Sanity: both tiles rendered without crashing (checked via DOM presence), and
-  // the placeholder-letter control game still shows its plain fallback tile —
-  // proving the letterbox change didn't touch the no-art path at all.
   check('Heroes of the Storm tile present', await win.getByText('Heroes of the Storm').count(), 1)
   check('Escape Rosecliff Island tile present', await win.getByText('Escape Rosecliff Island').count(), 1)
   check('Grim Dawn (no-art control) still shows its letter placeholder', await win.getByText('G', { exact: true }).count(), 1)
+
+  // The HOTS icon is a real, measured 48x48 — well under MIN_GOOD_SIDE (100),
+  // the same floor every cover-specific download already requires. Letterbox
+  // alone (aspect ratio) isn't enough: a 48x48 image stretched via
+  // object-contain into a ~150-400px portrait tile is still badly pixelated,
+  // reported live on an unrelated EA game with the same shape of bug (a small
+  // icon standing in for a missing cover). MIN_GOOD_SIDE catches THIS case —
+  // "H" only ever renders as the placeholder letter's own text content.
+  check(
+    'Heroes of the Storm (48x48 icon, too small to be a good cover) now shows the placeholder letter instead of a pixelated stretch',
+    await win.getByText('H', { exact: true }).count(),
+    1
+  )
+  // Escape Rosecliff Island's cover is 460x215 — landscape, so it still
+  // letterboxes, but 215 clears MIN_GOOD_SIDE comfortably, so it must NOT
+  // fall through to the placeholder the way HOTS's icon now does.
+  check(
+    "Escape Rosecliff Island (460x215, clears the size floor) still shows its real letterboxed image, not a placeholder",
+    await win.getByText('E', { exact: true }).count(),
+    0
+  )
 
   await closeApp(app)
 

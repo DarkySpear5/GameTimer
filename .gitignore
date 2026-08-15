@@ -41,3 +41,6 @@ release-dev/
 .verify-art-letterbox-tmp/
 .verify-startup-art-tmp/
 .verify-hwaccel-tmp/
+.verify-ui-tweaks-tmp/
+.verify-refresh-art-tmp/
+.verify-trademark-tmp/
