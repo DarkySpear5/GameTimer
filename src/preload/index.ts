@@ -180,7 +180,8 @@ const api: GameTimerApi = {
     openExeDirectory: (name) => ipcRenderer.invoke(IPC.detect.openExeDirectory, name),
     openGames: () => ipcRenderer.invoke(IPC.detect.openGames),
     onOpenGamesChanged: (cb) => {
-      const listener = (_event: Electron.IpcRendererEvent, names: string[]): void => cb(names)
+      const listener = (_event: Electron.IpcRendererEvent, state: { open: string[]; unstoppable: string[] }): void =>
+        cb(state)
       ipcRenderer.on(IPC.detect.openGamesChanged, listener)
       return () => ipcRenderer.removeListener(IPC.detect.openGamesChanged, listener)
     },

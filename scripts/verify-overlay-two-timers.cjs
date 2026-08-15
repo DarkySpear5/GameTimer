@@ -85,8 +85,8 @@ function seed(label) {
 
 const BOUNDS_A = { X: 100, Y: 100, Width: 800, Height: 600 }
 const BOUNDS_B = { X: 900, Y: 100, Width: 800, Height: 600 }
-const FOCUS_A = JSON.stringify({ ExePath: 'C:\\Games\\GameA\\game.exe', Title: 'Game A Window', ...BOUNDS_A })
-const FOCUS_B = JSON.stringify({ ExePath: 'C:\\Games\\GameB\\game.exe', Title: 'Game B Window', ...BOUNDS_B })
+const FOCUS_A = JSON.stringify({ ExePath: 'C:\\Games\\GameA\\game.exe', ProcessName: 'game', Title: 'Game A Window', ...BOUNDS_A })
+const FOCUS_B = JSON.stringify({ ExePath: 'C:\\Games\\GameB\\game.exe', ProcessName: 'game', Title: 'Game B Window', ...BOUNDS_B })
 
 function withTimeout(promise, ms, label) {
   return Promise.race([

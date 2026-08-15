@@ -118,6 +118,7 @@ function seed(label, overlayEnabled, corner = 'top-right') {
 const GAME_BOUNDS = { X: 200, Y: 150, Width: 1280, Height: 800 }
 const FOCUSED_ON_GAME = JSON.stringify({
   ExePath: 'C:\\Games\\FocusedGame\\game.exe',
+  ProcessName: 'game',
   Title: 'Focused Game Window',
   ...GAME_BOUNDS
 })
@@ -310,6 +311,7 @@ async function overlayBounds(app) {
     } else {
       const FULLSCREEN_GAME = JSON.stringify({
         ExePath: 'C:\\Games\\FocusedGame\\game.exe',
+        ProcessName: 'game',
         Title: 'Focused Game Fullscreen',
         X: display.physical.x,
         Y: display.physical.y,
@@ -357,6 +359,7 @@ async function overlayBounds(app) {
       }
       const WINDOWED_GAME = JSON.stringify({
         ExePath: 'C:\\Games\\FocusedGame\\game.exe',
+        ProcessName: 'game',
         Title: 'Focused Game Windowed',
         X: physicalGame.x,
         Y: physicalGame.y,

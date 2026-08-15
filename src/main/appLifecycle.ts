@@ -46,7 +46,7 @@ export function registerMainWindow(win: BrowserWindow): void {
 
   gameWatcher.onChange((names) => {
     if (win.isDestroyed() || win.webContents.isDestroyed()) return
-    win.webContents.send(IPC.detect.openGamesChanged, names)
+    win.webContents.send(IPC.detect.openGamesChanged, { open: names, unstoppable: gameWatcher.unstoppableNames() })
   })
 
   gameWatcher.onProfilesChanged((profiles) => {

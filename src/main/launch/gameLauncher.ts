@@ -96,17 +96,26 @@ export async function launchGame(name: string): Promise<{ launched: boolean }> {
  * A launcher-fronted game is rarely one process — Rocket League's own launcher
  * hands off to a second binary — so this kills every match under the install
  * folder, not just the one the profile happens to remember.
+ *
+ * Path-only, deliberately: a Nexon/Battle.net/EA anti-cheat game (Vindictus,
+ * found live) runs ELEVATED, and a plain `taskkill` from this unelevated app
+ * gets Access Denied against it regardless of whether its PID is known — so
+ * there's nothing useful to attempt here for that case. The renderer instead
+ * disables the Stop button outright for a game gameWatcher is reporting as
+ * elevated-detected (see gameWatcher.unstoppableNames), rather than offering
+ * a button that would silently fail — see gameWatcher.ts and LibraryDetail.tsx.
  */
 export async function stopGame(name: string): Promise<{ stopped: boolean }> {
   const profile = dataStore.get().profiles[name]
   if (!profile) return { stopped: false }
 
   const processes = await listRunningProcesses()
+  const knownPaths = processes.filter((p): p is { path: string; name: string; pid: number } => p.path !== null)
   const paths = matchingPaths(
     { installDir: profile.installDir ?? null, exePath: profile.exePath ?? null },
-    processes.map((p) => p.path)
+    knownPaths.map((p) => p.path)
   )
-  const pids = processes.filter((p) => paths.includes(p.path)).map((p) => p.pid)
+  const pids = knownPaths.filter((p) => paths.includes(p.path)).map((p) => p.pid)
   if (pids.length === 0) {
     gameWatcher.noteClosed(name)
     return { stopped: false }

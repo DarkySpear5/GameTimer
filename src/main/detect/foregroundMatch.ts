@@ -16,7 +16,14 @@ export interface WindowBounds {
 }
 
 export interface ForegroundWindowInfo {
-  exePath: string
+  /**
+   * Null when the focused window's process is running more elevated than
+   * this app and its path couldn't be read (an anti-cheat-protected game —
+   * Vindictus under GameGuard, found live). `processName` is the fallback
+   * identifier for exactly that case; see matchForegroundToRunning.
+   */
+  exePath: string | null
+  processName: string
   title: string
   bounds: WindowBounds
 }
@@ -26,14 +33,17 @@ export interface RunningCandidate {
   name: string
   installDir: string | null
   exePath: string | null
+  /** Only read by the name-only fallback, to scope it to specific launchers — see watchMatch.ts. */
+  launchUri?: string | null
 }
 
 /**
  * Parses the JSON object foregroundWindow.ts's PowerShell script prints.
- * Returns null for anything that isn't a well-formed result — a missing or
- * empty ExePath (no Get-Process resolved, or access denied) is treated the
- * same as "nothing is focused" rather than a partial result, since a
- * foreground window this can't attribute to an exe can never match a profile.
+ * Returns null for anything that isn't a well-formed result. ExePath may
+ * legitimately be empty (an elevated process this app can't read the path
+ * of) — that's still a valid, resolvable window, just one that can only be
+ * matched by name — so only a missing ProcessName (nothing could be
+ * resolved at all) is treated as "nothing is focused".
  */
 export function parseForegroundWindowJson(raw: string): ForegroundWindowInfo | null {
   const trimmed = raw.trim()
@@ -46,10 +56,11 @@ export function parseForegroundWindowJson(raw: string): ForegroundWindowInfo | n
   }
   if (!parsed || typeof parsed !== 'object') return null
   const obj = parsed as Record<string, unknown>
-  const { ExePath: exePath, Title: title, X: x, Y: y, Width: width, Height: height } = obj
+  const { ExePath: exePath, ProcessName: processName, Title: title, X: x, Y: y, Width: width, Height: height } = obj
   if (
-    typeof exePath !== 'string' ||
-    exePath.length === 0 ||
+    (exePath !== undefined && exePath !== null && typeof exePath !== 'string') ||
+    typeof processName !== 'string' ||
+    processName.length === 0 ||
     typeof title !== 'string' ||
     typeof x !== 'number' ||
     typeof y !== 'number' ||
@@ -58,7 +69,12 @@ export function parseForegroundWindowJson(raw: string): ForegroundWindowInfo | n
   ) {
     return null
   }
-  return { exePath, title, bounds: { x, y, width, height } }
+  return {
+    exePath: typeof exePath === 'string' && exePath.length > 0 ? exePath : null,
+    processName,
+    title,
+    bounds: { x, y, width, height }
+  }
 }
 
 /**
@@ -67,10 +83,17 @@ export function parseForegroundWindowJson(raw: string): ForegroundWindowInfo | n
  * watcher) and "is this game focused" (this) can never quietly disagree on
  * what counts as a match.
  */
-export function matchForegroundToRunning(exePath: string, candidates: RunningCandidate[]): string | null {
-  const focused = new Set([exePath.toLowerCase()])
+export function matchForegroundToRunning(
+  focusedWindow: { exePath: string | null; processName: string },
+  candidates: RunningCandidate[]
+): string | null {
+  const focusedPaths = focusedWindow.exePath ? new Set([focusedWindow.exePath.toLowerCase()]) : new Set<string>()
+  const focusedNamesNoPath = focusedWindow.exePath
+    ? undefined
+    : new Set([focusedWindow.processName.toLowerCase()])
   for (const candidate of candidates) {
-    if (isGameRunning({ installDir: candidate.installDir, exePath: candidate.exePath }, focused)) {
+    const target = { installDir: candidate.installDir, exePath: candidate.exePath, launchUri: candidate.launchUri }
+    if (isGameRunning(target, focusedPaths, focusedNamesNoPath)) {
       return candidate.name
     }
   }

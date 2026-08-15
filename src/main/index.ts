@@ -9,7 +9,7 @@ import { timerEngine } from './timer/timerEngine'
 import { registerMainWindow, showWindow, quitApp } from './appLifecycle'
 import { registerUpdaterWindow, checkForUpdatesOnLaunch } from './updater/autoUpdater'
 import { gameWatcher } from './detect/gameWatcher'
-import { backfillSteamInstallDirs } from './detect/installedSources'
+import { backfillSteamInstallDirs, backfillBattleNetLaunchUris } from './detect/installedSources'
 import { keybindService } from './keybinds/keybindService'
 import { overlayWindow } from './overlay/overlayWindow'
 import { USER_DATA_FOLDER, APP_USER_MODEL_ID } from '@shared/channel'
@@ -42,6 +42,11 @@ if (!acquireSingleInstanceLock(() => showWindow())) {
     // of exactly when this lands, and it'll always finish well before a
     // realistic first hotkey press.
     void backfillSteamInstallDirs()
+    // Same shape, for every Battle.net game imported before launchUri was
+    // ever filled in (found live: Heroes of the Storm just opened the
+    // Battle.net client and did nothing — the raw-exe fallback never starts
+    // the actual game). See backfillBattleNetLaunchUris' own doc comment.
+    void backfillBattleNetLaunchUris()
     registerAssetProtocolHandler()
 
     mainWindow = createMainWindow()

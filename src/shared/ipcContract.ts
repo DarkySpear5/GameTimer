@@ -368,10 +368,17 @@ export interface GameTimerApi {
     stop(name: string): Promise<{ stopped: boolean }>
     /** Opens Explorer at the game's .exe (selected) or its install folder. False if neither is known or the path no longer exists. */
     openExeDirectory(name: string): Promise<{ opened: boolean }>
-    /** Names of every game whose process is currently seen running. */
-    openGames(): Promise<string[]>
+    /**
+     * Names of every game whose process is currently seen running, and which
+     * of those Stop can't act on — an elevated, anti-cheat-protected process
+     * (Nexon/Battle.net/EA, e.g. Vindictus under GameGuard) was only
+     * detectable by name, and Windows blocks killing it from this unelevated
+     * app regardless, so the renderer disables Stop for these rather than
+     * offering a button that would silently fail.
+     */
+    openGames(): Promise<{ open: string[]; unstoppable: string[] }>
     /** Fires whenever a game's process opens or closes. */
-    onOpenGamesChanged(cb: (names: string[]) => void): () => void
+    onOpenGamesChanged(cb: (state: { open: string[]; unstoppable: string[] }) => void): () => void
     /** null = follow the global setting. */
     setAutoStartTimer(name: string, value: boolean | null): Promise<Profile>
     /** Which of these executables Steam's catalogue confirms are games. Promotion only — a 'no' never hides anything. */

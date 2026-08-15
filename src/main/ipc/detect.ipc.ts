@@ -111,7 +111,10 @@ export function registerDetectIpc(): void {
   ipcMain.handle(IPC.detect.launch, (_e, name: string) => launchGame(name))
   ipcMain.handle(IPC.detect.stop, (_e, name: string) => stopGame(name))
   ipcMain.handle(IPC.detect.openExeDirectory, (_e, name: string) => openExeDirectory(name))
-  ipcMain.handle(IPC.detect.openGames, () => gameWatcher.openNames())
+  ipcMain.handle(IPC.detect.openGames, () => ({
+    open: gameWatcher.openNames(),
+    unstoppable: gameWatcher.unstoppableNames()
+  }))
   ipcMain.handle(IPC.detect.setAutoStartTimer, (_e, name: string, value: boolean | null) =>
     profileService.setAutoStartTimer(name, value)
   )
