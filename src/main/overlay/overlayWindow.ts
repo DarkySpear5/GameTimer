@@ -104,17 +104,36 @@ function positionFor(gameBounds: Electron.Rectangle, corner: OverlayCorner, scal
     'bottom-center': { x: centerX, y: bottom }
   }
   const { x, y } = positions[corner]
-  // Clamped to the full bounds of whichever display the game is on, so a
-  // game window hanging off the edge of the screen can't drag the overlay to
-  // somewhere the player can't see it either. Deliberately `.bounds`, not
-  // `.workArea`: workArea excludes the taskbar's reserved strip, but a
-  // borderless/fullscreen game legitimately covers that strip too (the
-  // taskbar auto-hides behind it) — clamping to workArea pulled a
-  // bottom-anchored overlay up off the game's true bottom edge by exactly
-  // the taskbar's height. Measured live: Grim Dawn borderless at
-  // (0,0)-(2560,1440) on a display whose workArea is only 1392 tall (48px
-  // taskbar) put the overlay 32px above where bottom-right should land.
-  const area = screen.getDisplayMatching(gameBounds).bounds
+  // Clamped to whichever display the game is on — but WHICH rect to clamp to
+  // depends on whether the game actually covers the taskbar there.
+  //
+  // A borderless/fullscreen game legitimately covers the taskbar's reserved
+  // strip (it auto-hides behind such a game), so clamping to `.workArea`
+  // pulled a bottom-anchored overlay up off the game's true bottom edge by
+  // exactly the taskbar's height — measured live on Grim Dawn borderless at
+  // (0,0)-(2560,1440) on a display whose workArea is only 1392 tall.
+  //
+  // But a normal WINDOWED game that never reaches that edge leaves the real
+  // taskbar visible there, and clamping to `.bounds` in that case let the
+  // overlay render ON TOP of the actual taskbar — measured live on Forager
+  // windowed, overlay landing right over the taskbar instead of stopping
+  // above it. So: only trust `.bounds` on whichever edge the game's own
+  // window actually reaches (taskbar presumably hidden behind it there);
+  // otherwise clamp to `.workArea` so a genuinely visible taskbar is never
+  // covered.
+  const { bounds, workArea } = screen.getDisplayMatching(gameBounds)
+  const gameRight = gameBounds.x + gameBounds.width
+  const gameBottom = gameBounds.y + gameBounds.height
+  const boundsRight = bounds.x + bounds.width
+  const boundsBottom = bounds.y + bounds.height
+  const workRight = workArea.x + workArea.width
+  const workBottom = workArea.y + workArea.height
+  const coversTaskbarStrip =
+    (workArea.x > bounds.x && gameBounds.x <= bounds.x) ||
+    (workRight < boundsRight && gameRight >= boundsRight) ||
+    (workArea.y > bounds.y && gameBounds.y <= bounds.y) ||
+    (workBottom < boundsBottom && gameBottom >= boundsBottom)
+  const area = coversTaskbarStrip ? bounds : workArea
   return {
     x: Math.max(area.x, Math.min(x, area.x + area.width - width)),
     y: Math.max(area.y, Math.min(y, area.y + area.height - height)),
