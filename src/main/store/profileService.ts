@@ -44,6 +44,7 @@ function freshProfile(name: string): Profile {
     autoFetchArt: null,
     launches: 0,
     openSeconds: 0,
+    secondsAtOpenTrackingStart: null,
     autoStartTimer: null,
     genresFromDetection: false,
     favorite: false,
@@ -195,6 +196,10 @@ export const profileService = {
       // Counters are the copy's own from zero: it has never been launched.
       launches: 0,
       openSeconds: 0,
+      // Null, not copied — the copy inherited `seconds` above, so the next
+      // time ITS openSeconds accrues, it must re-baseline against ITS OWN
+      // current `seconds`, not carry over whatever baseline the original had.
+      secondsAtOpenTrackingStart: null,
       autoStartTimer: original.autoStartTimer,
       genresFromDetection: original.genresFromDetection,
       favorite: original.favorite,
@@ -607,6 +612,7 @@ export const profileService = {
     profile.sessionLog = []
     profile.activeSession = null
     profile.openSeconds = 0
+    profile.secondsAtOpenTrackingStart = null
     profile.launches = 0
     profile.lastPlayed = null
     profile.startedDate = null

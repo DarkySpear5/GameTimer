@@ -172,6 +172,7 @@ export async function importProfile(win: BrowserWindow): Promise<Profile | null>
     // the exporting PC, not the game's history.
     launches: 0,
     openSeconds: 0,
+    secondsAtOpenTrackingStart: null,
     autoStartTimer: null,
     genresFromDetection: false,
     // Not carried in the file format: a star is a statement about your own

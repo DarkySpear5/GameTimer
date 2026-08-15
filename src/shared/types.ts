@@ -100,6 +100,22 @@ export interface Profile {
    * vs Game was open" rule in the design spec.
    */
   openSeconds: number
+  /**
+   * `seconds` at the moment `openSeconds` first started accruing, or null
+   * before that's ever happened. Idle time is `openSeconds` minus how much
+   * `seconds` has grown SINCE this snapshot — not minus `seconds` itself.
+   * `openSeconds` only ever covers launches Gamut actually watched, which for
+   * almost every profile starts well after `seconds` already had real history
+   * behind it (a different Gamut version, or simply before watching was ever
+   * turned on) — comparing the two totals directly makes `openSeconds` look
+   * permanently dwarfed by `seconds`, clamping idle to 0 for as long as it
+   * takes `openSeconds` alone to overtake a number it was never supposed to
+   * be measured against. Reported live: a profile with 14+ hours of
+   * pre-tracking history showed exactly 0% idle no matter how long the game
+   * sat open unattended. Reset to null alongside `openSeconds` (resetTime,
+   * duplicate) so the next accrual re-baselines cleanly.
+   */
+  secondsAtOpenTrackingStart: number | null
   /** null = follow the global setting. */
   autoStartTimer: boolean | null
   /**

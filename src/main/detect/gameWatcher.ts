@@ -69,6 +69,21 @@ async function runningProcessSets(): Promise<{ paths: Set<string>; namesNoPath: 
   return { paths, namesNoPath }
 }
 
+/**
+ * Credits `deltaSeconds` to `openSeconds`, baselining `secondsAtOpenTrackingStart`
+ * against the profile's CURRENT `seconds` the first time this ever runs for
+ * it — see that field's own doc comment in types.ts for why comparing
+ * `openSeconds` against the profile's all-time `seconds` (which usually
+ * already has real history behind it) is wrong, and comparing it against
+ * only the `seconds` accrued since is the fix.
+ */
+function creditOpenSeconds(profile: Profile, deltaSeconds: number): void {
+  if (profile.secondsAtOpenTrackingStart == null) {
+    profile.secondsAtOpenTrackingStart = profile.seconds
+  }
+  profile.openSeconds += deltaSeconds
+}
+
 function autoStartEnabled(name: string): boolean {
   const data = dataStore.get()
   const profile = data.profiles[name]
@@ -121,7 +136,7 @@ async function poll(): Promise<void> {
     } else if (!isRunning && wasOpen) {
       const startedAt = open.get(profile.name)!
       open.delete(profile.name)
-      profile.openSeconds += Math.max(0, Math.floor((Date.now() - startedAt) / 1000))
+      creditOpenSeconds(profile, Math.max(0, Math.floor((Date.now() - startedAt) / 1000)))
       touched = true
       if (autoStartEnabled(profile.name) && timerEngine.isRunning(profile.name)) {
         timerEngine.pause(profile.name)
@@ -188,7 +203,7 @@ export const gameWatcher = {
     elevatedOpen.delete(name)
     const profile = dataStore.get().profiles[name]
     if (profile) {
-      profile.openSeconds += Math.max(0, Math.floor((Date.now() - startedAt) / 1000))
+      creditOpenSeconds(profile, Math.max(0, Math.floor((Date.now() - startedAt) / 1000)))
       void dataStore.safeSave()
     }
     // The player just confirmed they're done — stop the clock regardless of

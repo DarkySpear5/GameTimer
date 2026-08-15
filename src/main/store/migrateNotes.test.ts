@@ -26,6 +26,7 @@ function profile(name: string, overrides: Partial<Profile> = {}): Profile {
     autoFetchArt: null,
     launches: 0,
     openSeconds: 0,
+    secondsAtOpenTrackingStart: null,
     autoStartTimer: null,
     genresFromDetection: false,
     favorite: false,

@@ -110,6 +110,31 @@ export function trimSessionLog(log: SessionEntry[]): SessionEntry[] {
   return log.length <= MAX_SESSION_LOG ? log : log.slice(log.length - MAX_SESSION_LOG)
 }
 
+/**
+ * Idle time: the game was open but Gamut wasn't counting it as active play.
+ *
+ * NOT `openSeconds - seconds` — `openSeconds` only covers launches Gamut
+ * actually watched, which for almost every profile starts well after
+ * `seconds` already had real history behind it (a different Gamut version,
+ * or simply before watching was ever turned on). Comparing the two totals
+ * directly makes `openSeconds` look permanently dwarfed by all that
+ * pre-tracking history, clamping idle to 0 no matter how long the game
+ * actually sits open unattended. `secondsAtOpenTrackingStart` is the
+ * profile's `seconds` snapshotted the moment `openSeconds` first started
+ * accruing (see gameWatcher.ts's `creditOpenSeconds`), so subtracting only
+ * the `seconds` accrued SINCE that snapshot compares like with like. Null
+ * (never tracked yet) falls back to `seconds` itself, netting to 0 exactly
+ * like the pre-fix behavior for a profile with nothing measured at all.
+ */
+export function idleSecondsFor(profile: {
+  seconds: number
+  openSeconds: number
+  secondsAtOpenTrackingStart: number | null
+}): number {
+  const activeSecondsSinceTracking = profile.seconds - (profile.secondsAtOpenTrackingStart ?? profile.seconds)
+  return Math.max(0, profile.openSeconds - activeSecondsSinceTracking)
+}
+
 /** What the UI shows. Derived, so it can never disagree with the aggregate. */
 export function summaryFrom(agg: SessionAggregate): SessionSummary {
   return {
