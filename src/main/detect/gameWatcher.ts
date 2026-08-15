@@ -41,9 +41,22 @@ function broadcastProfiles(profiles: Profile[]): void {
   for (const cb of profileChangeListeners) cb(profiles)
 }
 
-/** Just the executable paths — no window titles, no icons. Polled, so it must stay cheap. */
-async function runningExePaths(): Promise<Set<string>> {
-  return new Set((await listRunningProcesses()).map((p) => p.path))
+/**
+ * Splits one process listing into the two shapes isGameRunning needs: paths
+ * (the common case) and bare names for whatever this app couldn't read a
+ * path for at all — an elevated, anti-cheat-protected process (Vindictus
+ * under GameGuard, found live) never has a path here, only a name. One
+ * listRunningProcesses() call for both, not two — this runs on every poll.
+ */
+async function runningProcessSets(): Promise<{ paths: Set<string>; namesNoPath: Set<string> }> {
+  const procs = await listRunningProcesses()
+  const paths = new Set<string>()
+  const namesNoPath = new Set<string>()
+  for (const p of procs) {
+    if (p.path) paths.add(p.path)
+    else namesNoPath.add(p.name)
+  }
+  return { paths, namesNoPath }
 }
 
 function autoStartEnabled(name: string): boolean {
@@ -58,12 +71,12 @@ async function poll(): Promise<void> {
   const linked = Object.values(data.profiles).filter((p) => p.exePath || p.installDir)
   if (linked.length === 0) return
 
-  const running = await runningExePaths()
+  const { paths: running, namesNoPath: runningNamesNoPath } = await runningProcessSets()
   let touched = false
   const changedProfiles: Profile[] = []
 
   for (const profile of linked) {
-    const isRunning = isGameRunning(profile, running)
+    const isRunning = isGameRunning(profile, running, runningNamesNoPath)
     const wasOpen = open.has(profile.name)
 
     if (isRunning && !wasOpen) {

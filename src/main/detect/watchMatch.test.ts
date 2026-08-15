@@ -69,6 +69,57 @@ describe('isGameRunning', () => {
   })
 })
 
+describe('isGameRunning — name-only fallback (elevated processes)', () => {
+  // Vindictus, found live: GameGuard runs it elevated, so Gamut (unelevated)
+  // can never read its process path — it will NEVER appear in the `running`
+  // path set, only in `runningNamesNoPath`.
+  const vindictus = {
+    installDir: null,
+    exePath: 'C:\\Nexon\\Library\\vindictus\\appdata\\en-US\\Vindictus_x64.exe',
+    launchUri: 'nxl://launch/10300'
+  }
+
+  it('matches by bare process name when the path is unavailable, for an allowlisted launcher', () => {
+    expect(isGameRunning(vindictus, running(), new Set(['vindictus_x64']))).toBe(true)
+  })
+
+  it('is case-insensitive on the name fallback too — the profile side, since runningNamesNoPath is always pre-lowercased by its caller same as the path set', () => {
+    const mixedCaseExe = { ...vindictus, exePath: 'C:\\Nexon\\Library\\vindictus\\appdata\\en-US\\VinDICTus_X64.EXE' }
+    expect(isGameRunning(mixedCaseExe, running(), new Set(['vindictus_x64']))).toBe(true)
+  })
+
+  it('does not match a different name', () => {
+    expect(isGameRunning(vindictus, running(), new Set(['some_other_game']))).toBe(false)
+  })
+
+  it('is a no-op when no name set is passed at all', () => {
+    expect(isGameRunning(vindictus, running())).toBe(false)
+  })
+
+  it('never applies to a game with no launchUri', () => {
+    const manual = { installDir: null, exePath: 'C:\\Odd\\Place\\game.exe' }
+    expect(isGameRunning(manual, running(), new Set(['game']))).toBe(false)
+  })
+
+  it('never applies to a launcher outside the allowlist (Steam)', () => {
+    const steamGame = {
+      installDir: null,
+      exePath: 'D:\\SteamLibrary\\common\\game\\game.exe',
+      launchUri: 'steam://rungameid/123'
+    }
+    expect(isGameRunning(steamGame, running(), new Set(['game']))).toBe(false)
+  })
+
+  it('never applies to a game with no exePath, even if allowlisted (nothing to compare the name against)', () => {
+    const noExe = { installDir: 'C:\\Games\\Something', exePath: null, launchUri: 'battlenet://x' }
+    expect(isGameRunning(noExe, running(), new Set(['something']))).toBe(false)
+  })
+
+  it('still matches normally by path when the path IS available, even for an allowlisted launcher', () => {
+    expect(isGameRunning(vindictus, running(vindictus.exePath))).toBe(true)
+  })
+})
+
 describe('matchingPaths', () => {
   // Stop needs every matching path (to find their PIDs), not just a yes/no —
   // Rocket League's launcher-plus-binary shape means that can be more than one.

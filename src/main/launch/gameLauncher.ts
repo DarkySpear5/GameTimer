@@ -102,11 +102,17 @@ export async function stopGame(name: string): Promise<{ stopped: boolean }> {
   if (!profile) return { stopped: false }
 
   const processes = await listRunningProcesses()
+  // path-only: an elevated process (Nexon/Battle.net/EA anti-cheat) has no
+  // resolvable path here, and Windows would block killing it from a
+  // non-elevated process anyway even if one were found — matches
+  // isGameRunning's own path/name split, just without the name fallback,
+  // since Stop has nothing useful to do with a name-only match.
+  const knownPaths = processes.filter((p): p is { path: string; name: string; pid: number } => p.path !== null)
   const paths = matchingPaths(
     { installDir: profile.installDir ?? null, exePath: profile.exePath ?? null },
-    processes.map((p) => p.path)
+    knownPaths.map((p) => p.path)
   )
-  const pids = processes.filter((p) => paths.includes(p.path)).map((p) => p.pid)
+  const pids = knownPaths.filter((p) => paths.includes(p.path)).map((p) => p.pid)
   if (pids.length === 0) {
     gameWatcher.noteClosed(name)
     return { stopped: false }

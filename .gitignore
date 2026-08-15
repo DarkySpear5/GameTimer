@@ -36,3 +36,4 @@ release-dev/
 .verify-kso-tmp/
 .verify-subcategories-tmp/
 .verify-overlay-two-timers-tmp/
+.verify-elevated-tmp/

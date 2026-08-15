@@ -48,9 +48,15 @@ $sb = New-Object System.Text.StringBuilder 256
 $rect = New-Object GamutWin32+RECT
 [GamutWin32]::GetWindowRect($hwnd, [ref]$rect) | Out-Null
 $proc = Get-Process -Id $procId -ErrorAction SilentlyContinue
-if (-not $proc -or -not $proc.Path) { exit }
+if (-not $proc) { exit }
+# $proc.Path comes back empty for a process running more elevated than this
+# unmanifested PowerShell — an anti-cheat-protected game under GameGuard
+# (Vindictus, found live), for example. ProcessName is still readable across
+# that boundary, so it's included as a fallback identifier rather than
+# exiting outright the way this used to when Path alone was missing.
 [PSCustomObject]@{
   ExePath = $proc.Path
+  ProcessName = $proc.ProcessName
   Title = $sb.ToString()
   X = $rect.Left
   Y = $rect.Top
@@ -110,6 +116,6 @@ export async function resolveCurrentGame(fg?: ForegroundWindowInfo | null): Prom
   const data = dataStore.get()
   const candidates = Object.values(data.profiles)
     .filter((p) => p.exePath || p.installDir)
-    .map((p) => ({ name: p.name, installDir: p.installDir, exePath: p.exePath }))
-  return matchForegroundToRunning(info.exePath, candidates)
+    .map((p) => ({ name: p.name, installDir: p.installDir, exePath: p.exePath, launchUri: p.launchUri }))
+  return matchForegroundToRunning(info, candidates)
 }
