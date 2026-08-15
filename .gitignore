@@ -42,3 +42,4 @@ release-dev/
 .verify-startup-art-tmp/
 .verify-hwaccel-tmp/
 .verify-ui-tweaks-tmp/
+.verify-refresh-art-tmp/

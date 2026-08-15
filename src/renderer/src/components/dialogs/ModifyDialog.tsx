@@ -369,11 +369,17 @@ function AppearanceTab({ profile }: { profile: Profile }): React.JSX.Element {
   return (
     <div className="flex flex-col gap-5">
       {/*
-       * Only meaningful once a game has an appid to fetch art *for*, so it is
-       * hidden entirely for manually added games rather than shown as a
-       * control that silently does nothing.
+       * Only meaningful once a game has SOMETHING to fetch art by — an appid,
+       * or a name plus exePath for the Epic/GOG/SteamGridDB/exe-icon chain
+       * enrichGame() also supports (refreshArt itself already handles a null
+       * appid fine, see its own doc comment) — so it's hidden entirely for a
+       * purely manually-added game rather than shown as a control that
+       * silently does nothing. Previously gated on steamAppId alone, which
+       * hid this for every EA/Epic/GOG/Battle.net-detected game — exactly
+       * the games with no appid that most need a way to re-fetch or pick
+       * better art.
        */}
-      {profile.steamAppId != null && (
+      {(profile.steamAppId != null || profile.exePath) && (
         <div>
           <label className="mb-1 block text-xs text-subtext">{t('label_auto_art')}</label>
           <div className="flex gap-1.5">
