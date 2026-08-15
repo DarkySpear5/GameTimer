@@ -35,3 +35,4 @@ release-dev/
 .verify-sources-tmp/
 .verify-kso-tmp/
 .verify-subcategories-tmp/
+.verify-overlay-two-timers-tmp/
