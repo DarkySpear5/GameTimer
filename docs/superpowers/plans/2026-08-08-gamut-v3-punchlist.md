@@ -399,8 +399,35 @@ alongside each new one.
 
 ## Y. Low priority — needs live repro, do last before Linux
 
-- [ ] **Y1 (was B1). Vindictus/Nexon won't actually launch.**
-- [ ] **Y2 (was B3). Heroes of the Storm/Battle.net won't actually launch.**
+- [x] **Y1 (was B1). Vindictus/Nexon won't actually launch.** — DONE
+  2026-08-14 night. Launching itself was already fine by the time this was
+  live-tested; the real bug was everywhere AFTER launch. Root cause: Vindictus
+  runs elevated (GameGuard anti-cheat), and Windows blocks Gamut (unelevated)
+  from reading an elevated process's file path at all — so it never
+  registered as "running" anywhere: no auto-start timer, no Launch/Stop
+  flip, no overlay, no keybind. Fixed with a name-only detection fallback
+  (process name is still readable across the elevation boundary even when
+  path isn't), scoped to an explicit launcher allowlist (Nexon/Battle.net/EA)
+  at the user's own request. Stop still can't kill an elevated process
+  (real Windows security boundary, not fixable) — the button grays out for
+  those instead of offering one that would silently fail; user explicitly
+  rejected a UAC-prompt-per-click workaround. See `project_gamut_v3.md`
+  memory for the full writeup.
+- [x] **Y2 (was B3). Heroes of the Storm/Battle.net won't actually launch.**
+  — DONE (partial) 2026-08-14 night. Root cause: the imported profile's
+  `launchUri` was hardcoded null for every Battle.net game (never
+  implemented), so Gamut fell back to spawning the raw .exe, which opens
+  the Battle.net client but never starts the game. Fixed the missing
+  `battlenet://<uid>` URI construction (reads the game's own uninstall
+  registry entry) plus a backfill for already-imported profiles. BUT: live
+  testing found neither `battlenet://<uid>` nor Battle.net's own documented
+  `--exec="launch_uid <uid>"` command actually starts the game anymore —
+  both just bring the client to the front. Matches community reports of
+  this exact protocol breaking after Battle.net client updates; not
+  fixable from Gamut's side without much deeper reverse-engineering. Landed
+  on: Launch button is hidden entirely for Battle.net games rather than
+  offering one that doesn't work — Stop still works normally once such a
+  game is running (user launches it by hand through Battle.net).
 
 ## Z. Last
 
