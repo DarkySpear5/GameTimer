@@ -43,3 +43,4 @@ release-dev/
 .verify-hwaccel-tmp/
 .verify-ui-tweaks-tmp/
 .verify-refresh-art-tmp/
+.verify-trademark-tmp/
