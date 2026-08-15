@@ -40,3 +40,4 @@ release-dev/
 .verify-battlenet-tmp/
 .verify-art-letterbox-tmp/
 .verify-startup-art-tmp/
+.verify-hwaccel-tmp/

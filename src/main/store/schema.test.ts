@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseAppData, freshAppData } from './schema'
+import { parseAppData, freshAppData, parseGtProfileFile } from './schema'
 
 describe('sessionLog schema', () => {
   it('defaults to an empty array for a v2 profile that predates it', () => {
@@ -116,6 +116,70 @@ describe('status schema', () => {
   it('lets not_started be used as a status filter', () => {
     const data = parseAppData({ profiles: {}, settings: { statusFilter: 'not_started' } })
     expect(data.settings.statusFilter).toBe('not_started')
+  })
+})
+
+describe('parseGtProfileFile', () => {
+  it('preserves a well-formed export unchanged', () => {
+    const raw = {
+      name: 'Doom',
+      seconds: 3600,
+      status: 'completed',
+      statusAt: '2026-01-01',
+      statusSeconds: 3600,
+      genres: ['Shooter'],
+      lastPlayed: 1700000000,
+      startedDate: '2025-01-01',
+      notes: 'legacy notes',
+      rating: 4,
+      sessionLog: [{ startedAt: 1, seconds: 120 }],
+      noteList: [{ id: 'n1', title: 'T', body: 'B', drawing: [], createdAt: 1, updatedAt: 2 }],
+      steamAppId: 2280
+    }
+    const parsed = parseGtProfileFile(raw)
+    expect(parsed.name).toBe('Doom')
+    expect(parsed.seconds).toBe(3600)
+    expect(parsed.rating).toBe(4)
+    expect(parsed.steamAppId).toBe(2280)
+    expect(parsed.genres).toEqual(['Shooter'])
+  })
+
+  it('defaults every field of a bare-minimum file rather than throwing', () => {
+    const parsed = parseGtProfileFile({})
+    expect(parsed.name).toBe('')
+    expect(parsed.seconds).toBe(0)
+    expect(parsed.status).toBe('in_progress')
+    expect(parsed.rating).toBe(0)
+    expect(parsed.genres).toEqual([])
+  })
+
+  // The actual gap this closes: a hand-edited or malicious .gtprofile can put
+  // anything in these fields, unlike the main save file which only ever holds
+  // what Gamut itself wrote. A wrong-typed field must fall back to a safe
+  // default instead of being written straight into the real save file.
+  it('falls back a wrong-typed seconds/rating/steamAppId to safe defaults', () => {
+    const parsed = parseGtProfileFile({
+      name: 'Evil',
+      seconds: 'a lot',
+      rating: 999,
+      steamAppId: 'not-a-number',
+      genres: 'not-an-array'
+    })
+    expect(parsed.seconds).toBe(0)
+    expect(parsed.rating).toBe(0)
+    expect(parsed.steamAppId).toBeNull()
+    expect(parsed.genres).toEqual([])
+  })
+
+  it('rejects an out-of-range rating rather than carrying it through', () => {
+    const parsed = parseGtProfileFile({ name: 'Evil', rating: 100 })
+    expect(parsed.rating).toBe(0)
+  })
+
+  it('throws when the file is not an object at all', () => {
+    expect(() => parseGtProfileFile('just a string')).toThrow()
+    expect(() => parseGtProfileFile([1, 2, 3])).toThrow()
+    expect(() => parseGtProfileFile(null)).toThrow()
   })
 })
 
