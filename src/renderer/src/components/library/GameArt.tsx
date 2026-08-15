@@ -43,6 +43,25 @@ export function artPlaceholderLetter(name: string): string {
  */
 const PORTRAIT_MIN_RATIO = 1.1
 
+/**
+ * Letterboxing fixed the CROP problem (wrong-shaped art getting hacked down
+ * to fit) but not a separate one underneath it: an image can be the right
+ * shape and still be too few actual pixels to look good stretched up to grid
+ * size. Reported live, still pixelated after a fresh re-fetch — an EA game
+ * (`gameArtUrl`'s `cover ?? icon` fallback) whose `coverFile` never got
+ * filled in was showing its small square `iconFile` letterboxed into a
+ * ~150-400px portrait tile, several times its native size.
+ *
+ * 100 isn't a new number invented for this — it's the exact `minSide` every
+ * cover-specific download in enrich.ts/steamArt.ts already requires
+ * (`downloadUsable(url, 100)`, `firstUsable(coverUrls, 100, 4)`) before
+ * accepting an image as cover-quality at all. Anything smaller than that on
+ * either axis was never validated as fit to be a cover, whether it arrived
+ * as one or is standing in for a missing one — so it gets the same "nothing
+ * beats no art" treatment as a missing file, rather than a stretched blur.
+ */
+const MIN_GOOD_SIDE = 100
+
 export function GameArt({
   profile,
   className = '',
@@ -56,12 +75,15 @@ export function GameArt({
   preferIcon?: boolean
 }): React.JSX.Element {
   const url = gameArtUrl(profile, preferIcon)
-  // Reset whenever the art itself changes (re-fetch, manual pick) — starts
-  // optimistic (plain cover-fit) so a real portrait cover, the common case,
-  // never pays for the blurred backdrop it doesn't need.
+  // Both reset whenever the art itself changes (re-fetch, manual pick) — the
+  // <img> below is keyed on `url`, so a new one remounts and re-fires onLoad
+  // from scratch rather than these getting stuck at a stale image's verdict.
+  // letterbox starts optimistic (plain cover-fit) so a real portrait cover,
+  // the common case, never pays for the blurred backdrop it doesn't need.
   const [letterbox, setLetterbox] = useState(false)
+  const [tooSmall, setTooSmall] = useState(false)
 
-  if (!url) {
+  if (!url || tooSmall) {
     return (
       <div
         className={`${rounded} flex h-full w-full items-center justify-center bg-card text-2xl font-semibold text-subtext ${className}`}
@@ -72,12 +94,18 @@ export function GameArt({
   }
 
   // A list row is already a square tile matched to a square icon — nothing to
-  // letterbox there even in the rare case it falls back to a landscape cover
-  // instead, since a square frame crops far less aggressively than a tall
-  // portrait one does. Only the grid/detail's portrait frame needs this.
+  // letterbox OR reject-as-too-small there even in the rare case it falls
+  // back to a landscape cover instead: a square frame never stretches a
+  // properly-sized icon past its native resolution the way a portrait grid
+  // tile several times its size does. Only the grid/detail's portrait frame
+  // needs either check.
   function handleLoad(e: React.SyntheticEvent<HTMLImageElement>): void {
     if (preferIcon) return
     const { naturalWidth, naturalHeight } = e.currentTarget
+    if (naturalWidth < MIN_GOOD_SIDE || naturalHeight < MIN_GOOD_SIDE) {
+      setTooSmall(true)
+      return
+    }
     setLetterbox(naturalHeight < naturalWidth * PORTRAIT_MIN_RATIO)
   }
 
