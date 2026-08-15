@@ -38,3 +38,4 @@ release-dev/
 .verify-overlay-two-timers-tmp/
 .verify-elevated-tmp/
 .verify-battlenet-tmp/
+.verify-art-letterbox-tmp/
