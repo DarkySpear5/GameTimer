@@ -4,6 +4,7 @@ import {
   addSession,
   aggregateFrom,
   emptyAggregate,
+  idleSecondsFor,
   makeSessionEntry,
   summaryFrom,
   trimSessionLog
@@ -90,6 +91,41 @@ describe('summaryFrom', () => {
   it('reports zero average rather than dividing by zero', () => {
     const a = aggregateFrom([{ startedAt: HOUR, seconds: 5, short: true }])
     expect(summaryFrom(a).averageSeconds).toBe(0)
+  })
+})
+
+describe('idleSecondsFor', () => {
+  it('is 0 for a profile openSeconds has never covered', () => {
+    expect(idleSecondsFor({ seconds: 100, openSeconds: 0, secondsAtOpenTrackingStart: null })).toBe(0)
+  })
+
+  // The actual reported bug: a profile with real history from before idle
+  // tracking existed (or from a Gamut version that predates it) has a large
+  // `seconds` total and a small `openSeconds` one just starting to accrue.
+  // The naive `openSeconds - seconds` clamps this to 0 forever; the fix
+  // compares against only the `seconds` accrued since tracking started.
+  it('is not swallowed by huge pre-tracking history once a baseline exists', () => {
+    // 14.5 hours of history (matches the real report), then tracking starts:
+    // openSeconds accrues 20 minutes of open time while only 5 minutes of
+    // that was actively played (the rest is real idle time).
+    const secondsAtStart = 52_441 // 14:34:01
+    const idle = idleSecondsFor({
+      seconds: secondsAtStart + 300, // +5 min played since tracking started
+      openSeconds: 1_200, // 20 min game-open time accrued since tracking started
+      secondsAtOpenTrackingStart: secondsAtStart
+    })
+    expect(idle).toBe(900) // the 15 real idle minutes, not 0
+  })
+
+  it('nets out cleanly for a profile that was always tracked from zero', () => {
+    // No pre-existing history: baseline is 0, same as never having one.
+    const idle = idleSecondsFor({ seconds: 400, openSeconds: 1_000, secondsAtOpenTrackingStart: 0 })
+    expect(idle).toBe(600)
+  })
+
+  it('never goes negative even if active time somehow exceeds open time', () => {
+    const idle = idleSecondsFor({ seconds: 1_000, openSeconds: 100, secondsAtOpenTrackingStart: 0 })
+    expect(idle).toBe(0)
   })
 })
 

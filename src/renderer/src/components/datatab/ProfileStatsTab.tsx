@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useProfilesStore } from '../../state/profilesStore'
 import { useSettingsStore } from '../../state/settingsStore'
 import { formatSeconds } from '@shared/format'
+import { idleSecondsFor } from '@shared/sessionStats'
 
 /**
  * K1: the account-wide counterpart to Game Stats — "how am I spending my time
@@ -24,10 +25,11 @@ export function ProfileStatsTab(): React.JSX.Element {
 
     for (const p of list) {
       active += p.seconds
-      // Same clamp as the per-game figure in More Info: a game Gamut never
-      // watched has openSeconds 0 and contributes nothing here rather than
-      // reading as negative idle time.
-      idle += Math.max(0, p.openSeconds - p.seconds)
+      // Same formula as the per-game figure in More Info — see idleSecondsFor's
+      // own doc comment for why this isn't just `openSeconds - seconds`. A
+      // game Gamut never watched still contributes 0 rather than reading as
+      // negative idle time.
+      idle += idleSecondsFor(p)
       // A game's full playtime counts toward EVERY genre it carries — the app
       // already treats genres as a non-exclusive tag set everywhere else
       // (Library filtering, the genre lock), so splitting time across a

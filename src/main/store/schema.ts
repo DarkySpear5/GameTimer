@@ -141,6 +141,9 @@ const ProfileSchema = z
     autoFetchArt: z.boolean().nullable().catch(null),
     launches: z.number().catch(0),
     openSeconds: z.number().catch(0),
+    // Absent in every save written before this existed, so it defaults to
+    // null rather than being required — see its own doc comment in types.ts.
+    secondsAtOpenTrackingStart: z.number().nullable().catch(null).default(null),
     autoStartTimer: z.boolean().nullable().catch(null),
     genresFromDetection: z.boolean().catch(false),
     favorite: z.boolean().catch(false),

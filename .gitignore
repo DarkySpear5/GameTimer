@@ -44,3 +44,4 @@ release-dev/
 .verify-ui-tweaks-tmp/
 .verify-refresh-art-tmp/
 .verify-trademark-tmp/
+.verify-idle-baseline-tmp/

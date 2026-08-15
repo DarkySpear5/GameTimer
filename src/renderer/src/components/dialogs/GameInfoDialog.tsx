@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Modal } from '../common/Modal'
 import { useProfilesStore } from '../../state/profilesStore'
 import { useSettingsStore } from '../../state/settingsStore'
-import { summaryFrom } from '@shared/sessionStats'
+import { summaryFrom, idleSecondsFor } from '@shared/sessionStats'
 import { formatSeconds } from '@shared/format'
 import { toast } from '../common/Toast'
 
@@ -42,7 +42,7 @@ export function GameInfoDialog({
 
   const isCompleted = profile.status === 'completed'
   const hasRecord = profile.statusAt != null || profile.statusSeconds != null
-  const idleSeconds = Math.max(0, profile.openSeconds - profile.seconds)
+  const idleSeconds = idleSecondsFor(profile)
   const idlePercent = profile.openSeconds > 0 ? Math.round((idleSeconds / profile.openSeconds) * 100) : 0
 
   async function handleClearRecord(): Promise<void> {
