@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import type { Profile } from '@shared/types'
 
 /**
@@ -29,6 +30,19 @@ export function artPlaceholderLetter(name: string): string {
   return (name.trim()[0] ?? '?').toUpperCase()
 }
 
+/**
+ * Real box art is roughly 0.6–0.75 width/height. 1.1 is deliberately lenient
+ * — it only needs to catch what actually measured badly here: Steam's
+ * `header.jpg` last-resort fallback (460x215, a landscape capsule) and a bare
+ * square community icon standing in for a missing cover (48x48) — both found
+ * live on real games (Escape Rosecliff Island, Heroes of the Storm) forced
+ * into the grid's portrait tiles via object-cover, cropped and blown up past
+ * their real resolution. Kept in sync with enrich.ts's own PORTRAIT_MIN_RATIO
+ * — this is the same judgment call, just applied to whatever a profile
+ * already has on disk instead of deciding what to fetch in the first place.
+ */
+const PORTRAIT_MIN_RATIO = 1.1
+
 export function GameArt({
   profile,
   className = '',
@@ -42,21 +56,49 @@ export function GameArt({
   preferIcon?: boolean
 }): React.JSX.Element {
   const url = gameArtUrl(profile, preferIcon)
-  if (url) {
+  // Reset whenever the art itself changes (re-fetch, manual pick) — starts
+  // optimistic (plain cover-fit) so a real portrait cover, the common case,
+  // never pays for the blurred backdrop it doesn't need.
+  const [letterbox, setLetterbox] = useState(false)
+
+  if (!url) {
     return (
+      <div
+        className={`${rounded} flex h-full w-full items-center justify-center bg-card text-2xl font-semibold text-subtext ${className}`}
+      >
+        {artPlaceholderLetter(profile.name)}
+      </div>
+    )
+  }
+
+  // A list row is already a square tile matched to a square icon — nothing to
+  // letterbox there even in the rare case it falls back to a landscape cover
+  // instead, since a square frame crops far less aggressively than a tall
+  // portrait one does. Only the grid/detail's portrait frame needs this.
+  function handleLoad(e: React.SyntheticEvent<HTMLImageElement>): void {
+    if (preferIcon) return
+    const { naturalWidth, naturalHeight } = e.currentTarget
+    setLetterbox(naturalHeight < naturalWidth * PORTRAIT_MIN_RATIO)
+  }
+
+  return (
+    <div className={`${rounded} relative h-full w-full overflow-hidden bg-card ${className}`}>
+      {letterbox && (
+        <img
+          src={url}
+          alt=""
+          aria-hidden="true"
+          className="absolute inset-0 h-full w-full scale-110 object-cover opacity-50 blur-lg"
+        />
+      )}
       <img
+        key={url}
         src={url}
         alt=""
         loading="lazy"
-        className={`${rounded} h-full w-full object-cover ${className}`}
+        onLoad={handleLoad}
+        className={`relative h-full w-full ${letterbox ? 'object-contain' : 'object-cover'}`}
       />
-    )
-  }
-  return (
-    <div
-      className={`${rounded} flex h-full w-full items-center justify-center bg-card text-2xl font-semibold text-subtext ${className}`}
-    >
-      {artPlaceholderLetter(profile.name)}
     </div>
   )
 }

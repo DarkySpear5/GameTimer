@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { DEFAULT_CUSTOM_COLORS } from '@shared/constants'
-import type { AppData } from '@shared/types'
+import type { AppData, GtProfileFile } from '@shared/types'
 
 /**
  * Every field uses .catch() rather than plain validation — this mirrors v1's
@@ -64,6 +64,39 @@ const SessionAggregateSchema = z
     lastPlayedAt: z.number().nullable().catch(null)
   })
   .catch({ count: 0, totalSeconds: 0, longestSeconds: 0, firstPlayedAt: null, lastPlayedAt: null })
+
+/**
+ * A .gtprofile is a file a user can hand-edit or receive from anyone —
+ * unlike the main save file, nothing here comes from Gamut's own writer by
+ * construction. importProfile() already hardcodes the machine-specific
+ * fields (exePath, launchUri, installDir, coverFile) to null regardless of
+ * what's in the file, so this schema isn't a code-execution boundary; it's
+ * what stops a wrong-typed field (a string where seconds/rating/steamAppId
+ * expect a number, non-array genres, etc.) from being written straight into
+ * the real save file, where every other writer assumes parseAppData()
+ * already guaranteed the types.
+ */
+const GtProfileFileSchema = z.object({
+  name: z.string().catch(''),
+  seconds: z.number().catch(0),
+  status: StatusSchema,
+  statusAt: z.string().nullable().catch(null),
+  statusSeconds: z.number().nullable().catch(null),
+  genres: z.array(z.string()).catch([]),
+  lastPlayed: z.number().nullable().catch(null),
+  startedDate: z.string().nullable().catch(null),
+  notes: z.string().catch(''),
+  rating: RatingSchema,
+  sessionLog: z.array(SessionEntrySchema).catch([]).optional(),
+  sessionStats: SessionAggregateSchema.optional(),
+  noteList: NoteListSchema.optional(),
+  steamAppId: z.number().nullable().catch(null).optional(),
+  iconB64: z.string().optional(),
+  iconExt: z.string().optional(),
+  bgImageB64: z.string().optional(),
+  bgImageExt: z.string().optional(),
+  bgColor: z.string().optional()
+})
 
 const SubCategorySchema = z.object({
   id: z.string().min(1).catch(() => Math.random().toString(36).slice(2)),
@@ -216,4 +249,9 @@ export function freshAppData(): AppData {
 /** Throws if `raw` isn't even an object — callers should catch and fall back to freshAppData(). */
 export function parseAppData(raw: unknown): AppData {
   return withKeysAsNames(AppDataSchema.parse(raw))
+}
+
+/** Throws if `raw` isn't even an object — callers should treat that as an invalid/unreadable import. */
+export function parseGtProfileFile(raw: unknown): GtProfileFile {
+  return GtProfileFileSchema.parse(raw)
 }

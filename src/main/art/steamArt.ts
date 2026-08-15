@@ -96,6 +96,43 @@ async function firstUsable(urls: string[], minSide: number, maxAspect: number): 
   return null
 }
 
+/**
+ * Guessed CDN paths (`${CDN}/${appId}/header.jpg` etc.) 404 for newer games —
+ * measured live on two real, correctly-appid'd games (RuneScape: Dragonwilds,
+ * Shift At Midnight): every classic path came back 404, yet both are real,
+ * current Steam listings. Steam's own appdetails API — already called for
+ * genres elsewhere in this file — returns the actual working URLs on its
+ * newer `store_item_assets` CDN regardless: `header_image` and
+ * `capsule_imagev5`. Used only as an ADDITIONAL fallback appended after the
+ * guessed paths, never instead of them, since the guesses are a plain CDN hit
+ * with no extra round trip and work fine for most of the catalogue.
+ */
+async function fetchStoreImageUrls(appId: number): Promise<{ header: string | null; capsule: string | null }> {
+  const empty = { header: null, capsule: null }
+  try {
+    // `basic` is required in the filter list — without it Steam's API returns
+    // `data: []` instead of the requested fields at all (measured live: Shift
+    // At Midnight, appid 3722330, returned nothing until this was added).
+    const res = await net.fetch(`${STORE_API}?appids=${appId}&filters=basic,header_image,capsule_imagev5`)
+    if (!res.ok) return empty
+    const raw = (await res.json()) as Record<
+      string,
+      { data?: { header_image?: unknown; capsule_imagev5?: unknown } }
+    >
+    const data = raw[String(appId)]?.data
+    const header = typeof data?.header_image === 'string' ? data.header_image : null
+    const capsule = typeof data?.capsule_imagev5 === 'string' ? data.capsule_imagev5 : null
+    // Same reasoning as squareIconUrl above: a remote JSON field is not
+    // trusted just because it came from Steam's own API.
+    return {
+      header: header && isAllowedArtUrl(header) ? header : null,
+      capsule: capsule && isAllowedArtUrl(capsule) ? capsule : null
+    }
+  } catch {
+    return empty
+  }
+}
+
 async function store(buf: Buffer, dir: string, max: number): Promise<string | null> {
   try {
     await fs.mkdir(dir, { recursive: true })
@@ -143,12 +180,16 @@ export async function fetchArt(appId: number, name?: string): Promise<FetchedArt
     squareIconUrl = candidate && isAllowedArtUrl(candidate) ? candidate : undefined
   }
 
+  const storeImages = await fetchStoreImageUrls(appId)
+
   const [icon, background, cover] = await Promise.all([
     firstUsable(
       [
         ...(squareIconUrl ? [squareIconUrl] : []),
         `${CDN}/${appId}/capsule_231x87.jpg`,
-        `${CDN}/${appId}/header.jpg`
+        `${CDN}/${appId}/header.jpg`,
+        ...(storeImages.capsule ? [storeImages.capsule] : []),
+        ...(storeImages.header ? [storeImages.header] : [])
       ],
       // Aspect 3 tolerates the wide capsule fallbacks, which are still far
       // better than no icon; the square community icon wins whenever it exists.
@@ -156,7 +197,12 @@ export async function fetchArt(appId: number, name?: string): Promise<FetchedArt
       3
     ),
     firstUsable(
-      [`${CDN}/${appId}/library_hero.jpg`, `${CDN}/${appId}/capsule_616x353.jpg`, `${CDN}/${appId}/header.jpg`],
+      [
+        `${CDN}/${appId}/library_hero.jpg`,
+        `${CDN}/${appId}/capsule_616x353.jpg`,
+        `${CDN}/${appId}/header.jpg`,
+        ...(storeImages.header ? [storeImages.header] : [])
+      ],
       200,
       4
     ),
@@ -165,8 +211,18 @@ export async function fetchArt(appId: number, name?: string): Promise<FetchedArt
     // poster, so it belongs in a poster-shaped tile, not cropped into a square
     // icon. header.jpg is a deliberate last resort: wide art centre-cropped
     // into a tall tile still reads as the game, and appid 3600 proves that
-    // 600x900 simply does not exist for older titles.
-    firstUsable([`${CDN}/${appId}/library_600x900.jpg`, `${CDN}/${appId}/header.jpg`], 100, 4)
+    // 600x900 simply does not exist for older titles. storeImages.header is
+    // the LAST resort of the last resort — a newer game's classic CDN paths
+    // can ALL 404 (measured live) while the store API's own URL still works.
+    firstUsable(
+      [
+        `${CDN}/${appId}/library_600x900.jpg`,
+        `${CDN}/${appId}/header.jpg`,
+        ...(storeImages.header ? [storeImages.header] : [])
+      ],
+      100,
+      4
+    )
   ])
 
   return {

@@ -13,6 +13,7 @@ import { fetchGridDbArt } from './steamGridDb'
 import { dataStore } from '../store/dataStore'
 import { mapTagsToGenres } from './genreMap'
 import { isAllowedArtUrl } from './allowedHosts'
+import type { Profile } from '@shared/types'
 
 /**
  * One place that answers "what do we know about this game", trying sources in
@@ -44,6 +45,63 @@ export interface Enrichment {
   genres: string[]
   /** Which source actually produced something, for logging and the UI's benefit. */
   source: 'steam' | 'epic' | 'gog' | 'steamgriddb' | 'exe' | 'none'
+}
+
+/**
+ * Real box art is roughly 0.6–0.75 width/height (Steam's own library_600x900
+ * is exactly 2:3). 1.1 is deliberately lenient — it only needs to catch the
+ * cases that measurably look bad in the Library grid's portrait tiles: Steam's
+ * `header.jpg` last-resort fallback (460x215, height/width 0.47 — appid 3600,
+ * a 2007 game with no library_600x900 at all) and a bare square community
+ * icon standing in for a missing cover entirely (Heroes of the Storm, never
+ * listed on any storefront). Anything at or above this ratio is left alone.
+ */
+export const PORTRAIT_MIN_RATIO = 1.1
+
+/** Kept free of electron/fs so the actual decision is unit-testable without a real image file. */
+export function isPortraitRatio(width: number, height: number): boolean {
+  return height >= width * PORTRAIT_MIN_RATIO
+}
+
+async function isPortraitFile(coverFile: string | null): Promise<boolean> {
+  if (!coverFile) return false
+  try {
+    const buf = await fs.readFile(join(paths.coversDir(), coverFile))
+    const { width, height } = nativeImage.createFromBuffer(buf).getSize()
+    return isPortraitRatio(width, height)
+  } catch {
+    return false
+  }
+}
+
+/**
+ * One extra SteamGridDB lookup for JUST a better cover, tried after whichever
+ * primary source above already resolved everything else — never instead of
+ * it. SteamGridDB exists specifically to provide properly-shaped portrait
+ * grid art, which makes it worth a second, targeted request exactly when the
+ * primary source's cover isn't good enough for the grid, rather than only
+ * ever being tried as a last resort when every other source came up empty.
+ *
+ * Deliberately narrow: only the cover is replaced. The primary source's icon,
+ * background and genres are left as they are — SteamGridDB has no genre data
+ * at all, and there's no evidence its icons/backgrounds are more reliable
+ * than what Steam/Epic/GOG already provided.
+ */
+async function supplementCoverIfNeeded(result: Enrichment, name: string): Promise<Enrichment> {
+  if (result.source === 'steamgriddb') return result // already the best this app can do
+  const apiKey = dataStore.get().settings.steamGridDbApiKey
+  if (!apiKey) return result
+  if (await isPortraitFile(result.coverFile)) return result
+
+  const gridArt = await fetchGridDbArt(name, apiKey)
+  if (!gridArt.coverUrl) return result
+  const buf = await downloadUsable(gridArt.coverUrl, 100)
+  if (!buf) return result
+  const { width, height } = nativeImage.createFromBuffer(buf).getSize()
+  if (!isPortraitRatio(width, height)) return result // no better than what's already there
+
+  const coverFile = await store(buf, paths.coversDir(), COVER_MAX_DIMENSION)
+  return coverFile ? { ...result, coverFile } : result
 }
 
 /**
@@ -137,7 +195,7 @@ export async function enrichGame(
   if (artAppId != null) {
     const [art, genres] = await Promise.all([fetchArt(artAppId, name), fetchGenres(artAppId)])
     if (art.iconFile || art.bgImage || art.coverFile || genres.length > 0) {
-      return { ...art, genres, source: 'steam' }
+      return await supplementCoverIfNeeded({ ...art, genres, source: 'steam' }, name)
     }
   }
 
@@ -152,15 +210,18 @@ export async function enrichGame(
       epic.backgroundUrl ? downloadUsable(epic.backgroundUrl, 200) : Promise.resolve(null)
     ])
     if (icon || cover || background) {
-      return {
-        iconFile: icon ? await store(icon, paths.iconsDir(), ICON_MAX_DIMENSION) : null,
-        bgImage: background
-          ? await store(background, paths.backgroundsDir(), BACKGROUND_MAX_DIMENSION)
-          : null,
-        coverFile: cover ? await store(cover, paths.coversDir(), COVER_MAX_DIMENSION) : null,
-        genres: [],
-        source: 'epic'
-      }
+      return await supplementCoverIfNeeded(
+        {
+          iconFile: icon ? await store(icon, paths.iconsDir(), ICON_MAX_DIMENSION) : null,
+          bgImage: background
+            ? await store(background, paths.backgroundsDir(), BACKGROUND_MAX_DIMENSION)
+            : null,
+          coverFile: cover ? await store(cover, paths.coversDir(), COVER_MAX_DIMENSION) : null,
+          genres: [],
+          source: 'epic'
+        },
+        name
+      )
     }
   }
 
@@ -206,16 +267,21 @@ export async function enrichGame(
     gog.coverHorizontal ? downloadUsable(gog.coverHorizontal, 200) : Promise.resolve(null)
   ])
 
-  return {
-    iconFile: icon ? await store(icon, paths.iconsDir(), ICON_MAX_DIMENSION) : null,
-    bgImage: background ? await store(background, paths.backgroundsDir(), BACKGROUND_MAX_DIMENSION) : null,
-    // GOG's coverVertical is already the portrait poster, so the cover and the
-    // icon come from one download stored twice at two different caps. GOG
-    // exposes nothing square, and a 480px poster is not an acceptable icon.
-    coverFile: icon ? await store(icon, paths.coversDir(), COVER_MAX_DIMENSION) : null,
-    genres: mapTagsToGenres(gog.genres),
-    source: 'gog'
-  }
+  return await supplementCoverIfNeeded(
+    {
+      iconFile: icon ? await store(icon, paths.iconsDir(), ICON_MAX_DIMENSION) : null,
+      bgImage: background ? await store(background, paths.backgroundsDir(), BACKGROUND_MAX_DIMENSION) : null,
+      // GOG's coverVertical is already the portrait poster, so the cover and the
+      // icon come from one download stored twice at two different caps. GOG
+      // exposes nothing square, and a 480px poster is not an acceptable icon.
+      // (Already portrait in practice, so supplementCoverIfNeeded below is a
+      // no-op here — kept anyway for the rare case GOG has no cover at all.)
+      coverFile: icon ? await store(icon, paths.coversDir(), COVER_MAX_DIMENSION) : null,
+      genres: mapTagsToGenres(gog.genres),
+      source: 'gog'
+    },
+    name
+  )
 }
 
 /**
@@ -233,4 +299,73 @@ export async function storeArtFromUrl(url: string, kind: 'icon' | 'background'):
   return kind === 'icon'
     ? store(buf, paths.iconsDir(), ICON_MAX_DIMENSION)
     : store(buf, paths.backgroundsDir(), BACKGROUND_MAX_DIMENSION)
+}
+
+/**
+ * Fire-and-forget, called once at startup: retries art for every profile
+ * with no cover at all yet, the same way linkExecutable/createDetected
+ * already do at add-time — for a game added before a fix landed (a Battle.net
+ * game before battleNetLaunchUri existed, a newer Steam game before the
+ * store-image fallback, or simply added before a SteamGridDB key was ever
+ * entered), that add-time attempt is the only one it ever gets otherwise.
+ *
+ * Deliberately narrow, same reasoning as linkExecutable: only `coverFile ===
+ * null` counts as "try again" — a profile with SOME cover, even a
+ * non-portrait fallback, might be one the user picked on purpose (Modify →
+ * Appearance's manual chooser writes to the same field), and this must never
+ * silently replace that. Missing-entirely is the one unambiguous "nothing to
+ * lose" signal. Whatever's found only fills in fields still null, exactly
+ * like every other art-fetch path in this app — never overwrites.
+ *
+ * Sequential, not parallel: enrichGame makes several network requests per
+ * game, and this runs unattended on every launch — gentler on whichever
+ * remote API is involved, at the cost of taking a little longer for a
+ * library with several such games. Nothing else waits on it.
+ *
+ * `onProfileUpdated` fires once per game that actually got something new —
+ * dataStore writes are invisible to the renderer's own profile cache on
+ * their own (same gap gameWatcher's broadcastProfiles exists to close for
+ * its own background mutations), so without this the Library grid would
+ * only pick up the new art after a manual reload, which defeats the point
+ * of doing this automatically in the first place.
+ */
+export async function backfillMissingCoverArt(
+  onProfileUpdated?: (profile: Profile) => void
+): Promise<void> {
+  const data = dataStore.get()
+  const candidates = Object.values(data.profiles).filter((p) => {
+    const wantsArt = p.autoFetchArt ?? data.settings.autoFetchArt
+    return wantsArt && !p.coverFile
+  })
+  if (candidates.length === 0) return
+
+  for (const profile of candidates) {
+    const found = await enrichGame(profile.name, profile.steamAppId, profile.exePath)
+    let touched = false
+    if (found.iconFile && !profile.iconFile) {
+      profile.iconFile = found.iconFile
+      touched = true
+    }
+    if (found.bgImage && !profile.bgImage) {
+      profile.bgImage = found.bgImage
+      touched = true
+    }
+    if (found.coverFile && !profile.coverFile) {
+      profile.coverFile = found.coverFile
+      touched = true
+    }
+    if (found.genres.length > 0 && profile.genres.length === 0) {
+      profile.genres = found.genres
+      profile.genresFromDetection = true
+      touched = true
+    }
+    // Saved and reported per-profile, not batched at the end — this can take
+    // a while for a library with several such games, and the point is
+    // letting the grid update as each one actually arrives, not making the
+    // user wait for the whole run before seeing anything.
+    if (touched) {
+      await dataStore.safeSave()
+      onProfileUpdated?.(profile)
+    }
+  }
 }

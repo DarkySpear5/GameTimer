@@ -3,6 +3,7 @@ import { join, extname } from 'path'
 import { randomUUID } from 'crypto'
 import { BrowserWindow, dialog } from 'electron'
 import { dataStore } from '../store/dataStore'
+import { parseGtProfileFile } from '../store/schema'
 import { paths } from '../store/paths'
 import { timerEngine } from '../timer/timerEngine'
 import { writeStatusLog } from '../statusLog/writeStatusLog'
@@ -84,7 +85,12 @@ export async function importProfile(win: BrowserWindow): Promise<Profile | null>
   })
   if (result.canceled || !result.filePaths[0]) return null
 
-  const imported: GtProfileFile = JSON.parse(await fs.readFile(result.filePaths[0], 'utf-8'))
+  // parseGtProfileFile validates every field's TYPE (a .gtprofile can come
+  // from anyone, not just Gamut's own exporter) the same way parseAppData
+  // already does for the main save file — see its doc comment.
+  const imported: GtProfileFile = parseGtProfileFile(
+    JSON.parse(await fs.readFile(result.filePaths[0], 'utf-8'))
+  )
   const data = dataStore.get()
 
   let name = imported.name || 'Imported Game'
