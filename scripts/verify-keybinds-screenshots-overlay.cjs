@@ -329,6 +329,54 @@ async function overlayBounds(app) {
     }
   }
 
+  console.log('\n=== O: bottom-anchored overlay clamps to the WORK AREA for a windowed game that does not reach the taskbar ===')
+  {
+    // Real bug, found live on the user's own machine (Forager, windowed):
+    // the .bounds-only clamp above was right for a borderless/fullscreen
+    // game covering the taskbar's strip, but wrong for an ordinary windowed
+    // game that never reaches that edge — the overlay rendered ON TOP of the
+    // real, still-visible taskbar instead of stopping above it. Fixed by
+    // only trusting .bounds on whichever edge the game's own window actually
+    // covers; this proves the .workArea side of that fix with a small
+    // windowed game nowhere near any screen edge.
+    const probe = await launch('display-probe-2', '', false)
+    const display = await probe.app.evaluate(({ screen }) => {
+      const d = screen.getPrimaryDisplay()
+      return { bounds: d.bounds, workArea: d.workArea, physical: screen.dipToScreenRect(null, d.bounds) }
+    })
+    await closeApp('display-probe-2', probe.app)
+
+    if (display.workArea.height >= display.bounds.height && display.workArea.width >= display.bounds.width) {
+      console.log('  SKIP  this display reserves no taskbar strip — the bug is not exercisable here')
+    } else {
+      const physicalGame = {
+        x: display.physical.x + 100,
+        y: display.physical.y + 100,
+        width: Math.min(800, Math.round(display.physical.width * 0.5)),
+        height: Math.min(600, Math.round(display.physical.height * 0.5))
+      }
+      const WINDOWED_GAME = JSON.stringify({
+        ExePath: 'C:\\Games\\FocusedGame\\game.exe',
+        Title: 'Focused Game Windowed',
+        X: physicalGame.x,
+        Y: physicalGame.y,
+        Width: physicalGame.width,
+        Height: physicalGame.height
+      })
+      const { app: app3, win: win3 } = await launch('overlay-windowed', WINDOWED_GAME, true, 'bottom-right')
+      await win3.waitForTimeout(2500) // overlayWindow polls every 2s
+      const dipGame = await app3.evaluate(({ screen }, rect) => screen.screenToDipRect(null, rect), physicalGame)
+      const expected = {
+        x: Math.max(display.workArea.x, Math.min(dipGame.x + dipGame.width - 200 - 8, display.workArea.x + display.workArea.width - 200)),
+        y: Math.max(display.workArea.y, Math.min(dipGame.y + dipGame.height - 40 - 8, display.workArea.y + display.workArea.height - 40)),
+        width: 200,
+        height: 40
+      }
+      check('overlay clamps to the work area, never covering the real taskbar', await overlayBounds(app3), expected)
+      await closeApp('overlay-windowed', app3)
+    }
+  }
+
   console.log(`\n${failures === 0 ? 'ALL CHECKS PASSED' : `${failures} CHECK(S) FAILED`}`)
   process.exit(failures === 0 ? 0 : 1)
 })().catch((err) => {

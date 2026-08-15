@@ -10,6 +10,7 @@ import { saveCappedImage } from '../util/imageResize'
 import { enrichGame, storeArtFromUrl } from '../art/enrich'
 import { emptyAggregate } from '@shared/sessionStats'
 import { emptyNote } from '@shared/notes'
+import { newSubCategory, creditSubCategory } from '@shared/subCategories'
 import { ICON_MAX_DIMENSION, BACKGROUND_MAX_DIMENSION, COVER_MAX_DIMENSION } from '@shared/constants'
 import type { Profile, Status } from '@shared/types'
 import type { DrawingStroke } from '@shared/notes'
@@ -46,7 +47,9 @@ function freshProfile(name: string): Profile {
     autoStartTimer: null,
     genresFromDetection: false,
     favorite: false,
-    coverFile: null
+    coverFile: null,
+    subCategories: [],
+    subCategoriesEnabled: null
   }
 }
 
@@ -195,7 +198,12 @@ export const profileService = {
       autoStartTimer: original.autoStartTimer,
       genresFromDetection: original.genresFromDetection,
       favorite: original.favorite,
-      coverFile: newCoverFile
+      coverFile: newCoverFile,
+      // Copied, not reset — same reasoning as sessionStats/sessionLog above:
+      // the copy inherits the same playtime history. Mapped rather than
+      // spread so the two profiles never share the same SubCategory objects.
+      subCategories: original.subCategories.map((c) => ({ ...c })),
+      subCategoriesEnabled: original.subCategoriesEnabled
     }
     data.profiles[newName] = copy
     await dataStore.safeSave()
@@ -203,7 +211,7 @@ export const profileService = {
     return copy
   },
 
-  async setStatus(name: string, status: Status): Promise<Profile> {
+  async setStatus(name: string, status: Status, overrideSeconds?: number): Promise<Profile> {
     if (status !== 'in_progress' && timerEngine.isRunning(name)) {
       timerEngine.pause(name)
     }
@@ -221,7 +229,13 @@ export const profileService = {
     // lossless instead of destructive.
     if (status !== 'in_progress') {
       profile.statusAt = todayDateString()
-      profile.statusSeconds = profile.seconds
+      // overrideSeconds is how the Complete-timer picker (see
+      // CompleteTimerDialog) attributes time-to-beat to a specific
+      // sub-category's own total instead of the game's main total. Passing
+      // nothing (the Main choice, and every pre-existing call site) keeps
+      // today's exact behavior: whatever profile.seconds is right now, i.e.
+      // after the pause() above already committed the final elapsed time.
+      profile.statusSeconds = overrideSeconds ?? profile.seconds
     }
     await dataStore.safeSave()
     void writeStatusLog()
@@ -360,6 +374,80 @@ export const profileService = {
     const profile = requireProfile(name)
     profile.autoStartTimer = value
     await dataStore.safeSave()
+    return profile
+  },
+
+  /**
+   * categoryName defaults to a plain-English placeholder — main has no i18n
+   * access, same reasoning as createNote's "Untitled Note" default — because
+   * every renderer call site creates first and lets the user rename inline
+   * afterward (see LibraryDetail.tsx's SubCategoryRow) rather than prompting
+   * for a name up front. window.prompt() does not work in Electron: it
+   * returns null with no dialog ever shown, unlike alert()/confirm() which
+   * this app already uses successfully — measured live, not assumed.
+   */
+  async createSubCategory(name: string, categoryName?: string): Promise<Profile> {
+    const trimmed = (categoryName ?? '').trim() || 'New Category'
+    const profile = requireProfile(name)
+    profile.subCategories = [...profile.subCategories, newSubCategory(randomUUID(), trimmed)]
+    await dataStore.safeSave()
+    return profile
+  },
+
+  async renameSubCategory(name: string, categoryId: string, newName: string): Promise<Profile> {
+    const trimmed = newName.trim()
+    if (!trimmed) throw new Error('Name cannot be empty')
+    const profile = requireProfile(name)
+    const category = profile.subCategories.find((c) => c.id === categoryId)
+    if (category) category.name = trimmed
+    await dataStore.safeSave()
+    return profile
+  },
+
+  async deleteSubCategory(name: string, categoryId: string): Promise<Profile> {
+    const profile = requireProfile(name)
+    profile.subCategories = profile.subCategories.filter((c) => c.id !== categoryId)
+    await dataStore.safeSave()
+    return profile
+  },
+
+  /** null = follow the global setting; true/false override it for this game. Never deletes subCategories — see the design spec's "disable ≠ delete" rule. */
+  async setSubCategoriesEnabled(name: string, value: boolean | null): Promise<Profile> {
+    const profile = requireProfile(name)
+    profile.subCategoriesEnabled = value
+    await dataStore.safeSave()
+    return profile
+  },
+
+  /**
+   * Credits `categoryId` with the growth in the main total since this
+   * session's timer last started (timerEngine's pendingCategoryStart
+   * snapshot) — not a live re-measurement, so it's correct whether this is
+   * called while the timer is still running or after it has already been
+   * paused. See timerEngine.ts and the design spec.
+   *
+   * If the session is still running, this ALSO registers the category as
+   * the active assignment for the rest of the session (setActiveCategoryAssignment)
+   * — the retroactive credit above only covers "elapsed before you answered";
+   * without this, the category's total would freeze the moment you answer
+   * while the main total kept growing for the rest of the session, which
+   * reads as a broken/stuck timer.
+   *
+   * A no-op (still clears the pending snapshot) if the snapshot is already
+   * gone — the app restarted since this session started, or this session was
+   * already resolved. Never throws for that; it's an expected race, not a bug.
+   */
+  async assignSubCategorySession(name: string, categoryId: string): Promise<Profile> {
+    const startSeconds = timerEngine.getPendingCategoryStart(name)
+    const profile = requireProfile(name)
+    if (startSeconds !== undefined) {
+      if (timerEngine.isRunning(name)) timerEngine.checkpointOne(name)
+      const elapsed = profile.seconds - startSeconds
+      profile.subCategories = creditSubCategory(profile.subCategories, categoryId, elapsed)
+      timerEngine.clearPendingCategoryStart(name)
+      timerEngine.setActiveCategoryAssignment(name, categoryId)
+      await dataStore.safeSave()
+    }
     return profile
   },
 

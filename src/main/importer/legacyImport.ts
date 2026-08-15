@@ -106,7 +106,10 @@ function normalizeLegacyProfile(name: string, raw: LegacyProfileRaw): Profile {
     autoStartTimer: null,
     genresFromDetection: false,
     favorite: false,
-    coverFile: null
+    coverFile: null,
+    // v1 predates the concept entirely, same as autoStartTimer above.
+    subCategories: [],
+    subCategoriesEnabled: null
   }
 }
 
@@ -128,6 +131,7 @@ function normalizeLegacySettings(raw: Record<string, unknown> | undefined): Sett
     autoFetchArt: true, // v1 has no equivalent concept — default on, same as a fresh install
     watchForGames: false,
     autoStartTimer: false,
+    subCategoriesEnabled: true,
     dataTableScale: 1.15,
     libraryView: 'grid',
     detailLevel: 'simple',

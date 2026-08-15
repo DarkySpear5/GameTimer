@@ -4,6 +4,7 @@ import { backupService } from '../backup/backupService'
 import { todayDateString } from '../util/date'
 import { UI_TICK_MS, CHECKPOINT_MS, STATUS_LOG_MS } from '@shared/constants'
 import { addSession, makeSessionEntry, trimSessionLog } from '@shared/sessionStats'
+import { creditSubCategory } from '@shared/subCategories'
 import type { TimerTickPayload } from '@shared/ipcContract'
 
 type TickListener = (payload: TimerTickPayload) => void
@@ -25,6 +26,27 @@ class TimerEngine {
    * silently restart the session on every checkpoint if the two shared a map.
    */
   private sessionStarts = new Map<string, number>()
+  /**
+   * name -> profile.seconds at the exact moment this session started.
+   * Deliberately separate from sessionStarts (a wall-clock timestamp): this is
+   * a SECONDS snapshot, used only to compute "how much has the main total
+   * grown since this session began" whenever the sub-category prompt is
+   * eventually answered — which can be well after pause() has already run and
+   * cleared activeSession. Not persisted: if the app closes before the prompt
+   * is answered, that's the same outcome as answering None (see the design
+   * spec), so there's nothing to recover.
+   */
+  private pendingCategoryStart = new Map<string, number>()
+  /**
+   * name -> categoryId, once assignSubCategorySession resolves the pending
+   * prompt for a session that's still running. From that point on, every
+   * checkpoint/pause credits the SAME delta to this category as it commits
+   * to profile.seconds — a session that's been categorized keeps crediting
+   * that category for the rest of its length, not just the elapsed-at-
+   * answer-time snapshot. Cleared on pause/stop/start: each session starts
+   * unassigned, matching "ask every time" a timer starts.
+   */
+  private activeCategoryAssignment = new Map<string, string>()
   private lastCheckpoint = Date.now()
   private lastStatusLog = Date.now()
   private lastBackupDay = ''
@@ -54,6 +76,8 @@ class TimerEngine {
     }
     this.activeTimers.set(name, Date.now())
     this.sessionStarts.set(name, Date.now())
+    this.pendingCategoryStart.set(name, profile.seconds)
+    this.activeCategoryAssignment.delete(name)
     // Written to disk so the session survives a crash — see recoverSessions.
     profile.activeSession = { startedAt: Date.now(), lastSeenAt: Date.now() }
     profile.lastPlayed = Date.now()
@@ -69,10 +93,14 @@ class TimerEngine {
     this.activeTimers.delete(name)
     const sessionStart = this.sessionStarts.get(name)
     this.sessionStarts.delete(name)
+    const categoryId = this.activeCategoryAssignment.get(name)
+    this.activeCategoryAssignment.delete(name)
     try {
       const profile = dataStore.get().profiles[name]
       if (profile) {
-        profile.seconds += (Date.now() - tickStart) / 1000
+        const delta = (Date.now() - tickStart) / 1000
+        profile.seconds += delta
+        if (categoryId) profile.subCategories = creditSubCategory(profile.subCategories, categoryId, delta)
         // The session is ending cleanly, so the crash marker has done its job.
         profile.activeSession = null
         if (sessionStart !== undefined) {
@@ -98,7 +126,10 @@ class TimerEngine {
     const now = Date.now()
     const profile = dataStore.get().profiles[name]
     if (profile) {
-      profile.seconds += (now - tickStart) / 1000
+      const delta = (now - tickStart) / 1000
+      profile.seconds += delta
+      const categoryId = this.activeCategoryAssignment.get(name)
+      if (categoryId) profile.subCategories = creditSubCategory(profile.subCategories, categoryId, delta)
       if (profile.activeSession) profile.activeSession.lastSeenAt = now
     }
     this.activeTimers.set(name, now)
@@ -114,7 +145,10 @@ class TimerEngine {
         continue
       }
       const start = this.activeTimers.get(name)!
-      profile.seconds += (now - start) / 1000
+      const delta = (now - start) / 1000
+      profile.seconds += delta
+      const categoryId = this.activeCategoryAssignment.get(name)
+      if (categoryId) profile.subCategories = creditSubCategory(profile.subCategories, categoryId, delta)
       this.activeTimers.set(name, now)
       // Advanced in lockstep with the seconds just committed, so recovery can
       // never credit time that wasn't already durably saved.
@@ -137,12 +171,39 @@ class TimerEngine {
       this.sessionStarts.delete(oldName)
       this.sessionStarts.set(newName, sessionStart)
     }
+    // Same reasoning: a pending sub-category prompt for this session must
+    // still resolve correctly under the new name.
+    const categoryStart = this.pendingCategoryStart.get(oldName)
+    if (categoryStart !== undefined) {
+      this.pendingCategoryStart.delete(oldName)
+      this.pendingCategoryStart.set(newName, categoryStart)
+    }
+    const categoryId = this.activeCategoryAssignment.get(oldName)
+    if (categoryId !== undefined) {
+      this.activeCategoryAssignment.delete(oldName)
+      this.activeCategoryAssignment.set(newName, categoryId)
+    }
+  }
+
+  getPendingCategoryStart(name: string): number | undefined {
+    return this.pendingCategoryStart.get(name)
+  }
+
+  clearPendingCategoryStart(name: string): void {
+    this.pendingCategoryStart.delete(name)
+  }
+
+  /** Keeps crediting `categoryId` on every future checkpoint/pause of this session — see the field comment above. A no-op if the session already ended. */
+  setActiveCategoryAssignment(name: string, categoryId: string): void {
+    if (this.activeTimers.has(name)) this.activeCategoryAssignment.set(name, categoryId)
   }
 
   /** Drops a profile's timer without committing — used right before it's deleted. */
   stopActive(name: string): void {
     this.activeTimers.delete(name)
     this.sessionStarts.delete(name)
+    this.pendingCategoryStart.delete(name)
+    this.activeCategoryAssignment.delete(name)
     const profile = dataStore.get().profiles[name]
     if (profile) profile.activeSession = null
   }
@@ -161,7 +222,13 @@ class TimerEngine {
     this.activeTimers.set(name, now)
     this.sessionStarts.set(name, now)
     const profile = dataStore.get().profiles[name]
-    if (profile) profile.activeSession = { startedAt: now, lastSeenAt: now }
+    if (profile) {
+      profile.activeSession = { startedAt: now, lastSeenAt: now }
+      // Reset Time already zeroed profile.seconds — re-snapshot from that new
+      // baseline, or a still-pending sub-category prompt would compute a
+      // negative delta against the pre-reset total once answered.
+      this.pendingCategoryStart.set(name, profile.seconds)
+    }
   }
 
   onTick(listener: TickListener): () => void {
@@ -209,13 +276,24 @@ class TimerEngine {
     const now = Date.now()
     const data = dataStore.get()
     const running: Record<string, number> = {}
+    const runningCategories: TimerTickPayload['runningCategories'] = {}
     for (const name of this.activeTimers.keys()) {
       const profile = data.profiles[name]
       if (!profile) continue
       const start = this.activeTimers.get(name)!
-      running[name] = profile.seconds + (now - start) / 1000
+      const elapsed = (now - start) / 1000
+      running[name] = profile.seconds + elapsed
+      const categoryId = this.activeCategoryAssignment.get(name)
+      if (categoryId) {
+        const category = profile.subCategories.find((c) => c.id === categoryId)
+        // Same "stored + elapsed since last checkpoint" shape as running
+        // above — the category's own last-checkpointed total already
+        // reflects everything up to `start`, so adding the same live
+        // `elapsed` keeps the two numbers moving in perfect lockstep.
+        if (category) runningCategories[name] = { categoryId, seconds: category.seconds + elapsed }
+      }
     }
-    for (const listener of this.listeners) listener({ running })
+    for (const listener of this.listeners) listener({ running, runningCategories })
   }
 }
 

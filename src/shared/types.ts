@@ -26,6 +26,13 @@ export interface ThemeColors {
 
 export type OverlayCorner = 'top-left' | 'top-right' | 'top-center' | 'bottom-left' | 'bottom-right' | 'bottom-center'
 
+export interface SubCategory {
+  id: string
+  name: string
+  /** This bucket's own running total — separate from, and always ≤, profile.seconds. */
+  seconds: number
+}
+
 export interface Profile {
   name: string
   seconds: number
@@ -117,6 +124,10 @@ export interface Profile {
    * Steam's asset coverage is uneven and a manually added game has none.
    */
   coverFile: string | null
+  /** L (2026-08-14): optional time-tracking breakdown for this game. Empty for every game not using the feature. */
+  subCategories: SubCategory[]
+  /** null = follow the global setting. Explicit true/false overrides it for this game only. */
+  subCategoriesEnabled: boolean | null
 }
 
 export interface Settings {
@@ -148,6 +159,8 @@ export interface Settings {
    * process was open", which is how Steam turns a 19-hour playthrough into 50.
    */
   autoStartTimer: boolean
+  /** Default for games whose own subCategoriesEnabled is null. */
+  subCategoriesEnabled: boolean
   /**
    * How the Library browses its games. Grid is the default because cover art is
    * how most people recognise a game faster than its name, and it is the view

@@ -13,7 +13,9 @@ export function registerProfilesIpc(win: BrowserWindow): void {
   )
   ipcMain.handle(IPC.profiles.delete, (_e, name: string) => profileService.delete(name))
   ipcMain.handle(IPC.profiles.duplicate, (_e, name: string) => profileService.duplicate(name))
-  ipcMain.handle(IPC.profiles.setStatus, (_e, name, status) => profileService.setStatus(name, status))
+  ipcMain.handle(IPC.profiles.setStatus, (_e, name, status, overrideSeconds?: number) =>
+    profileService.setStatus(name, status, overrideSeconds)
+  )
   ipcMain.handle(IPC.profiles.clearStatusRecord, (_e, name: string) =>
     profileService.clearStatusRecord(name)
   )
@@ -21,6 +23,24 @@ export function registerProfilesIpc(win: BrowserWindow): void {
   ipcMain.handle(IPC.profiles.setRating, (_e, name, rating) => profileService.setRating(name, rating))
   ipcMain.handle(IPC.profiles.setFavorite, (_e, name: string, favorite: boolean) =>
     profileService.setFavorite(name, Boolean(favorite))
+  )
+  ipcMain.handle(IPC.profiles.createSubCategory, (_e, name: string, categoryName?: string) =>
+    profileService.createSubCategory(name, categoryName)
+  )
+  ipcMain.handle(
+    IPC.profiles.renameSubCategory,
+    (_e, name: string, categoryId: string, newName: string) =>
+      profileService.renameSubCategory(name, categoryId, newName)
+  )
+  ipcMain.handle(IPC.profiles.deleteSubCategory, (_e, name: string, categoryId: string) =>
+    profileService.deleteSubCategory(name, categoryId)
+  )
+  ipcMain.handle(
+    IPC.profiles.setSubCategoriesEnabled,
+    (_e, name: string, value: boolean | null) => profileService.setSubCategoriesEnabled(name, value)
+  )
+  ipcMain.handle(IPC.profiles.assignSubCategorySession, (_e, name: string, categoryId: string) =>
+    profileService.assignSubCategorySession(name, categoryId)
   )
   ipcMain.handle(IPC.profiles.createNote, (_e, name: string) => profileService.createNote(name))
   ipcMain.handle(IPC.profiles.renameNote, (_e, name: string, noteId: string, title: string) =>

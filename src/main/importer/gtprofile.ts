@@ -175,7 +175,10 @@ export async function importProfile(win: BrowserWindow): Promise<Profile | null>
     // Re-fetched from steamAppId (which IS carried) rather than embedded — it
     // would roughly double a .gtprofile's size for an image the receiving
     // install can download itself.
-    coverFile: null
+    coverFile: null,
+    // Not part of the .gtprofile format — every export predates sub-categories.
+    subCategories: [],
+    subCategoriesEnabled: null
   }
 
   data.profiles[name] = profile

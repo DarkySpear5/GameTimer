@@ -118,3 +118,31 @@ describe('status schema', () => {
     expect(data.settings.statusFilter).toBe('not_started')
   })
 })
+
+describe('subCategories schema', () => {
+  it('defaults subCategories to an empty array when absent', () => {
+    const data = parseAppData({ profiles: { Doom: { name: 'Doom' } } })
+    expect(data.profiles.Doom.subCategories).toEqual([])
+  })
+
+  it('defaults subCategoriesEnabled to null on a profile and true globally when absent', () => {
+    const data = parseAppData({ profiles: { Doom: { name: 'Doom' } } })
+    expect(data.profiles.Doom.subCategoriesEnabled).toBeNull()
+    expect(data.settings.subCategoriesEnabled).toBe(true)
+  })
+
+  it('keeps existing sub-category data intact when parsed again', () => {
+    const raw = {
+      profiles: {
+        Doom: {
+          name: 'Doom',
+          subCategories: [{ id: 'x', name: '100%', seconds: 3600 }],
+          subCategoriesEnabled: false
+        }
+      }
+    }
+    const data = parseAppData(raw)
+    expect(data.profiles.Doom.subCategories).toEqual([{ id: 'x', name: '100%', seconds: 3600 }])
+    expect(data.profiles.Doom.subCategoriesEnabled).toBe(false)
+  })
+})

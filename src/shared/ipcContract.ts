@@ -34,6 +34,11 @@ export const IPC = {
     setGenres: 'profiles:setGenres',
     setRating: 'profiles:setRating',
     setFavorite: 'profiles:setFavorite',
+    createSubCategory: 'profiles:createSubCategory',
+    renameSubCategory: 'profiles:renameSubCategory',
+    deleteSubCategory: 'profiles:deleteSubCategory',
+    setSubCategoriesEnabled: 'profiles:setSubCategoriesEnabled',
+    assignSubCategorySession: 'profiles:assignSubCategorySession',
     createNote: 'profiles:createNote',
     renameNote: 'profiles:renameNote',
     deleteNote: 'profiles:deleteNote',
@@ -149,6 +154,14 @@ export const IPC = {
 
 export interface TimerTickPayload {
   running: Record<string, number>
+  /**
+   * name -> the sub-category currently assigned for this running session
+   * (see timerEngine's activeCategoryAssignment) and its own live-interpolated
+   * total — the same "stored value + elapsed since last checkpoint" math as
+   * `running`, so a category's displayed time ticks every UI_TICK_MS exactly
+   * like the main total does, instead of only refreshing on pause.
+   */
+  runningCategories: Record<string, { categoryId: string; seconds: number }>
 }
 
 export interface OverlayTickPayload {
@@ -185,7 +198,8 @@ export interface GameTimerApi {
     rename(oldName: string, newName: string): Promise<Profile>
     delete(name: string): Promise<void>
     duplicate(name: string): Promise<Profile>
-    setStatus(name: string, status: Status): Promise<Profile>
+    /** overrideSeconds: statusSeconds to use instead of profile.seconds — see CompleteTimerDialog. */
+    setStatus(name: string, status: Status, overrideSeconds?: number): Promise<Profile>
     /** Irreversibly clears the completion/dropped snapshot. Confirm with the user before calling. */
     clearStatusRecord(name: string): Promise<Profile>
     /** Re-downloads cover and background for a game that already knows its appid. */
@@ -195,6 +209,13 @@ export interface GameTimerApi {
     setGenres(name: string, genres: string[]): Promise<Profile>
     setRating(name: string, rating: 0 | 1 | 2 | 3 | 4 | 5): Promise<Profile>
     setFavorite(name: string, favorite: boolean): Promise<Profile>
+    /** categoryName omitted = a default placeholder, renamed inline afterward — see profileService.createSubCategory. */
+    createSubCategory(name: string, categoryName?: string): Promise<Profile>
+    renameSubCategory(name: string, categoryId: string, newName: string): Promise<Profile>
+    deleteSubCategory(name: string, categoryId: string): Promise<Profile>
+    /** null = follow the global setting; true/false override it for this game. Never deletes existing sub-category data. */
+    setSubCategoriesEnabled(name: string, value: boolean | null): Promise<Profile>
+    assignSubCategorySession(name: string, categoryId: string): Promise<Profile>
     /** L1: a fresh untitled note at the top of the list. */
     createNote(name: string): Promise<Profile>
     renameNote(name: string, noteId: string, title: string): Promise<Profile>

@@ -1,15 +1,17 @@
+import { useState } from 'react'
 import type { CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useProfilesStore } from '../../state/profilesStore'
 import { useTimerStore } from '../../state/timerStore'
 import { useUiStore, launchGame, stopGame, selectProfile } from '../../state/uiStore'
 import { useOpenGamesStore } from '../../state/openGamesStore'
+import { useSettingsStore } from '../../state/settingsStore'
 import { formatSeconds } from '@shared/format'
 import { summaryFrom } from '@shared/sessionStats'
 import { GameArt } from './GameArt'
 import { FavoriteStar } from './FavoriteStar'
 import { toast } from '../common/Toast'
-import type { Status } from '@shared/types'
+import type { Status, SubCategory } from '@shared/types'
 
 /** Same wash as the Timer view — see SelectedGameView for why it's a background layer rather than an overlay. */
 const ACCENT_WASH =
@@ -20,6 +22,92 @@ function Stat({ label, value }: { label: string; value: string }): React.JSX.Ele
     <div className="flex flex-col gap-0.5">
       <span className="text-[0.65rem] tracking-wide text-subtext uppercase">{label}</span>
       <span className="text-sm text-text tabular-nums">{value}</span>
+    </div>
+  )
+}
+
+/**
+ * One row in the sub-category list. Renaming is inline-edit (a real
+ * <input>), the same pattern NoteEditor's title already uses — never
+ * window.prompt(), which Electron does not implement (see addSubCategory's
+ * comment above).
+ */
+function SubCategoryRow({
+  gameName,
+  category
+}: {
+  gameName: string
+  category: SubCategory
+}): React.JSX.Element {
+  const { t } = useTranslation()
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(category.name)
+  // Live while this category is the one actively assigned to a running
+  // session for this game — same mechanism as the main timer's own
+  // liveSeconds, so this ticks every UI_TICK_MS instead of only refreshing
+  // on pause. Falls back to the last-persisted value otherwise.
+  const liveCategory = useTimerStore((s) => s.runningCategories[gameName])
+  const displaySeconds =
+    liveCategory && liveCategory.categoryId === category.id ? liveCategory.seconds : category.seconds
+
+  async function commit(): Promise<void> {
+    setEditing(false)
+    const trimmed = draft.trim()
+    if (!trimmed || trimmed === category.name) {
+      setDraft(category.name)
+      return
+    }
+    try {
+      useProfilesStore
+        .getState()
+        .upsert(await window.api.profiles.renameSubCategory(gameName, category.id, trimmed))
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : String(err))
+      setDraft(category.name)
+    }
+  }
+
+  async function handleDelete(): Promise<void> {
+    if (
+      !window.confirm(
+        t('subcat_delete_confirm', { name: category.name, time: formatSeconds(displaySeconds) })
+      )
+    )
+      return
+    useProfilesStore.getState().upsert(await window.api.profiles.deleteSubCategory(gameName, category.id))
+  }
+
+  return (
+    <div className="flex items-center justify-between rounded px-2 py-1 hover:bg-panel">
+      {editing ? (
+        <input
+          autoFocus
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={() => void commit()}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') e.currentTarget.blur()
+            if (e.key === 'Escape') {
+              setDraft(category.name)
+              setEditing(false)
+            }
+          }}
+          className="min-w-0 flex-1 rounded bg-panel px-1.5 py-0.5 text-sm text-text outline-none ring-1 ring-accent"
+        />
+      ) : (
+        <button
+          onClick={() => setEditing(true)}
+          className="min-w-0 flex-1 truncate text-left text-sm text-text hover:underline"
+        >
+          {category.name}
+        </button>
+      )}
+      <div className="flex shrink-0 items-center gap-2">
+        <span className="text-xs tabular-nums text-subtext">{formatSeconds(displaySeconds)}</span>
+        <button onClick={() => void handleDelete()} className="text-xs text-red hover:underline">
+          {t('ctx_delete')}
+        </button>
+      </div>
     </div>
   )
 }
@@ -37,6 +125,7 @@ export function LibraryDetail({ name }: { name: string }): React.JSX.Element {
   const profile = useProfilesStore((s) => s.profiles[name])
   const liveSeconds = useTimerStore((s) => s.running[name])
   const isProcessOpen = useOpenGamesStore((s) => s.open.has(name))
+  const globalSubCategoriesEnabled = useSettingsStore((s) => s.settings?.subCategoriesEnabled ?? true)
   const setLibraryFocus = useUiStore((s) => s.setLibraryFocus)
   const openDialog = useUiStore((s) => s.openDialog)
 
@@ -59,6 +148,14 @@ export function LibraryDetail({ name }: { name: string }): React.JSX.Element {
   // Xbox/Store games have NEITHER an appid nor a runnable .exe — they launch by
   // AUMID — so launchUri has to count here or their button never appears.
   const canLaunch = profile.steamAppId != null || !!profile.launchUri || !!profile.exePath
+  const subCategoriesEnabled = profile.subCategoriesEnabled ?? globalSubCategoriesEnabled
+  // What the toggle actually reflects and controls — not the raw enabled
+  // flag. A brand-new game inherits the global default (true), so the raw
+  // flag would show checked even with zero categories; a first click on an
+  // already-checked toggle would then just disable it instead of creating
+  // anything. Tying "checked" to "is the section actually showing" makes
+  // the very first click always do what it visually promises.
+  const hasVisibleSubCategories = subCategoriesEnabled && profile.subCategories.length > 0
 
   const STATUS_LABEL: Record<Status, string> = {
     not_started: t('status_not_started'),
@@ -85,11 +182,63 @@ export function LibraryDetail({ name }: { name: string }): React.JSX.Element {
 
   async function toggleComplete(): Promise<void> {
     const next: Status = profile!.status === 'completed' ? 'in_progress' : 'completed'
+    // hasVisibleSubCategories, not raw data presence — a game with the
+    // toggle off behaves exactly like one with no data at all.
+    if (next === 'completed' && hasVisibleSubCategories) {
+      openDialog('completeTimerPicker', name)
+      return
+    }
     useProfilesStore.getState().upsert(await window.api.profiles.setStatus(name, next))
   }
 
   async function setRating(rating: 0 | 1 | 2 | 3 | 4 | 5): Promise<void> {
     useProfilesStore.getState().upsert(await window.api.profiles.setRating(name, rating))
+  }
+
+  /**
+   * No name is collected up front — window.prompt() does not work in
+   * Electron (returns null, no dialog ever shown; measured live, not
+   * assumed). Creates with a placeholder and lets SubCategoryRow's inline
+   * edit (a real <input>, same pattern NoteEditor's title already uses)
+   * handle renaming, exactly like "+ New note" does for Notes.
+   */
+  async function addSubCategory(): Promise<void> {
+    useProfilesStore.getState().upsert(await window.api.profiles.createSubCategory(name))
+  }
+
+  /**
+   * The single entry point for the whole feature, replacing the old
+   * right-click "+ New sub-category" — there was no way to start using it
+   * from a game's own page, and a separate right-click item plus an
+   * in-section checkbox was two controls doing overlapping jobs. Turning
+   * this on for a game with none yet creates the first one automatically;
+   * turning it off hides the section but never deletes the data — it's
+   * still there, still totalled correctly, the moment it's turned back on.
+   *
+   * Turning on while the timer is ALREADY running is a special case: the
+   * natural "which category?" prompt only ever fires on the transition into
+   * running (see timerStore's shouldPromptFor), which already happened
+   * before this toggle existed for this session — so it would otherwise
+   * never fire at all, and the time already elapsed this session would have
+   * no way to land in a category. timerEngine snapshots pendingCategoryStart
+   * at Play time unconditionally, regardless of whether sub-categories were
+   * even enabled then, so opening the same prompt here still credits the
+   * FULL elapsed session once answered, not just the time since toggling.
+   */
+  async function toggleSubCategoriesEnabled(): Promise<void> {
+    // Toggling "on" from the user's point of view means "show something" —
+    // covers both the disabled case and the enabled-but-empty case (a fresh
+    // game inheriting an enabled global default with nothing created yet).
+    const turningOn = !hasVisibleSubCategories
+    const updated = await window.api.profiles.setSubCategoriesEnabled(name, turningOn)
+    useProfilesStore.getState().upsert(updated)
+    if (turningOn && isRunning) {
+      openDialog('subCategoryPrompt', name)
+      return
+    }
+    if (turningOn && updated.subCategories.length === 0) {
+      useProfilesStore.getState().upsert(await window.api.profiles.createSubCategory(name))
+    }
   }
 
   /** D4: the counterpart to Export — pulls a .gtprofile in as a new game. */
@@ -172,11 +321,22 @@ export function LibraryDetail({ name }: { name: string }): React.JSX.Element {
                   {isRunning ? t('status_tracking') : STATUS_LABEL[profile.status]}
                 </div>
 
-                <div className="font-mono text-4xl font-bold tabular-nums text-text">
-                  {formatSeconds(seconds)}
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="font-mono text-4xl font-bold tabular-nums text-text">
+                    {formatSeconds(seconds)}
+                  </div>
+                  <label className="flex w-fit items-center gap-1.5 text-xs text-subtext">
+                    <input
+                      type="checkbox"
+                      checked={hasVisibleSubCategories}
+                      onChange={() => void toggleSubCategoriesEnabled()}
+                      className="h-3.5 w-3.5 accent-[var(--gt-accent)]"
+                    />
+                    {t('subcat_enable_toggle')}
+                  </label>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2 pt-1">
+                <div className="flex flex-wrap items-center gap-2">
                   {canLaunch &&
                     (isProcessOpen ? (
                       <button
@@ -208,6 +368,12 @@ export function LibraryDetail({ name }: { name: string }): React.JSX.Element {
                     }`}
                   >
                     {t('btn_complete')}
+                  </button>
+                  <button
+                    onClick={() => openDialog('activeTimers')}
+                    className="rounded-lg bg-card px-4 py-2 text-sm font-medium text-text transition-opacity hover:opacity-80"
+                  >
+                    {t('btn_active_timers')}
                   </button>
                 </div>
               </div>
@@ -250,6 +416,27 @@ export function LibraryDetail({ name }: { name: string }): React.JSX.Element {
               ))}
             </div>
           </div>
+
+          {hasVisibleSubCategories && (
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[0.65rem] tracking-wide text-subtext uppercase">
+                  {t('subcat_heading')}
+                </span>
+                <button
+                  onClick={() => void addSubCategory()}
+                  className="text-xs text-accent hover:underline"
+                >
+                  {t('subcat_new')}
+                </button>
+              </div>
+              <div className="flex max-h-40 flex-col gap-0.5 overflow-y-auto rounded-lg bg-card p-1.5">
+                {profile.subCategories.map((c) => (
+                  <SubCategoryRow key={c.id} gameName={name} category={c} />
+                ))}
+              </div>
+            </div>
+          )}
 
           {profile.genres.length > 0 && (
             <div className="flex flex-col gap-1.5">
