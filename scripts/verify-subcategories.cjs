@@ -296,6 +296,77 @@ async function closeApp(app) {
     await closeApp(app)
   }
 
+  console.log('\n=== enabling sub-categories WHILE the timer is already running prompts, and credits the FULL session, not just time since enabling ===')
+  {
+    // Real user report: launching with no sub-category yet doesn't prompt
+    // (correct — nothing to choose), but there was previously no way to
+    // retroactively attribute that running session once one got created.
+    // pendingCategoryStart is snapshotted at Play time unconditionally (see
+    // timerEngine.start), so this must credit the whole elapsed session, not
+    // just the time between clicking the toggle and answering the prompt.
+    const { app, win, appDataRoot } = await launch('late-enable')
+    await win.locator('text=Sub Test Game').click()
+    await win.evaluate(() => window.api.timer.start('Sub Test Game'))
+    await win.waitForTimeout(2500) // real elapsed session time, all before sub-categories exist at all
+
+    const toggle = win.getByLabel('Enable sub-categories for this game')
+    await toggle.click()
+    await win.waitForTimeout(300)
+    check(
+      'no category silently auto-created — the prompt is the only path here',
+      readProfile(appDataRoot).subCategories.length,
+      0
+    )
+    check(
+      'the "which category" prompt opened immediately, not waiting for a future Play press',
+      await win.getByText('Which category is this session for, Sub Test Game?').count(),
+      1
+    )
+
+    await win.getByText('+ New', { exact: true }).click()
+    await win.waitForTimeout(300)
+    const profile = readProfile(appDataRoot)
+    check('answering created exactly one category', profile.subCategories.length, 1)
+    check(
+      'credited the FULL ~2.5s elapsed session, not just time since the toggle click',
+      profile.subCategories[0].seconds >= 2,
+      true
+    )
+    check(
+      'category total matches the main total for this session (nothing else played)',
+      Math.abs(profile.subCategories[0].seconds - profile.seconds) < 0.5,
+      true
+    )
+    await closeApp(app)
+  }
+
+  console.log('\n=== Active Timers dialog lists every running game and can pause one from there ===')
+  {
+    const { app, win, appDataRoot } = await launch('active-timers')
+    await win.locator('text=Sub Test Game').click()
+    await win.evaluate(() => window.api.timer.start('Sub Test Game'))
+    await win.waitForTimeout(1500)
+
+    await win.getByText('Active Timers', { exact: true }).click()
+    await win.waitForTimeout(300)
+    // Scoped to the modal overlay: the game's own Play/Pause button (also
+    // showing "Pause" right now, since it's running) sits on the page BEHIND
+    // this dialog, so an unscoped text lookup would match both.
+    const modal = win.locator('.fixed.inset-0.z-50')
+    check('running game listed in the Active Timers dialog', await modal.getByText('Sub Test Game').count() >= 1, true)
+
+    await modal.getByText('⏸  Pause', { exact: true }).click()
+    // The dialog's list is driven by timerStore's `running`, which only
+    // updates on the next natural timer:tick broadcast (UI_TICK_MS = 500ms)
+    // after pause() removes this profile from activeTimers — not
+    // instantaneous with the click itself.
+    await win.waitForTimeout(800)
+    check('timer paused from the dialog', readProfile(appDataRoot).activeSession, null)
+    check('dialog now shows the empty state', await modal.getByText('No timers running right now.').count(), 1)
+
+    await closeApp(app)
+  }
+
   console.log(`\n${failures === 0 ? 'ALL CHECKS PASSED' : `${failures} CHECK(S) FAILED`}`)
   process.exit(failures === 0 ? 0 : 1)
 })().catch((err) => {

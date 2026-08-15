@@ -214,17 +214,31 @@ export function LibraryDetail({ name }: { name: string }): React.JSX.Element {
    * this on for a game with none yet creates the first one automatically;
    * turning it off hides the section but never deletes the data — it's
    * still there, still totalled correctly, the moment it's turned back on.
+   *
+   * Turning on while the timer is ALREADY running is a special case: the
+   * natural "which category?" prompt only ever fires on the transition into
+   * running (see timerStore's shouldPromptFor), which already happened
+   * before this toggle existed for this session — so it would otherwise
+   * never fire at all, and the time already elapsed this session would have
+   * no way to land in a category. timerEngine snapshots pendingCategoryStart
+   * at Play time unconditionally, regardless of whether sub-categories were
+   * even enabled then, so opening the same prompt here still credits the
+   * FULL elapsed session once answered, not just the time since toggling.
    */
   async function toggleSubCategoriesEnabled(): Promise<void> {
     // Toggling "on" from the user's point of view means "show something" —
     // covers both the disabled case and the enabled-but-empty case (a fresh
     // game inheriting an enabled global default with nothing created yet).
     const turningOn = !hasVisibleSubCategories
-    let updated = await window.api.profiles.setSubCategoriesEnabled(name, turningOn)
-    if (turningOn && updated.subCategories.length === 0) {
-      updated = await window.api.profiles.createSubCategory(name)
-    }
+    const updated = await window.api.profiles.setSubCategoriesEnabled(name, turningOn)
     useProfilesStore.getState().upsert(updated)
+    if (turningOn && isRunning) {
+      openDialog('subCategoryPrompt', name)
+      return
+    }
+    if (turningOn && updated.subCategories.length === 0) {
+      useProfilesStore.getState().upsert(await window.api.profiles.createSubCategory(name))
+    }
   }
 
   /** D4: the counterpart to Export — pulls a .gtprofile in as a new game. */
@@ -307,11 +321,22 @@ export function LibraryDetail({ name }: { name: string }): React.JSX.Element {
                   {isRunning ? t('status_tracking') : STATUS_LABEL[profile.status]}
                 </div>
 
-                <div className="font-mono text-4xl font-bold tabular-nums text-text">
-                  {formatSeconds(seconds)}
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="font-mono text-4xl font-bold tabular-nums text-text">
+                    {formatSeconds(seconds)}
+                  </div>
+                  <label className="flex w-fit items-center gap-1.5 text-xs text-subtext">
+                    <input
+                      type="checkbox"
+                      checked={hasVisibleSubCategories}
+                      onChange={() => void toggleSubCategoriesEnabled()}
+                      className="h-3.5 w-3.5 accent-[var(--gt-accent)]"
+                    />
+                    {t('subcat_enable_toggle')}
+                  </label>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2 pt-1">
+                <div className="flex flex-wrap items-center gap-2">
                   {canLaunch &&
                     (isProcessOpen ? (
                       <button
@@ -344,15 +369,12 @@ export function LibraryDetail({ name }: { name: string }): React.JSX.Element {
                   >
                     {t('btn_complete')}
                   </button>
-                  <label className="flex items-center gap-1.5 rounded-lg bg-card px-3 py-2 text-xs text-subtext">
-                    <input
-                      type="checkbox"
-                      checked={hasVisibleSubCategories}
-                      onChange={() => void toggleSubCategoriesEnabled()}
-                      className="h-3.5 w-3.5 accent-[var(--gt-accent)]"
-                    />
-                    {t('subcat_enable_toggle')}
-                  </label>
+                  <button
+                    onClick={() => openDialog('activeTimers')}
+                    className="rounded-lg bg-card px-4 py-2 text-sm font-medium text-text transition-opacity hover:opacity-80"
+                  >
+                    {t('btn_active_timers')}
+                  </button>
                 </div>
               </div>
             </div>
