@@ -143,6 +143,7 @@
   "hint_canvas": "Right-click a game in the list for more options",
   "hint_note_example": "e.g. \"Played at a friend's place\"",
   "hint_right_click": "Right-click a game for more options",
+  "hint_stop_game_unstoppable": "This game's anti-cheat runs it with elevated permissions Gamut can't act on — close it from the game itself.",
   "info_exported_msg": "Profile exported to:\n{{path}}",
   "info_exported_title": "Exported",
   "info_imported_msg": "Imported profile as '{{name}}'",

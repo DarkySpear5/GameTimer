@@ -125,6 +125,7 @@ export function LibraryDetail({ name }: { name: string }): React.JSX.Element {
   const profile = useProfilesStore((s) => s.profiles[name])
   const liveSeconds = useTimerStore((s) => s.running[name])
   const isProcessOpen = useOpenGamesStore((s) => s.open.has(name))
+  const isUnstoppable = useOpenGamesStore((s) => s.unstoppable.has(name))
   const globalSubCategoriesEnabled = useSettingsStore((s) => s.settings?.subCategoriesEnabled ?? true)
   const setLibraryFocus = useUiStore((s) => s.setLibraryFocus)
   const openDialog = useUiStore((s) => s.openDialog)
@@ -341,7 +342,9 @@ export function LibraryDetail({ name }: { name: string }): React.JSX.Element {
                     (isProcessOpen ? (
                       <button
                         onClick={() => void handleStop()}
-                        className="rounded-lg bg-red px-4 py-2 text-sm font-medium text-bg transition-opacity hover:opacity-80"
+                        disabled={isUnstoppable}
+                        title={isUnstoppable ? t('hint_stop_game_unstoppable') : undefined}
+                        className="rounded-lg bg-red px-4 py-2 text-sm font-medium text-bg transition-opacity hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:opacity-40"
                       >
                         {t('btn_stop_game')}
                       </button>

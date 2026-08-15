@@ -53,7 +53,7 @@ const NAME_FALLBACK_LAUNCHERS = /^(nxl|battlenet|origin2|link2ea):\/\//i
  */
 export function isGameRunning(game: WatchTarget, running: Set<string>, runningNamesNoPath?: Set<string>): boolean {
   if (matchingPaths(game, running).length > 0) return true
-  return matchesByNameOnly(game, runningNamesNoPath)
+  return isElevatedNameMatch(game, runningNamesNoPath)
 }
 
 /** Windows' Process.ProcessName never carries the ".exe" — normalize both sides the same way to compare. */
@@ -61,7 +61,16 @@ function bareExeName(exePath: string): string {
   return (exePath.split(/[\\/]/).pop() ?? exePath).replace(/\.exe$/i, '').toLowerCase()
 }
 
-function matchesByNameOnly(game: WatchTarget, runningNamesNoPath: Set<string> | undefined): boolean {
+/**
+ * Whether this game is currently "running" ONLY via the elevated name-only
+ * fallback — never via a resolvable path. Exported (not just used internally
+ * by isGameRunning) so gameWatcher can tag a game it detects this way as
+ * unstoppable: this app can see the process exists, but Windows blocks it
+ * from ever reading enough about an elevated process to kill it, so the
+ * renderer disables Stop for it rather than offering a button that would
+ * just silently fail — see gameWatcher.unstoppableNames and LibraryDetail.tsx.
+ */
+export function isElevatedNameMatch(game: WatchTarget, runningNamesNoPath: Set<string> | undefined): boolean {
   if (!runningNamesNoPath || runningNamesNoPath.size === 0 || !game.exePath) return false
   if (!game.launchUri || !NAME_FALLBACK_LAUNCHERS.test(game.launchUri)) return false
   return runningNamesNoPath.has(bareExeName(game.exePath))

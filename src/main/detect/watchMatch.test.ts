@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isGameRunning, matchingPaths } from './watchMatch'
+import { isGameRunning, matchingPaths, isElevatedNameMatch } from './watchMatch'
 
 const running = (...paths: string[]): Set<string> => new Set(paths.map((p) => p.toLowerCase()))
 
@@ -117,6 +117,26 @@ describe('isGameRunning — name-only fallback (elevated processes)', () => {
 
   it('still matches normally by path when the path IS available, even for an allowlisted launcher', () => {
     expect(isGameRunning(vindictus, running(vindictus.exePath))).toBe(true)
+  })
+})
+
+describe('isElevatedNameMatch', () => {
+  // The exhaustive scoping rules (launcher allowlist, exePath required, case
+  // sensitivity) are already covered via isGameRunning above — this just
+  // confirms the exported direct entry point gameWatcher.ts actually calls
+  // behaves the same way, since it's now a public part of the contract.
+  const vindictus = {
+    installDir: null,
+    exePath: 'C:\\Nexon\\Library\\vindictus\\appdata\\en-US\\Vindictus_x64.exe',
+    launchUri: 'nxl://launch/10300'
+  }
+
+  it('is true for a name-only match on an allowlisted launcher', () => {
+    expect(isElevatedNameMatch(vindictus, new Set(['vindictus_x64']))).toBe(true)
+  })
+
+  it('is false when nothing matches', () => {
+    expect(isElevatedNameMatch(vindictus, new Set(['something_else']))).toBe(false)
   })
 })
 

@@ -1,4 +1,4 @@
-import { isGameRunning } from './watchMatch'
+import { matchingPaths, isElevatedNameMatch } from './watchMatch'
 import { listRunningProcesses } from './processes'
 import { dataStore } from '../store/dataStore'
 import { timerEngine } from '../timer/timerEngine'
@@ -14,6 +14,16 @@ const POLL_MS = 10_000
 
 /** name -> Date.now() when the process was first seen (or when we launched it). */
 const open = new Map<string, number>()
+
+/**
+ * Names currently open ONLY via the elevated name-only fallback (Nexon/
+ * Battle.net/EA anti-cheat, found live on Vindictus) — never via a
+ * resolvable path. Gamut can see these processes exist but Windows blocks it
+ * from ever reading enough about an elevated one to kill it, so Stop can't
+ * act on them (see gameLauncher.ts's stopGame) — the renderer disables the
+ * button for these instead of offering one that would silently fail.
+ */
+const elevatedOpen = new Set<string>()
 
 /**
  * Games we launched ourselves, so the next poll adopts them as already-running
@@ -76,8 +86,17 @@ async function poll(): Promise<void> {
   const changedProfiles: Profile[] = []
 
   for (const profile of linked) {
-    const isRunning = isGameRunning(profile, running, runningNamesNoPath)
+    const pathHit = matchingPaths(profile, running).length > 0
+    const nameHit = !pathHit && isElevatedNameMatch(profile, runningNamesNoPath)
+    const isRunning = pathHit || nameHit
     const wasOpen = open.has(profile.name)
+
+    if (isRunning) {
+      if (nameHit) elevatedOpen.add(profile.name)
+      else elevatedOpen.delete(profile.name)
+    } else {
+      elevatedOpen.delete(profile.name)
+    }
 
     if (isRunning && !wasOpen) {
       open.set(profile.name, Date.now())
@@ -156,11 +175,17 @@ export const gameWatcher = {
     return [...open.keys()]
   },
 
+  /** Names of every open game Stop can't act on — see elevatedOpen's doc comment above. */
+  unstoppableNames(): string[] {
+    return [...elevatedOpen]
+  },
+
   /** Called right after Gamut kills a game's process itself, so the UI flips to "Launch" without waiting for the next poll. */
   noteClosed(name: string): void {
     const startedAt = open.get(name)
     if (startedAt === undefined) return
     open.delete(name)
+    elevatedOpen.delete(name)
     const profile = dataStore.get().profiles[name]
     if (profile) {
       profile.openSeconds += Math.max(0, Math.floor((Date.now() - startedAt) / 1000))
