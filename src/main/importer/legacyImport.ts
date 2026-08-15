@@ -104,6 +104,7 @@ function normalizeLegacyProfile(name: string, raw: LegacyProfileRaw): Profile {
     launches: 0,
     openSeconds: 0,
     secondsAtOpenTrackingStart: null,
+    openSecondsAtOpenTrackingStart: null,
     autoStartTimer: null,
     genresFromDetection: false,
     favorite: false,

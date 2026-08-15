@@ -33,6 +33,7 @@ function profile(name: string, overrides: Partial<Profile> = {}): Profile {
     launches: 0,
     openSeconds: 0,
     secondsAtOpenTrackingStart: null,
+    openSecondsAtOpenTrackingStart: null,
     autoStartTimer: null,
     genresFromDetection: false,
     favorite: false,

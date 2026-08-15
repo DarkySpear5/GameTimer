@@ -41,7 +41,15 @@ export async function exportProfile(win: BrowserWindow, name: string): Promise<{
     // would keep the legacy `notes` string but silently drop every note the
     // L1 rewrite actually uses.
     noteList: profile.noteList,
-    steamAppId: profile.steamAppId
+    steamAppId: profile.steamAppId,
+    // Carried for the same reason as sessionLog/noteList — a transfer to a
+    // new machine should keep idle/AFK history too, not just playtime. The
+    // two baseline fields have to travel WITH openSeconds, never split from
+    // it — importing openSeconds with a stale or missing baseline is exactly
+    // the "reads as 100% idle" bug idleSecondsFor's own doc comment covers.
+    openSeconds: profile.openSeconds,
+    secondsAtOpenTrackingStart: profile.secondsAtOpenTrackingStart,
+    openSecondsAtOpenTrackingStart: profile.openSecondsAtOpenTrackingStart
   }
 
   if (profile.iconFile) {
@@ -171,8 +179,15 @@ export async function importProfile(win: BrowserWindow): Promise<Profile | null>
     // Launch counts are machine-specific — they describe processes seen on
     // the exporting PC, not the game's history.
     launches: 0,
-    openSeconds: 0,
-    secondsAtOpenTrackingStart: null,
+    // Carried, same reasoning as sessionLog/noteList — a game's idle history
+    // is part of what got exported, not something specific to the exporting
+    // install. An export written before this existed just imports as
+    // 0/null/null, which hasIdleBaseline/idleSecondsFor already treat as
+    // "no data yet" rather than a wrong number — no special-casing needed
+    // here even if only some of the three fields are present.
+    openSeconds: imported.openSeconds ?? 0,
+    secondsAtOpenTrackingStart: imported.secondsAtOpenTrackingStart ?? null,
+    openSecondsAtOpenTrackingStart: imported.openSecondsAtOpenTrackingStart ?? null,
     autoStartTimer: null,
     genresFromDetection: false,
     // Not carried in the file format: a star is a statement about your own

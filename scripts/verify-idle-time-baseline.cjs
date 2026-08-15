@@ -1,21 +1,28 @@
 /*
- * Reported live: a profile with real history from before idle tracking
- * existed (14+ hours of `seconds`) showed exactly 0% idle no matter how long
- * the game sat open unattended, even after the feature was working. Root
- * cause: `idleSeconds = openSeconds - seconds` compared `openSeconds`
- * (which only covers launches Gamut actually watched) against the profile's
- * ALL-TIME `seconds` total (which already had real history behind it) — the
- * huge pre-tracking history permanently dwarfed openSeconds, clamping idle
- * to 0 for as long as it would take openSeconds ALONE to overtake a number
- * it was never supposed to be measured against.
+ * TWO real bugs, found live in sequence on the SAME feature.
  *
- * Fixed with `secondsAtOpenTrackingStart` (a baseline snapshot of `seconds`
- * taken the first time openSeconds ever accrues) and `idleSecondsFor()`
- * (sessionStats.ts), which nets out only the `seconds` accrued SINCE that
- * snapshot. This verifies both the exact reported shape (huge history, no
- * baseline yet — the real-world state every already-affected profile is in
- * right now) and a profile that's had a baseline established, in both the
- * per-game More Info dialog and the account-wide Profile Stats aggregate.
+ * Bug #1 (first fix): a profile with real history from before idle tracking
+ * existed (14+ hours of `seconds`) showed exactly 0% idle no matter how long
+ * the game sat open unattended. `openSeconds - seconds` compared openSeconds
+ * against the profile's ENTIRE all-time seconds total, which permanently
+ * dwarfed it.
+ *
+ * Bug #2 (this fix — found only after #1 shipped and got tested live): the
+ * first fix added ONE baseline, on the `seconds` side only. That broke a
+ * DIFFERENT way: a profile with real openSeconds already sitting on it from
+ * before that baseline existed had nothing to net THAT side against, so ALL
+ * of it read as idle — even next to real hours of active play. Reported
+ * live: 9:25:18 played, 13:44:10 open, shown as 13:44:10 (100%) idle.
+ * Flatly false, and provably so to the one person who knew how much of that
+ * time he was actually playing.
+ *
+ * The real fix needs a baseline on BOTH sides, captured together
+ * (secondsAtOpenTrackingStart / openSecondsAtOpenTrackingStart) — old,
+ * un-split history is excluded entirely rather than assumed to belong to
+ * either side. Verifies: the exact bug #2 shape (real seconds AND real
+ * openSeconds, no baseline pair yet — shows "not tracked yet", not a wrong
+ * number), a profile with a real baseline pair (proves the actual delta
+ * math), and a genuinely-never-watched control.
  */
 const fs = require('fs')
 const path = require('path')
@@ -51,10 +58,11 @@ function game(name, extra = {}) {
     name, seconds: 0, iconFile: null, bgColor: null, bgImage: null,
     status: 'in_progress', statusAt: null, statusSeconds: null, genres: [],
     lastPlayed: null, startedDate: null, notes: '', noteList: [], rating: 0,
-    sessionStats: { count: 24, totalSeconds: 52441, longestSeconds: 5247, firstPlayedAt: 1755000000000, lastPlayedAt: 1755600000000 },
+    sessionStats: { count: 12, totalSeconds: 33918, longestSeconds: 5934, firstPlayedAt: 1754697600000, lastPlayedAt: 1755302400000 },
     sessionLog: [], activeSession: null, exePath: 'C:\\Games\\game.exe', steamAppId: null,
-    launchUri: null, installDir: null, autoFetchArt: null, launches: 3,
-    openSeconds: 0, secondsAtOpenTrackingStart: null, autoStartTimer: null, genresFromDetection: false,
+    launchUri: null, installDir: null, autoFetchArt: null, launches: 10,
+    openSeconds: 0, secondsAtOpenTrackingStart: null, openSecondsAtOpenTrackingStart: null,
+    autoStartTimer: null, genresFromDetection: false,
     favorite: false, coverFile: null, subCategories: [], subCategoriesEnabled: null,
     ...extra
   }
@@ -73,25 +81,27 @@ function game(name, extra = {}) {
     DATA,
     JSON.stringify({
       profiles: {
-        // Exact reported shape: 14:34:01 of pre-tracking history, some
-        // openSeconds already accrued under the OLD code, no baseline ever
-        // captured (real-world state of every already-affected profile).
+        // The exact reported bug #2 shape: real seconds (9:25:18) AND real
+        // openSeconds (13:44:10), neither baseline ever captured. Must show
+        // "not tracked yet", not a fabricated 0% or 100%.
         'Fields of Mistria': game('Fields of Mistria', {
-          seconds: 52441, // 14:34:01
-          openSeconds: 4239, // 01:10:39
-          secondsAtOpenTrackingStart: null
+          seconds: 33918, // 9:25:18
+          openSeconds: 49450, // 13:44:10
+          secondsAtOpenTrackingStart: null,
+          openSecondsAtOpenTrackingStart: null
         }),
-        // A profile that's had a baseline established (post-fix accrual):
-        // 5 real minutes played since tracking started, 20 min game-open —
-        // 15 real idle minutes.
+        // A profile with a REAL baseline pair established (post-fix
+        // accrual): 5 min played and 20 min open SINCE the baseline, on top
+        // of old history both baselines correctly exclude.
         'Baselined Game': game('Baselined Game', {
           seconds: 10_000 + 300,
-          openSeconds: 1_200,
-          secondsAtOpenTrackingStart: 10_000
+          openSeconds: 8_000 + 1_200,
+          secondsAtOpenTrackingStart: 10_000,
+          openSecondsAtOpenTrackingStart: 8_000
         }),
         // Control: genuinely never watched, must still show the "needs
         // watching" note, not a bogus idle figure.
-        'Never Watched': game('Never Watched', { seconds: 500 })
+        'Never Watched': game('Never Watched', { seconds: 500, openSeconds: 0 })
       },
       lastSelected: null,
       settings: { trayEnabled: false, checkForUpdates: false, language: 'en', watchForGames: false }
@@ -107,19 +117,20 @@ function game(name, extra = {}) {
   await win.waitForLoadState('domcontentloaded')
   await win.waitForTimeout(1000)
 
-  console.log('\n=== Fields of Mistria (the exact reported case): idle now shows real time, not 0 ===')
+  console.log('\n=== Fields of Mistria (exact bug #2 shape): no baseline yet -> "not tracked", NOT a wrong number ===')
   await win.locator('[data-testid="library-item"]:has-text("Fields of Mistria")').click()
   await win.waitForTimeout(300)
   await win.locator('button:has-text("More info")').click()
   await win.waitForTimeout(300)
   const mistriaText = await win.locator('.fixed.inset-0.z-50').innerText()
   console.log('  dialog text:\n' + mistriaText.split('\n').map((l) => '    ' + l).join('\n'))
-  check('does NOT show the old 0:00:00 (0%) idle bug', mistriaText.includes('0:00:00 (0%)'), false)
-  check('shows the full existing openSeconds (01:10:39) as idle, at 100%', mistriaText.includes('01:10:39 (100%)'), true)
+  check('does NOT claim 100% idle (the actual reported bug)', mistriaText.includes('(100%)'), false)
+  check('does NOT claim 0% idle either (the FIRST bug, must stay fixed)', mistriaText.includes('(0%)'), false)
+  check('shows the "not tracked yet" explainer instead of any number', mistriaText.includes('No idle time recorded'), true)
   await win.locator('.fixed.inset-0.z-50 button[aria-label="Close"]').click()
   await win.waitForTimeout(300)
 
-  console.log('\n=== Baselined Game: idle correctly nets out only seconds accrued since the baseline ===')
+  console.log('\n=== Baselined Game: idle correctly nets out only the window SINCE the baseline, on both sides ===')
   await win.locator('button:has-text("Back to Library")').click()
   await win.waitForTimeout(300)
   await win.locator('[data-testid="library-item"]:has-text("Baselined Game")').click()
@@ -128,7 +139,8 @@ function game(name, extra = {}) {
   await win.waitForTimeout(300)
   const baselinedText = await win.locator('.fixed.inset-0.z-50').innerText()
   console.log('  dialog text:\n' + baselinedText.split('\n').map((l) => '    ' + l).join('\n'))
-  check('shows exactly 15:00 idle (20 min open minus 5 min actually played)', baselinedText.includes('15:00'), true)
+  check('"Game was open" shows only the since-baseline 20:00, not the raw 2:33:20 total', baselinedText.includes('00:20:00'), true)
+  check('shows exactly 15:00 idle (20 min open minus 5 min actually played, both since baseline)', baselinedText.includes('00:15:00'), true)
   await win.locator('.fixed.inset-0.z-50 button[aria-label="Close"]').click()
   await win.waitForTimeout(300)
 

@@ -111,28 +111,61 @@ export function trimSessionLog(log: SessionEntry[]): SessionEntry[] {
 }
 
 /**
+ * Whether there's a clean, trustworthy idle figure for this profile at all.
+ *
+ * Both baseline fields are captured TOGETHER the moment idle tracking last
+ * (re)started (`gameWatcher.ts`'s `creditOpenSeconds`) — either being null
+ * means no clean split exists yet, and the UI must say so rather than
+ * silently showing a number for it. A profile can have real `openSeconds`
+ * already (old data from before this pairing existed) with no baseline at
+ * all — that is exactly the case that must NOT render a figure; see
+ * `idleSecondsFor`'s own doc comment for what going wrong here looked like.
+ */
+export function hasIdleBaseline(profile: {
+  secondsAtOpenTrackingStart: number | null
+  openSecondsAtOpenTrackingStart: number | null
+}): boolean {
+  return profile.secondsAtOpenTrackingStart != null && profile.openSecondsAtOpenTrackingStart != null
+}
+
+/**
  * Idle time: the game was open but Gamut wasn't counting it as active play.
  *
- * NOT `openSeconds - seconds` — `openSeconds` only covers launches Gamut
- * actually watched, which for almost every profile starts well after
- * `seconds` already had real history behind it (a different Gamut version,
- * or simply before watching was ever turned on). Comparing the two totals
- * directly makes `openSeconds` look permanently dwarfed by all that
- * pre-tracking history, clamping idle to 0 no matter how long the game
- * actually sits open unattended. `secondsAtOpenTrackingStart` is the
- * profile's `seconds` snapshotted the moment `openSeconds` first started
- * accruing (see gameWatcher.ts's `creditOpenSeconds`), so subtracting only
- * the `seconds` accrued SINCE that snapshot compares like with like. Null
- * (never tracked yet) falls back to `seconds` itself, netting to 0 exactly
- * like the pre-fix behavior for a profile with nothing measured at all.
+ * NOT `openSeconds - seconds`, and NOT `openSeconds - (seconds since a
+ * single seconds-only baseline)` either — both were tried and both broke.
+ * `openSeconds` only ever covers launches Gamut actually watched, which for
+ * almost every profile starts well after `seconds` already had real history
+ * behind it (a different Gamut version, or simply before watching was ever
+ * turned on).
+ *
+ * Comparing against the raw `seconds` total dwarfs `openSeconds` under all
+ * that pre-tracking history and clamps idle to 0 forever. Comparing against
+ * only a `seconds` baseline (this function's first version) is just as
+ * wrong the other way: with no matching baseline on the `openSeconds` side,
+ * ALL of it — including years of already-active, already-counted play —
+ * reads as idle. Reported live: 9:25:18 played, 13:44:10 open, shown as
+ * 13:44:10 (100%) idle. Flatly false, and provably so to the one person who
+ * knows how much of that time he was actually at the keyboard.
+ *
+ * The fix is a baseline on BOTH sides, captured in the same instant
+ * (`secondsAtOpenTrackingStart` / `openSecondsAtOpenTrackingStart`): idle is
+ * how much `openSeconds` grew since that moment minus how much `seconds`
+ * grew since it. Old, un-split history on either side is excluded
+ * entirely — not assumed to be idle, not assumed to be active — because
+ * there is no way to recover which it was. Returns 0 whenever
+ * `hasIdleBaseline` is false; callers MUST check that separately before
+ * displaying this as a real figure rather than "no data yet".
  */
 export function idleSecondsFor(profile: {
   seconds: number
   openSeconds: number
   secondsAtOpenTrackingStart: number | null
+  openSecondsAtOpenTrackingStart: number | null
 }): number {
-  const activeSecondsSinceTracking = profile.seconds - (profile.secondsAtOpenTrackingStart ?? profile.seconds)
-  return Math.max(0, profile.openSeconds - activeSecondsSinceTracking)
+  if (!hasIdleBaseline(profile)) return 0
+  const activeSinceBaseline = profile.seconds - profile.secondsAtOpenTrackingStart!
+  const openSinceBaseline = profile.openSeconds - profile.openSecondsAtOpenTrackingStart!
+  return Math.max(0, openSinceBaseline - activeSinceBaseline)
 }
 
 /** What the UI shows. Derived, so it can never disagree with the aggregate. */

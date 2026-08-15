@@ -91,6 +91,9 @@ const GtProfileFileSchema = z.object({
   sessionStats: SessionAggregateSchema.optional(),
   noteList: NoteListSchema.optional(),
   steamAppId: z.number().nullable().catch(null).optional(),
+  openSeconds: z.number().catch(0).optional(),
+  secondsAtOpenTrackingStart: z.number().nullable().catch(null).optional(),
+  openSecondsAtOpenTrackingStart: z.number().nullable().catch(null).optional(),
   iconB64: z.string().optional(),
   iconExt: z.string().optional(),
   bgImageB64: z.string().optional(),
@@ -141,9 +144,10 @@ const ProfileSchema = z
     autoFetchArt: z.boolean().nullable().catch(null),
     launches: z.number().catch(0),
     openSeconds: z.number().catch(0),
-    // Absent in every save written before this existed, so it defaults to
-    // null rather than being required — see its own doc comment in types.ts.
+    // Absent in every save written before this existed, so both default to
+    // null rather than being required — see their doc comment in types.ts.
     secondsAtOpenTrackingStart: z.number().nullable().catch(null).default(null),
+    openSecondsAtOpenTrackingStart: z.number().nullable().catch(null).default(null),
     autoStartTimer: z.boolean().nullable().catch(null),
     genresFromDetection: z.boolean().catch(false),
     favorite: z.boolean().catch(false),
