@@ -148,7 +148,16 @@ export function LibraryDetail({ name }: { name: string }): React.JSX.Element {
   const summary = summaryFrom(profile.sessionStats)
   // Xbox/Store games have NEITHER an appid nor a runnable .exe — they launch by
   // AUMID — so launchUri has to count here or their button never appears.
-  const canLaunch = profile.steamAppId != null || !!profile.launchUri || !!profile.exePath
+  //
+  // Battle.net is excluded outright: found live that neither the battlenet://
+  // URI nor Battle.net.exe's own documented --exec="launch_uid <code>" flag
+  // actually starts the game — both just bring the client to the front (the
+  // URI at least lands on the right game's page, one manual Play click away,
+  // which is what launchUri still gets used for elsewhere — screenshots,
+  // "open .exe directory", etc. — just not a Launch button that would imply
+  // Gamut can start the game itself, when it measurably can't).
+  const isBattleNetLaunch = profile.launchUri?.toLowerCase().startsWith('battlenet://') ?? false
+  const canLaunch = !isBattleNetLaunch && (profile.steamAppId != null || !!profile.launchUri || !!profile.exePath)
   const subCategoriesEnabled = profile.subCategoriesEnabled ?? globalSubCategoriesEnabled
   // What the toggle actually reflects and controls — not the raw enabled
   // flag. A brand-new game inherits the global default (true), so the raw
@@ -338,24 +347,33 @@ export function LibraryDetail({ name }: { name: string }): React.JSX.Element {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
-                  {canLaunch &&
-                    (isProcessOpen ? (
-                      <button
-                        onClick={() => void handleStop()}
-                        disabled={isUnstoppable}
-                        title={isUnstoppable ? t('hint_stop_game_unstoppable') : undefined}
-                        className="rounded-lg bg-red px-4 py-2 text-sm font-medium text-bg transition-opacity hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:opacity-40"
-                      >
-                        {t('btn_stop_game')}
-                      </button>
-                    ) : (
+                  {/*
+                   * Deliberately NOT both gated on canLaunch together — Stop
+                   * only needs the process to actually be open, regardless of
+                   * whether Gamut itself is able to start it (a Battle.net
+                   * game the user launched by hand is still stoppable the
+                   * normal way once running; it's specifically LAUNCHING it
+                   * that Gamut can't do).
+                   */}
+                  {isProcessOpen ? (
+                    <button
+                      onClick={() => void handleStop()}
+                      disabled={isUnstoppable}
+                      title={isUnstoppable ? t('hint_stop_game_unstoppable') : undefined}
+                      className="rounded-lg bg-red px-4 py-2 text-sm font-medium text-bg transition-opacity hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:opacity-40"
+                    >
+                      {t('btn_stop_game')}
+                    </button>
+                  ) : (
+                    canLaunch && (
                       <button
                         onClick={() => void launchGame(profile.name)}
                         className="rounded-lg bg-card px-4 py-2 text-sm font-medium text-text transition-opacity hover:opacity-80"
                       >
                         {t('btn_launch_game')}
                       </button>
-                    ))}
+                    )
+                  )}
                   <button
                     onClick={() => void togglePlay()}
                     className={`rounded-lg px-5 py-2 text-sm font-semibold text-bg transition-opacity hover:opacity-90 ${

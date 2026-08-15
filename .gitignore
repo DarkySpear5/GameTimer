@@ -37,3 +37,4 @@ release-dev/
 .verify-subcategories-tmp/
 .verify-overlay-two-timers-tmp/
 .verify-elevated-tmp/
+.verify-battlenet-tmp/
