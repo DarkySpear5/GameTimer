@@ -39,3 +39,4 @@ release-dev/
 .verify-elevated-tmp/
 .verify-battlenet-tmp/
 .verify-art-letterbox-tmp/
+.verify-startup-art-tmp/

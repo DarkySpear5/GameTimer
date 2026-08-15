@@ -13,6 +13,7 @@ import { fetchGridDbArt } from './steamGridDb'
 import { dataStore } from '../store/dataStore'
 import { mapTagsToGenres } from './genreMap'
 import { isAllowedArtUrl } from './allowedHosts'
+import type { Profile } from '@shared/types'
 
 /**
  * One place that answers "what do we know about this game", trying sources in
@@ -298,4 +299,73 @@ export async function storeArtFromUrl(url: string, kind: 'icon' | 'background'):
   return kind === 'icon'
     ? store(buf, paths.iconsDir(), ICON_MAX_DIMENSION)
     : store(buf, paths.backgroundsDir(), BACKGROUND_MAX_DIMENSION)
+}
+
+/**
+ * Fire-and-forget, called once at startup: retries art for every profile
+ * with no cover at all yet, the same way linkExecutable/createDetected
+ * already do at add-time — for a game added before a fix landed (a Battle.net
+ * game before battleNetLaunchUri existed, a newer Steam game before the
+ * store-image fallback, or simply added before a SteamGridDB key was ever
+ * entered), that add-time attempt is the only one it ever gets otherwise.
+ *
+ * Deliberately narrow, same reasoning as linkExecutable: only `coverFile ===
+ * null` counts as "try again" — a profile with SOME cover, even a
+ * non-portrait fallback, might be one the user picked on purpose (Modify →
+ * Appearance's manual chooser writes to the same field), and this must never
+ * silently replace that. Missing-entirely is the one unambiguous "nothing to
+ * lose" signal. Whatever's found only fills in fields still null, exactly
+ * like every other art-fetch path in this app — never overwrites.
+ *
+ * Sequential, not parallel: enrichGame makes several network requests per
+ * game, and this runs unattended on every launch — gentler on whichever
+ * remote API is involved, at the cost of taking a little longer for a
+ * library with several such games. Nothing else waits on it.
+ *
+ * `onProfileUpdated` fires once per game that actually got something new —
+ * dataStore writes are invisible to the renderer's own profile cache on
+ * their own (same gap gameWatcher's broadcastProfiles exists to close for
+ * its own background mutations), so without this the Library grid would
+ * only pick up the new art after a manual reload, which defeats the point
+ * of doing this automatically in the first place.
+ */
+export async function backfillMissingCoverArt(
+  onProfileUpdated?: (profile: Profile) => void
+): Promise<void> {
+  const data = dataStore.get()
+  const candidates = Object.values(data.profiles).filter((p) => {
+    const wantsArt = p.autoFetchArt ?? data.settings.autoFetchArt
+    return wantsArt && !p.coverFile
+  })
+  if (candidates.length === 0) return
+
+  for (const profile of candidates) {
+    const found = await enrichGame(profile.name, profile.steamAppId, profile.exePath)
+    let touched = false
+    if (found.iconFile && !profile.iconFile) {
+      profile.iconFile = found.iconFile
+      touched = true
+    }
+    if (found.bgImage && !profile.bgImage) {
+      profile.bgImage = found.bgImage
+      touched = true
+    }
+    if (found.coverFile && !profile.coverFile) {
+      profile.coverFile = found.coverFile
+      touched = true
+    }
+    if (found.genres.length > 0 && profile.genres.length === 0) {
+      profile.genres = found.genres
+      profile.genresFromDetection = true
+      touched = true
+    }
+    // Saved and reported per-profile, not batched at the end — this can take
+    // a while for a library with several such games, and the point is
+    // letting the grid update as each one actually arrives, not making the
+    // user wait for the whole run before seeing anything.
+    if (touched) {
+      await dataStore.safeSave()
+      onProfileUpdated?.(profile)
+    }
+  }
 }

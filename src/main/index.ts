@@ -10,9 +10,11 @@ import { registerMainWindow, showWindow, quitApp } from './appLifecycle'
 import { registerUpdaterWindow, checkForUpdatesOnLaunch } from './updater/autoUpdater'
 import { gameWatcher } from './detect/gameWatcher'
 import { backfillSteamInstallDirs, backfillBattleNetLaunchUris } from './detect/installedSources'
+import { backfillMissingCoverArt } from './art/enrich'
 import { keybindService } from './keybinds/keybindService'
 import { overlayWindow } from './overlay/overlayWindow'
 import { USER_DATA_FOLDER, APP_USER_MODEL_ID } from '@shared/channel'
+import { IPC } from '@shared/ipcContract'
 
 let mainWindow: BrowserWindow | null = null
 
@@ -58,6 +60,15 @@ if (!acquireSingleInstanceLock(() => showWindow())) {
     gameWatcher.sync()
     keybindService.registerAll()
     overlayWindow.start()
+
+    // Fire-and-forget, after the window exists so each game's new art can be
+    // pushed to the renderer as it arrives rather than waiting for a reload.
+    // See backfillMissingCoverArt's own doc comment for what qualifies.
+    void backfillMissingCoverArt((profile) => {
+      if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.webContents.isDestroyed()) {
+        mainWindow.webContents.send(IPC.profiles.changed, [profile])
+      }
+    })
 
     if (dataStore.get().settings.checkForUpdates) {
       void checkForUpdatesOnLaunch()
