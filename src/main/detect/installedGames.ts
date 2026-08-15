@@ -174,8 +174,15 @@ async function promoteConfirmedGames(games: FoundGame[]): Promise<void> {
  * source for it.
  *
  * Matching is by normalised name, and a miss simply leaves launchUri null and
- * falls back to the executable — which is right for Steam (appid), GOG and
- * Blizzard (DRM-free or exe-launchable) and merely unhelpful elsewhere.
+ * falls back to the executable — right for Steam (appid) and GOG (DRM-free),
+ * but this used to also assume Battle.net games were exe-launchable, which
+ * measured false: launching Heroes of the Storm's raw .exe opened the
+ * Battle.net client to the game's page and did nothing else — the game never
+ * actually started. scanBattleNet() (installedSources.ts) now fills in a real
+ * `battlenet://<uid>` from the game's own uninstall registry entry, so this
+ * shortcut-based path is a secondary source for Battle.net now, not the only
+ * one. EA's own launch-URI scheme still isn't reverse-engineered, so it's
+ * still in the "merely unhelpful" bucket this comment used to describe.
  */
 async function launchUrisByName(): Promise<Map<string, string>> {
   const byName = new Map<string, string>()

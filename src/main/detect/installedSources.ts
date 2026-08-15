@@ -534,7 +534,14 @@ async function uninstallEntries(): Promise<RegKey[]> {
 async function scanUninstallByPublisher(
   publisher: RegExp,
   source: FoundGame['source'],
-  excludeNames: RegExp
+  excludeNames: RegExp,
+  /**
+   * launchUri stayed hardcoded null here for every Battle.net/EA import —
+   * this is the seam that now lets one of those sources fill it in for real,
+   * without the other needing an answer yet. Defaults to "unknown", same as
+   * the old hardcoded behavior, for whichever source has no builder.
+   */
+  buildLaunchUri: (values: Record<string, string>) => string | null = () => null
 ): Promise<FoundGame[]> {
   const games: FoundGame[] = []
   const seen = new Set<string>()
@@ -555,7 +562,7 @@ async function scanUninstallByPublisher(
         exePath: (await fileExists(location)) ? await findGameExe(location, name) : null,
         steamAppId: null,
         installDir: null,
-        launchUri: null,
+        launchUri: buildLaunchUri(values),
         confident: true
       })
     }
@@ -563,11 +570,34 @@ async function scanUninstallByPublisher(
   return games
 }
 
+/**
+ * Battle.net's own uninstaller records the game's product code as its
+ * `--uid=<code>` argument — the exact code a `battlenet://<code>` URI needs.
+ * Verified live against the real registry entry for Heroes of the Storm:
+ *
+ *   "C:\ProgramData\Battle.net\Agent\Blizzard Uninstaller.exe"
+ *     --lang=enUS --uid=heroes --displayname="Heroes of the Storm"
+ *
+ * Without this, launchUri stayed null for every Battle.net import and
+ * launchGame() fell back to spawning the raw .exe directly — which, same as
+ * a raw-exe Nexon launch, never goes through the launcher's own
+ * authentication. Found live: Heroes of the Storm opened the Battle.net
+ * client to its page and did nothing else — the game never actually started.
+ */
+export function battleNetLaunchUri(values: Record<string, string>): string | null {
+  const uid = /--uid=(\S+)/i.exec(values.UninstallString ?? '')?.[1]
+  return uid ? `battlenet://${uid}` : null
+}
+
 export function scanBattleNet(): Promise<FoundGame[]> {
-  return scanUninstallByPublisher(/blizzard/i, 'battlenet', /^battle\.net$|^blizzard app$/i)
+  return scanUninstallByPublisher(/blizzard/i, 'battlenet', /^battle\.net$|^blizzard app$/i, battleNetLaunchUri)
 }
 
 export function scanEa(): Promise<FoundGame[]> {
+  // launchUri stays null here for now — EA's own URI scheme (origin2:// /
+  // link2ea://) hasn't been reverse-engineered against a real EA game's
+  // uninstall entry yet, the way battleNetLaunchUri was for Battle.net
+  // above. Same raw-exe-fallback caveat still applies until that happens.
   return scanUninstallByPublisher(
     /electronic arts|^ea\b/i,
     'ea',
@@ -623,6 +653,36 @@ export async function backfillSteamInstallDirs(): Promise<void> {
     const match = steamGames.find((g) => g.steamAppId === profile.steamAppId)
     if (match?.installDir) {
       profile.installDir = match.installDir
+      touched = true
+    }
+  }
+  if (touched) await dataStore.safeSave()
+}
+
+/**
+ * One-time-per-launch repair for every Battle.net profile imported before
+ * battleNetLaunchUri existed — same shape as backfillSteamInstallDirs above,
+ * just matched by name instead of steamAppId (Battle.net games have no
+ * stable numeric ID the way Steam's appid is). No-op once a profile already
+ * has a launchUri — safe to call on every launch, not just once.
+ */
+export async function backfillBattleNetLaunchUris(): Promise<void> {
+  const data = dataStore.get()
+  // Profiles don't remember which launcher they came from after import (only
+  // Steam's steamAppId survives that way) — so this can't narrow down to
+  // "definitely Battle.net" ahead of time the way backfillSteamInstallDirs
+  // does. Matching by name against the scan below is what actually decides
+  // it; this filter just avoids bothering with profiles that plainly aren't
+  // launcher-linked at all (no exe on disk) or are already fine.
+  const broken = Object.values(data.profiles).filter((p) => p.exePath && !p.launchUri && p.steamAppId == null)
+  if (broken.length === 0) return
+  const candidates = await scanBattleNet()
+  if (candidates.length === 0) return
+  let touched = false
+  for (const profile of broken) {
+    const match = candidates.find((g) => g.name.toLowerCase() === profile.name.toLowerCase())
+    if (match?.launchUri) {
+      profile.launchUri = match.launchUri
       touched = true
     }
   }
