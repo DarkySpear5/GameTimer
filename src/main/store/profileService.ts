@@ -45,6 +45,7 @@ function freshProfile(name: string): Profile {
     launches: 0,
     openSeconds: 0,
     secondsAtOpenTrackingStart: null,
+    openSecondsAtOpenTrackingStart: null,
     autoStartTimer: null,
     genresFromDetection: false,
     favorite: false,
@@ -200,6 +201,7 @@ export const profileService = {
       // time ITS openSeconds accrues, it must re-baseline against ITS OWN
       // current `seconds`, not carry over whatever baseline the original had.
       secondsAtOpenTrackingStart: null,
+      openSecondsAtOpenTrackingStart: null,
       autoStartTimer: original.autoStartTimer,
       genresFromDetection: original.genresFromDetection,
       favorite: original.favorite,
@@ -613,6 +615,7 @@ export const profileService = {
     profile.activeSession = null
     profile.openSeconds = 0
     profile.secondsAtOpenTrackingStart = null
+    profile.openSecondsAtOpenTrackingStart = null
     profile.launches = 0
     profile.lastPlayed = null
     profile.startedDate = null

@@ -181,6 +181,40 @@ describe('parseGtProfileFile', () => {
     expect(() => parseGtProfileFile([1, 2, 3])).toThrow()
     expect(() => parseGtProfileFile(null)).toThrow()
   })
+
+  it('carries openSeconds and its idle baseline pair through a round trip', () => {
+    const parsed = parseGtProfileFile({
+      name: 'Fields of Mistria',
+      openSeconds: 1200,
+      secondsAtOpenTrackingStart: 500,
+      openSecondsAtOpenTrackingStart: 100
+    })
+    expect(parsed.openSeconds).toBe(1200)
+    expect(parsed.secondsAtOpenTrackingStart).toBe(500)
+    expect(parsed.openSecondsAtOpenTrackingStart).toBe(100)
+  })
+
+  // Same contract as steamAppId above: an absent OPTIONAL field stays
+  // undefined at this layer (not defaulted here) — gtprofile.ts's own `??`
+  // fallbacks are what turn "absent" into 0/null when building the actual
+  // Profile, matching how it already treats steamAppId. This only needs to
+  // prove absence doesn't THROW or get coerced into some other value.
+  it('leaves openSeconds/baselines undefined for an export written before they existed', () => {
+    const parsed = parseGtProfileFile({ name: 'Old Export' })
+    expect(parsed.openSeconds).toBeUndefined()
+    expect(parsed.secondsAtOpenTrackingStart).toBeUndefined()
+    expect(parsed.openSecondsAtOpenTrackingStart).toBeUndefined()
+  })
+
+  it('falls back a wrong-typed openSeconds/baseline to safe defaults', () => {
+    const parsed = parseGtProfileFile({
+      name: 'Evil',
+      openSeconds: 'not-a-number',
+      secondsAtOpenTrackingStart: 'also-not-a-number'
+    })
+    expect(parsed.openSeconds).toBe(0)
+    expect(parsed.secondsAtOpenTrackingStart).toBeNull()
+  })
 })
 
 describe('subCategories schema', () => {

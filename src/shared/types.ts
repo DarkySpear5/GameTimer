@@ -101,21 +101,34 @@ export interface Profile {
    */
   openSeconds: number
   /**
-   * `seconds` at the moment `openSeconds` first started accruing, or null
-   * before that's ever happened. Idle time is `openSeconds` minus how much
-   * `seconds` has grown SINCE this snapshot — not minus `seconds` itself.
-   * `openSeconds` only ever covers launches Gamut actually watched, which for
-   * almost every profile starts well after `seconds` already had real history
-   * behind it (a different Gamut version, or simply before watching was ever
-   * turned on) — comparing the two totals directly makes `openSeconds` look
-   * permanently dwarfed by `seconds`, clamping idle to 0 for as long as it
-   * takes `openSeconds` alone to overtake a number it was never supposed to
-   * be measured against. Reported live: a profile with 14+ hours of
-   * pre-tracking history showed exactly 0% idle no matter how long the game
-   * sat open unattended. Reset to null alongside `openSeconds` (resetTime,
-   * duplicate) so the next accrual re-baselines cleanly.
+   * `seconds` and `openSeconds` snapshotted TOGETHER the moment idle tracking
+   * last (re)started for this profile — see `gameWatcher.ts`'s
+   * `creditOpenSeconds` and `sessionStats.ts`'s `idleSecondsFor`. Idle time is
+   * how much `openSeconds` has grown since this snapshot minus how much
+   * `seconds` has grown since it — never the raw totals, and never just one
+   * side of the pair.
+   *
+   * Both null, or both set — they're always captured in the same instant.
+   * Either being null means "no clean idle figure exists yet", which the UI
+   * must show as a real question mark, not silently substitute a number.
+   *
+   * The first version of this field was JUST `secondsAtOpenTrackingStart`,
+   * and computed idle as `openSeconds - (seconds - secondsAtOpenTrackingStart)`
+   * — using openSeconds's raw total unmodified. That still breaks the moment
+   * a profile has old, un-split `openSeconds` sitting on it: with no
+   * `openSeconds` baseline to subtract, ALL of it reads as idle, even next to
+   * many real hours of `seconds`. Reported live: 9:25:18 played, 13:44:10
+   * open, shown as 13:44:10 (100%) idle — flatly false, since a large chunk
+   * of that open time was demonstrably active play. Both totals need their
+   * own baseline so old, un-attributable history is excluded entirely rather
+   * than dumped into one side of the split.
+   *
+   * Reset to null alongside `openSeconds` (resetTime, duplicate) so the next
+   * accrual re-baselines cleanly.
    */
   secondsAtOpenTrackingStart: number | null
+  /** Paired with `secondsAtOpenTrackingStart` above — see its doc comment. */
+  openSecondsAtOpenTrackingStart: number | null
   /** null = follow the global setting. */
   autoStartTimer: boolean | null
   /**
@@ -341,6 +354,17 @@ export interface GtProfileFile {
   /** Optional for the same reason as sessionLog — absent from any export written before L1, and simply ignored by any build older than it. */
   noteList?: Note[]
   steamAppId?: number | null
+  /**
+   * Carried across a transfer like every other measured stat — unlike
+   * exePath/launchUri/installDir/coverFile, this isn't a path into the
+   * exporting machine's own filesystem, it's a duration that describes the
+   * game's play history the same way `seconds` does. Optional so an export
+   * written before this existed just imports as 0/null, same reasoning as
+   * sessionLog/noteList above.
+   */
+  openSeconds?: number
+  secondsAtOpenTrackingStart?: number | null
+  openSecondsAtOpenTrackingStart?: number | null
   iconB64?: string
   iconExt?: string
   bgImageB64?: string

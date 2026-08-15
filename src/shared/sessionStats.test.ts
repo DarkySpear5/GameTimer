@@ -4,6 +4,7 @@ import {
   addSession,
   aggregateFrom,
   emptyAggregate,
+  hasIdleBaseline,
   idleSecondsFor,
   makeSessionEntry,
   summaryFrom,
@@ -94,37 +95,98 @@ describe('summaryFrom', () => {
   })
 })
 
-describe('idleSecondsFor', () => {
-  it('is 0 for a profile openSeconds has never covered', () => {
-    expect(idleSecondsFor({ seconds: 100, openSeconds: 0, secondsAtOpenTrackingStart: null })).toBe(0)
+describe('hasIdleBaseline', () => {
+  it('is false when neither baseline has ever been captured', () => {
+    expect(
+      hasIdleBaseline({ secondsAtOpenTrackingStart: null, openSecondsAtOpenTrackingStart: null })
+    ).toBe(false)
   })
 
-  // The actual reported bug: a profile with real history from before idle
-  // tracking existed (or from a Gamut version that predates it) has a large
-  // `seconds` total and a small `openSeconds` one just starting to accrue.
-  // The naive `openSeconds - seconds` clamps this to 0 forever; the fix
-  // compares against only the `seconds` accrued since tracking started.
-  it('is not swallowed by huge pre-tracking history once a baseline exists', () => {
-    // 14.5 hours of history (matches the real report), then tracking starts:
-    // openSeconds accrues 20 minutes of open time while only 5 minutes of
-    // that was actively played (the rest is real idle time).
-    const secondsAtStart = 52_441 // 14:34:01
+  // The exact shape of the second reported bug: a profile can already have
+  // one baseline field set (from the first version of this fix) without the
+  // other (added in the second version) — a half-migrated state that must
+  // still read as "no data", not silently treated as complete.
+  it('is false when only one side of the pair is set', () => {
+    expect(
+      hasIdleBaseline({ secondsAtOpenTrackingStart: 100, openSecondsAtOpenTrackingStart: null })
+    ).toBe(false)
+    expect(
+      hasIdleBaseline({ secondsAtOpenTrackingStart: null, openSecondsAtOpenTrackingStart: 100 })
+    ).toBe(false)
+  })
+
+  it('is true once both sides are set', () => {
+    expect(
+      hasIdleBaseline({ secondsAtOpenTrackingStart: 100, openSecondsAtOpenTrackingStart: 50 })
+    ).toBe(true)
+  })
+})
+
+describe('idleSecondsFor', () => {
+  it('is 0 with no baseline at all, however large openSeconds already is', () => {
+    expect(
+      idleSecondsFor({
+        seconds: 100,
+        openSeconds: 5_000,
+        secondsAtOpenTrackingStart: null,
+        openSecondsAtOpenTrackingStart: null
+      })
+    ).toBe(0)
+  })
+
+  // The FIRST bug this whole feature had: naive `openSeconds - seconds`
+  // compared openSeconds against the profile's ENTIRE seconds total, so
+  // huge pre-tracking history clamped idle to 0 forever.
+  it('is not swallowed by huge pre-tracking history once both baselines exist', () => {
+    const secondsAtStart = 52_441 // 14:34:01, matches the real report
     const idle = idleSecondsFor({
-      seconds: secondsAtStart + 300, // +5 min played since tracking started
-      openSeconds: 1_200, // 20 min game-open time accrued since tracking started
-      secondsAtOpenTrackingStart: secondsAtStart
+      seconds: secondsAtStart + 300, // +5 min played since the baseline
+      openSeconds: 1_200, // 20 min of open time accrued since the baseline
+      secondsAtOpenTrackingStart: secondsAtStart,
+      openSecondsAtOpenTrackingStart: 0
     })
     expect(idle).toBe(900) // the 15 real idle minutes, not 0
   })
 
+  // The SECOND bug — found only after the first fix shipped and got tested
+  // live: with only a `seconds` baseline and no matching `openSeconds` one,
+  // any OLD openSeconds sitting on the profile (from before this pairing
+  // existed) had nothing to net it against, so ALL of it read as idle next
+  // to real hours of active play. Reported live: 9:25:18 played, 13:44:10
+  // open, shown as 13:44:10 (100%) idle. Both baselines fixes this: old,
+  // un-split openSeconds is excluded by the openSeconds-side baseline too,
+  // not dumped onto the idle side by default.
+  it('does not read old openSeconds as 100% idle once both baselines exist', () => {
+    const idle = idleSecondsFor({
+      seconds: 33_918, // 9:25:18 total played
+      openSeconds: 49_450, // 13:44:10 total open
+      // Baseline captured with SOME real play already behind it, matching
+      // the real report's shape — the point is openSeconds has its own
+      // baseline now too, not that these particular numbers are exact.
+      secondsAtOpenTrackingStart: 30_000,
+      openSecondsAtOpenTrackingStart: 45_000
+    })
+    // Since the baseline: seconds grew by 3918s, openSeconds grew by 4450s.
+    expect(idle).toBe(532) // 4450 - 3918, not 49450 (100%)
+  })
+
   it('nets out cleanly for a profile that was always tracked from zero', () => {
-    // No pre-existing history: baseline is 0, same as never having one.
-    const idle = idleSecondsFor({ seconds: 400, openSeconds: 1_000, secondsAtOpenTrackingStart: 0 })
+    const idle = idleSecondsFor({
+      seconds: 400,
+      openSeconds: 1_000,
+      secondsAtOpenTrackingStart: 0,
+      openSecondsAtOpenTrackingStart: 0
+    })
     expect(idle).toBe(600)
   })
 
   it('never goes negative even if active time somehow exceeds open time', () => {
-    const idle = idleSecondsFor({ seconds: 1_000, openSeconds: 100, secondsAtOpenTrackingStart: 0 })
+    const idle = idleSecondsFor({
+      seconds: 1_000,
+      openSeconds: 100,
+      secondsAtOpenTrackingStart: 0,
+      openSecondsAtOpenTrackingStart: 0
+    })
     expect(idle).toBe(0)
   })
 })

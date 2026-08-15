@@ -78,8 +78,17 @@ async function runningProcessSets(): Promise<{ paths: Set<string>; namesNoPath: 
  * only the `seconds` accrued since is the fix.
  */
 function creditOpenSeconds(profile: Profile, deltaSeconds: number): void {
-  if (profile.secondsAtOpenTrackingStart == null) {
+  // Both null or both set, always captured together — see their shared doc
+  // comment in types.ts for why splitting them (or defaulting a missing one
+  // to "assume zero since baseline") is exactly the bug this replaced: it
+  // dumped any OLD, un-split openSeconds straight into the idle side,
+  // reading as 100% idle next to real hours of active play. Either being
+  // null re-baselines BOTH from their current totals — which for old
+  // openSeconds means writing off history whose split is genuinely unknown,
+  // rather than guessing which side it belongs to.
+  if (profile.secondsAtOpenTrackingStart == null || profile.openSecondsAtOpenTrackingStart == null) {
     profile.secondsAtOpenTrackingStart = profile.seconds
+    profile.openSecondsAtOpenTrackingStart = profile.openSeconds
   }
   profile.openSeconds += deltaSeconds
 }

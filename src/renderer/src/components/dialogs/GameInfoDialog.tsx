@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Modal } from '../common/Modal'
 import { useProfilesStore } from '../../state/profilesStore'
 import { useSettingsStore } from '../../state/settingsStore'
-import { summaryFrom, idleSecondsFor } from '@shared/sessionStats'
+import { summaryFrom, idleSecondsFor, hasIdleBaseline } from '@shared/sessionStats'
 import { formatSeconds } from '@shared/format'
 import { toast } from '../common/Toast'
 
@@ -42,8 +42,19 @@ export function GameInfoDialog({
 
   const isCompleted = profile.status === 'completed'
   const hasRecord = profile.statusAt != null || profile.statusSeconds != null
+  const hasIdleData = hasIdleBaseline(profile)
   const idleSeconds = idleSecondsFor(profile)
-  const idlePercent = profile.openSeconds > 0 ? Math.round((idleSeconds / profile.openSeconds) * 100) : 0
+  // "Game was open" is shown as only the portion measured SINCE the idle
+  // baseline, not the profile's raw all-time openSeconds — the two figures
+  // in this block have to describe the same window, or the percentages
+  // below stop reconciling with the total shown above them. Older open time
+  // from before a baseline existed is real, but its active/idle split is
+  // unknown, so it stays out of both numbers here rather than being folded
+  // into either one.
+  const openSecondsSinceBaseline = hasIdleData
+    ? profile.openSeconds - profile.openSecondsAtOpenTrackingStart!
+    : 0
+  const idlePercent = openSecondsSinceBaseline > 0 ? Math.round((idleSeconds / openSecondsSinceBaseline) * 100) : 0
 
   async function handleClearRecord(): Promise<void> {
     if (!window.confirm(t('confirm_clear_completion_msg', { name }))) return
@@ -110,20 +121,26 @@ export function GameInfoDialog({
        */}
       {/*
        * Shown whenever Advanced is on, even with nothing to report. Hiding the
-       * block on openSeconds === 0 meant a reader who turned Advanced on
-       * specifically to see idle time got no idle row and no reason why — it
-       * read as broken rather than as "nothing has been measured yet".
+       * block entirely meant a reader who turned Advanced on specifically to
+       * see idle time got no idle row and no reason why — it read as broken
+       * rather than as "nothing has been measured yet".
+       *
+       * Gated on hasIdleBaseline, NOT on openSeconds === 0 — a profile can
+       * already have real openSeconds from before a clean baseline existed,
+       * and showing a number for that is exactly the bug this replaced (see
+       * idleSecondsFor's doc comment). No baseline means no trustworthy
+       * figure, however much raw openSeconds happens to be sitting there.
        */}
       {advanced && (
         <div className="mt-4 border-t border-card pt-4">
-          {profile.openSeconds === 0 ? (
+          {!hasIdleData ? (
             <div className="text-xs leading-snug text-subtext">
               {watching ? t('note_idle_none_yet') : t('note_idle_needs_watching')}
             </div>
           ) : (
             <>
           <dl className="space-y-2 text-sm">
-            <Row label={t('stat_open')} value={formatSeconds(profile.openSeconds)} />
+            <Row label={t('stat_open')} value={formatSeconds(openSecondsSinceBaseline)} />
             <Row
               label={t('stat_idle')}
               value={`${formatSeconds(idleSeconds)} (${idlePercent}%)`}
