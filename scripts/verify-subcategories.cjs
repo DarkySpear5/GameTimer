@@ -100,9 +100,11 @@ async function closeApp(app) {
     const { app, win, appDataRoot } = await launch('crud')
     await win.locator('text=Sub Test Game').click()
 
-    // Create — window.prompt is not interceptable by Playwright directly;
-    // route through the IPC the button calls, same trust level as clicking
-    // it (this is real app code executing, not a mock).
+    // Create via IPC directly rather than the UI's own creation entry
+    // points (the toggle, or the section's own + New) — this block is
+    // about exercising rename/delete with a known name and id, which the
+    // toggle-driven flow below already covers end to end through real
+    // clicks.
     await win.evaluate(() => window.api.profiles.createSubCategory('Sub Test Game', '100% Completion'))
     await win.waitForTimeout(300)
     let profile = readProfile(appDataRoot)
@@ -123,6 +125,36 @@ async function closeApp(app) {
     await closeApp(app)
   }
 
+  console.log('\n=== the toggle next to Complete is the real entry point: click it, a category appears; click again, it hides but keeps its data ===')
+  {
+    const { app, win, appDataRoot } = await launch('toggle')
+    await win.locator('text=Sub Test Game').click()
+
+    const toggle = win.getByLabel('Enable sub-categories for this game')
+    check('starts unchecked (no data yet)', await toggle.isChecked(), false)
+    check('section not visible before enabling', await win.getByText('SUB-CATEGORIES', { exact: true }).count(), 0)
+
+    await toggle.click()
+    await win.waitForTimeout(300)
+    check('a category was auto-created on enable', readProfile(appDataRoot).subCategories.length, 1)
+    check('default name, ready to rename inline', readProfile(appDataRoot).subCategories[0].name, 'New Category')
+    check('section now visible', await win.getByText('SUB-CATEGORIES', { exact: true }).count(), 1)
+    check('the created row is visible too', await win.locator('text=New Category').count(), 1)
+
+    await toggle.click()
+    await win.waitForTimeout(300)
+    check('disabled flag is explicitly false', readProfile(appDataRoot).subCategoriesEnabled, false)
+    check('section hidden again once disabled', await win.getByText('SUB-CATEGORIES', { exact: true }).count(), 0)
+    check('but the category data survives, just hidden', readProfile(appDataRoot).subCategories.length, 1)
+
+    await toggle.click()
+    await win.waitForTimeout(300)
+    check('re-enabling shows the SAME category again, not a second one', readProfile(appDataRoot).subCategories.length, 1)
+    check('section visible again', await win.getByText('SUB-CATEGORIES', { exact: true }).count(), 1)
+
+    await closeApp(app)
+  }
+
   console.log('\n=== a session answered immediately credits the right delta ===')
   {
     const { app, win, appDataRoot } = await launch('immediate')
@@ -135,6 +167,41 @@ async function closeApp(app) {
     const profile = readProfile(appDataRoot)
     check('sub-category credited roughly the elapsed time (2-4s)', profile.subCategories[0].seconds >= 2 && profile.subCategories[0].seconds <= 4, true)
     check('main total also reflects it', profile.seconds >= 2, true)
+    await closeApp(app)
+  }
+
+  console.log('\n=== once assigned, the category keeps growing with the session — the exact bug the user found live ===')
+  {
+    const { app, win, appDataRoot } = await launch('ongoing')
+    await win.evaluate(() => window.api.profiles.createSubCategory('Sub Test Game', 'Casual'))
+    await win.evaluate(() => window.api.timer.start('Sub Test Game'))
+    await win.waitForTimeout(1500)
+    const id = readProfile(appDataRoot).subCategories[0].id
+    await win.evaluate((id) => window.api.profiles.assignSubCategorySession('Sub Test Game', id), id)
+    await win.waitForTimeout(200)
+    const atAssignment = readProfile(appDataRoot).subCategories[0].seconds
+    // CHECKPOINT_MS is 5000 — wait past one natural periodic checkpoint
+    // while still running, unassisted by any further assign call.
+    await win.waitForTimeout(6000)
+    const afterCheckpoint = readProfile(appDataRoot).subCategories[0].seconds
+    check(
+      'category kept growing after the periodic checkpoint, not frozen at the assignment-time value',
+      afterCheckpoint > atAssignment,
+      true
+    )
+    await win.evaluate(() => window.api.timer.pause('Sub Test Game'))
+    // pause() fires `void dataStore.save()` without awaiting it — same as
+    // every other mutation in this script, give the write a moment to land
+    // before reading the file back.
+    await win.waitForTimeout(300)
+    const afterPause = readProfile(appDataRoot).subCategories[0].seconds
+    check('and again after pause commits the final delta', afterPause > afterCheckpoint, true)
+    const profile = readProfile(appDataRoot)
+    check(
+      "category's final total matches the main total for this whole session (nothing else played)",
+      Math.abs(profile.subCategories[0].seconds - profile.seconds) < 0.5,
+      true
+    )
     await closeApp(app)
   }
 

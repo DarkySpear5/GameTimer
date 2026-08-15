@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import { useProfilesStore } from '../../state/profilesStore'
 import { useUiStore, launchGame } from '../../state/uiStore'
+import { useSettingsStore } from '../../state/settingsStore'
 import { ContextMenu, type ContextMenuItem } from '../common/ContextMenu'
 import { toast } from '../common/Toast'
 import { LibraryBrowse } from './LibraryBrowse'
@@ -22,6 +23,7 @@ export function LibraryTab(): React.JSX.Element {
   const closeContextMenu = useUiStore((s) => s.closeContextMenu)
   const openDialog = useUiStore((s) => s.openDialog)
   const setLibraryFocus = useUiStore((s) => s.setLibraryFocus)
+  const globalSubCategoriesEnabled = useSettingsStore((s) => s.settings?.subCategoriesEnabled ?? true)
 
   async function handleDelete(name: string): Promise<void> {
     if (!window.confirm(t('confirm_delete_msg', { name }))) return
@@ -60,19 +62,13 @@ export function LibraryTab(): React.JSX.Element {
       { label: t('ctx_modify'), onClick: () => openDialog('modify', name), separatorBefore: canLaunch },
       { label: t('ctx_info'), onClick: () => openDialog('info', name) },
       { label: t('ctx_notes'), onClick: () => openDialog('notes', name) },
-      {
-        // No name is collected up front — window.prompt() does not work in
-        // Electron. Creates with a placeholder and opens the game's own
-        // page, where the new row is right there ready to rename inline —
-        // same reasoning as LibraryDetail.tsx's addSubCategory.
-        label: t('ctx_new_subcategory'),
-        onClick: () =>
-          void (async () => {
-            useProfilesStore.getState().upsert(await window.api.profiles.createSubCategory(name))
-            setLibraryFocus(name)
-          })()
-      },
-      ...(profile && profile.subCategories.length > 0
+      // Creation moved to a toggle on the game's own page next to Complete —
+      // there was no way to start using the feature from that page before,
+      // and having creation live ONLY in a right-click menu elsewhere was
+      // the actual complaint, not something worth keeping alongside it.
+      ...(profile &&
+      (profile.subCategoriesEnabled ?? globalSubCategoriesEnabled) &&
+      profile.subCategories.length > 0
         ? [{ label: t('ctx_show_profile_stats'), onClick: () => openDialog('profileStatsPerGame', name) }]
         : []),
       {

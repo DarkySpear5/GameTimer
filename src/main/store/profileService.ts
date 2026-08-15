@@ -426,6 +426,13 @@ export const profileService = {
    * called while the timer is still running or after it has already been
    * paused. See timerEngine.ts and the design spec.
    *
+   * If the session is still running, this ALSO registers the category as
+   * the active assignment for the rest of the session (setActiveCategoryAssignment)
+   * — the retroactive credit above only covers "elapsed before you answered";
+   * without this, the category's total would freeze the moment you answer
+   * while the main total kept growing for the rest of the session, which
+   * reads as a broken/stuck timer.
+   *
    * A no-op (still clears the pending snapshot) if the snapshot is already
    * gone — the app restarted since this session started, or this session was
    * already resolved. Never throws for that; it's an expected race, not a bug.
@@ -438,6 +445,7 @@ export const profileService = {
       const elapsed = profile.seconds - startSeconds
       profile.subCategories = creditSubCategory(profile.subCategories, categoryId, elapsed)
       timerEngine.clearPendingCategoryStart(name)
+      timerEngine.setActiveCategoryAssignment(name, categoryId)
       await dataStore.safeSave()
     }
     return profile

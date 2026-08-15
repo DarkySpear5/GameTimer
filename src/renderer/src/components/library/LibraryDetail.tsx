@@ -5,6 +5,7 @@ import { useProfilesStore } from '../../state/profilesStore'
 import { useTimerStore } from '../../state/timerStore'
 import { useUiStore, launchGame, stopGame, selectProfile } from '../../state/uiStore'
 import { useOpenGamesStore } from '../../state/openGamesStore'
+import { useSettingsStore } from '../../state/settingsStore'
 import { formatSeconds } from '@shared/format'
 import { summaryFrom } from '@shared/sessionStats'
 import { GameArt } from './GameArt'
@@ -117,6 +118,7 @@ export function LibraryDetail({ name }: { name: string }): React.JSX.Element {
   const profile = useProfilesStore((s) => s.profiles[name])
   const liveSeconds = useTimerStore((s) => s.running[name])
   const isProcessOpen = useOpenGamesStore((s) => s.open.has(name))
+  const globalSubCategoriesEnabled = useSettingsStore((s) => s.settings?.subCategoriesEnabled ?? true)
   const setLibraryFocus = useUiStore((s) => s.setLibraryFocus)
   const openDialog = useUiStore((s) => s.openDialog)
 
@@ -139,6 +141,14 @@ export function LibraryDetail({ name }: { name: string }): React.JSX.Element {
   // Xbox/Store games have NEITHER an appid nor a runnable .exe — they launch by
   // AUMID — so launchUri has to count here or their button never appears.
   const canLaunch = profile.steamAppId != null || !!profile.launchUri || !!profile.exePath
+  const subCategoriesEnabled = profile.subCategoriesEnabled ?? globalSubCategoriesEnabled
+  // What the toggle actually reflects and controls — not the raw enabled
+  // flag. A brand-new game inherits the global default (true), so the raw
+  // flag would show checked even with zero categories; a first click on an
+  // already-checked toggle would then just disable it instead of creating
+  // anything. Tying "checked" to "is the section actually showing" makes
+  // the very first click always do what it visually promises.
+  const hasVisibleSubCategories = subCategoriesEnabled && profile.subCategories.length > 0
 
   const STATUS_LABEL: Record<Status, string> = {
     not_started: t('status_not_started'),
@@ -165,7 +175,9 @@ export function LibraryDetail({ name }: { name: string }): React.JSX.Element {
 
   async function toggleComplete(): Promise<void> {
     const next: Status = profile!.status === 'completed' ? 'in_progress' : 'completed'
-    if (next === 'completed' && profile!.subCategories.length > 0) {
+    // hasVisibleSubCategories, not raw data presence — a game with the
+    // toggle off behaves exactly like one with no data at all.
+    if (next === 'completed' && hasVisibleSubCategories) {
       openDialog('completeTimerPicker', name)
       return
     }
@@ -185,6 +197,27 @@ export function LibraryDetail({ name }: { name: string }): React.JSX.Element {
    */
   async function addSubCategory(): Promise<void> {
     useProfilesStore.getState().upsert(await window.api.profiles.createSubCategory(name))
+  }
+
+  /**
+   * The single entry point for the whole feature, replacing the old
+   * right-click "+ New sub-category" — there was no way to start using it
+   * from a game's own page, and a separate right-click item plus an
+   * in-section checkbox was two controls doing overlapping jobs. Turning
+   * this on for a game with none yet creates the first one automatically;
+   * turning it off hides the section but never deletes the data — it's
+   * still there, still totalled correctly, the moment it's turned back on.
+   */
+  async function toggleSubCategoriesEnabled(): Promise<void> {
+    // Toggling "on" from the user's point of view means "show something" —
+    // covers both the disabled case and the enabled-but-empty case (a fresh
+    // game inheriting an enabled global default with nothing created yet).
+    const turningOn = !hasVisibleSubCategories
+    let updated = await window.api.profiles.setSubCategoriesEnabled(name, turningOn)
+    if (turningOn && updated.subCategories.length === 0) {
+      updated = await window.api.profiles.createSubCategory(name)
+    }
+    useProfilesStore.getState().upsert(updated)
   }
 
   /** D4: the counterpart to Export — pulls a .gtprofile in as a new game. */
@@ -304,6 +337,15 @@ export function LibraryDetail({ name }: { name: string }): React.JSX.Element {
                   >
                     {t('btn_complete')}
                   </button>
+                  <label className="flex items-center gap-1.5 rounded-lg bg-card px-3 py-2 text-xs text-subtext">
+                    <input
+                      type="checkbox"
+                      checked={hasVisibleSubCategories}
+                      onChange={() => void toggleSubCategoriesEnabled()}
+                      className="h-3.5 w-3.5 accent-[var(--gt-accent)]"
+                    />
+                    {t('subcat_enable_toggle')}
+                  </label>
                 </div>
               </div>
             </div>
@@ -346,7 +388,7 @@ export function LibraryDetail({ name }: { name: string }): React.JSX.Element {
             </div>
           </div>
 
-          {profile.subCategories.length > 0 && (
+          {hasVisibleSubCategories && (
             <div className="flex flex-col gap-1.5">
               <div className="flex items-center justify-between">
                 <span className="text-[0.65rem] tracking-wide text-subtext uppercase">
@@ -364,22 +406,6 @@ export function LibraryDetail({ name }: { name: string }): React.JSX.Element {
                   <SubCategoryRow key={c.id} gameName={name} category={c} />
                 ))}
               </div>
-              <label className="flex items-center gap-2 text-xs text-subtext">
-                <input
-                  type="checkbox"
-                  checked={profile.subCategoriesEnabled ?? true}
-                  onChange={(e) =>
-                    void (async () => {
-                      useProfilesStore
-                        .getState()
-                        .upsert(
-                          await window.api.profiles.setSubCategoriesEnabled(name, e.target.checked)
-                        )
-                    })()
-                  }
-                />
-                {t('subcat_enable_toggle')}
-              </label>
             </div>
           )}
 
