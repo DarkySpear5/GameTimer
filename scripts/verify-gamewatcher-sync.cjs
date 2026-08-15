@@ -45,8 +45,9 @@ function game(name, extra = {}) {
     sessionStats: { count: 0, totalSeconds: 0, longestSeconds: 0, firstPlayedAt: null, lastPlayedAt: null },
     sessionLog: [], activeSession: null, exePath: null, steamAppId: null,
     launchUri: null, installDir: null, autoFetchArt: null, launches: 0,
-    openSeconds: 0, autoStartTimer: null, genresFromDetection: false,
-    favorite: false, coverFile: null, ...extra
+    openSeconds: 0, secondsAtOpenTrackingStart: null, openSecondsAtOpenTrackingStart: null,
+    autoStartTimer: null, genresFromDetection: false,
+    favorite: false, coverFile: null, subCategories: [], subCategoriesEnabled: null, ...extra
   }
 }
 
@@ -116,6 +117,17 @@ async function resolveNotepadPath() {
   }
   check('Launch/Stop button flips to Stop Game', opened, true)
   check('timer auto-started', readProfile().activeSession !== null, true)
+  // Idle-tracking bug #3: baselining lazily inside the openSeconds-credit
+  // call (which only ever runs at CLOSE) meant a fresh profile's baseline
+  // was captured at the END of its first session, swallowing almost all of
+  // it into "already accounted for". Baselining at session START instead
+  // (noteLaunched, synchronously) means a freshly-launched profile's
+  // baseline is 0/0 from the very first moment it's visible on disk.
+  check(
+    'idle baseline captured at launch, not deferred to close',
+    { s: readProfile().secondsAtOpenTrackingStart, o: readProfile().openSecondsAtOpenTrackingStart },
+    { s: 0, o: 0 }
+  )
 
   await win.waitForTimeout(2000) // let a few real seconds accrue before closing
   await execFileAsync('taskkill', ['/F', '/IM', 'Notepad.exe']).catch(() => {})
@@ -130,9 +142,18 @@ async function resolveNotepadPath() {
 
   await win.waitForTimeout(500)
   const shownTime = (await win.locator('.font-mono.text-4xl').first().textContent().catch(() => '')).trim()
-  const onDiskSeconds = readProfile().seconds
+  const finalProfile = readProfile()
+  const onDiskSeconds = finalProfile.seconds
   check('time was actually recorded on disk', onDiskSeconds > 0, true)
   check('UI shows the real elapsed time without a reload (not stale/00:00:00)', shownTime !== '00:00:00', true)
+  // The actual reported bug: autoStartTimer was on the whole session (the
+  // timer ran continuously alongside openSeconds), so real idle time is
+  // ~0 here — NOT the ~100% a late-baselined session would wrongly show.
+  const activeSinceBaseline = finalProfile.seconds - finalProfile.secondsAtOpenTrackingStart
+  const openSinceBaseline = finalProfile.openSeconds - finalProfile.openSecondsAtOpenTrackingStart
+  const idleSeconds = Math.max(0, openSinceBaseline - activeSinceBaseline)
+  console.log(`  seconds=${finalProfile.seconds} openSeconds=${finalProfile.openSeconds} idleSeconds=${idleSeconds}`)
+  check('idle time stays near zero for a session the timer ran throughout', idleSeconds <= 2, true)
 
   const pid = app.process().pid
   await new Promise((r) => execFile('taskkill', ['/F', '/T', '/PID', String(pid)], () => r()))

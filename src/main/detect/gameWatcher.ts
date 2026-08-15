@@ -70,27 +70,38 @@ async function runningProcessSets(): Promise<{ paths: Set<string>; namesNoPath: 
 }
 
 /**
- * Credits `deltaSeconds` to `openSeconds`, baselining `secondsAtOpenTrackingStart`
- * against the profile's CURRENT `seconds` the first time this ever runs for
- * it — see that field's own doc comment in types.ts for why comparing
- * `openSeconds` against the profile's all-time `seconds` (which usually
- * already has real history behind it) is wrong, and comparing it against
- * only the `seconds` accrued since is the fix.
+ * Baselines `secondsAtOpenTrackingStart`/`openSecondsAtOpenTrackingStart`
+ * against the profile's CURRENT totals — called when a session STARTS (see
+ * both call sites below), never when it ends. See the shared doc comment in
+ * types.ts for why comparing `openSeconds` against the profile's all-time
+ * `seconds` is wrong, and why the baseline has to be a matched pair rather
+ * than just one side.
+ *
+ * MUST run at session start, not at the first `creditOpenSeconds` call — an
+ * earlier version baselined lazily, inside creditOpenSeconds, which only
+ * ever runs once a session already ENDED. For a brand-new profile's very
+ * first session that baselines `seconds` at essentially the END of the
+ * session it was supposed to measure, since nothing else had touched
+ * `seconds` in between — swallowing almost the whole session's real active
+ * time into "already accounted for" and leaving only the last sliver to
+ * read as active. Reproduced live: a fresh profile played for 9 real
+ * seconds (0 -> 9.1s) baselined at secondsAtOpenTrackingStart: 8.05,
+ * leaving only ~1s countable as active against 9s of open time — an
+ * obviously wrong result on a session that was mostly active play.
  */
-function creditOpenSeconds(profile: Profile, deltaSeconds: number): void {
+function baselineIdleTrackingIfNeeded(profile: Profile): void {
   // Both null or both set, always captured together — see their shared doc
   // comment in types.ts for why splitting them (or defaulting a missing one
-  // to "assume zero since baseline") is exactly the bug this replaced: it
-  // dumped any OLD, un-split openSeconds straight into the idle side,
-  // reading as 100% idle next to real hours of active play. Either being
-  // null re-baselines BOTH from their current totals — which for old
-  // openSeconds means writing off history whose split is genuinely unknown,
-  // rather than guessing which side it belongs to.
+  // to "assume zero since baseline") is exactly the ORIGINAL bug this
+  // replaced: it dumped any OLD, un-split openSeconds straight into the
+  // idle side, reading as 100% idle next to real hours of active play.
+  // Either being null re-baselines BOTH from their current totals — which
+  // for old openSeconds means writing off history whose split is genuinely
+  // unknown, rather than guessing which side it belongs to.
   if (profile.secondsAtOpenTrackingStart == null || profile.openSecondsAtOpenTrackingStart == null) {
     profile.secondsAtOpenTrackingStart = profile.seconds
     profile.openSecondsAtOpenTrackingStart = profile.openSeconds
   }
-  profile.openSeconds += deltaSeconds
 }
 
 function autoStartEnabled(name: string): boolean {
@@ -124,6 +135,10 @@ async function poll(): Promise<void> {
 
     if (isRunning && !wasOpen) {
       open.set(profile.name, Date.now())
+      // Baselined HERE, at session start — see baselineIdleTrackingIfNeeded's
+      // own doc comment for why doing this at close time (the only other
+      // point openSeconds ever changes) is a real, previously-shipped bug.
+      baselineIdleTrackingIfNeeded(profile)
       // A launch we performed ourselves was already counted at launch time —
       // but the open-set itself still changed just now, either way, and the
       // Launch/Stop button needs to hear about THAT regardless of who gets
@@ -145,7 +160,7 @@ async function poll(): Promise<void> {
     } else if (!isRunning && wasOpen) {
       const startedAt = open.get(profile.name)!
       open.delete(profile.name)
-      creditOpenSeconds(profile, Math.max(0, Math.floor((Date.now() - startedAt) / 1000)))
+      profile.openSeconds += Math.max(0, Math.floor((Date.now() - startedAt) / 1000))
       touched = true
       if (autoStartEnabled(profile.name) && timerEngine.isRunning(profile.name)) {
         timerEngine.pause(profile.name)
@@ -188,9 +203,19 @@ export const gameWatcher = {
    * the exact moment it happened, rather than waiting for a poll to notice —
    * and marking it suppresses the duplicate count that poll would otherwise
    * add when it sees the process appear.
+   *
+   * Also baselines idle tracking right here, synchronously, rather than
+   * waiting for the next poll tick to notice the process and do it there —
+   * for the common case (the user pressed Launch Game in Gamut), this is
+   * the one moment the session's actual start is known exactly. Waiting for
+   * poll's own open-detection would still work (same fallback it already
+   * has for a game Gamut didn't launch), but would reintroduce up to
+   * POLL_MS of drift into the very figure this fix exists to keep precise.
    */
   noteLaunched(name: string): void {
     selfLaunched.add(name)
+    const profile = dataStore.get().profiles[name]
+    if (profile) baselineIdleTrackingIfNeeded(profile)
     this.sync()
   },
 
@@ -212,7 +237,10 @@ export const gameWatcher = {
     elevatedOpen.delete(name)
     const profile = dataStore.get().profiles[name]
     if (profile) {
-      creditOpenSeconds(profile, Math.max(0, Math.floor((Date.now() - startedAt) / 1000)))
+      // Baseline is captured at session START (poll()'s open-detection
+      // branch, or noteLaunched()'s own baselining below) — this only ever
+      // adds the delta for a session that's already baselined.
+      profile.openSeconds += Math.max(0, Math.floor((Date.now() - startedAt) / 1000))
       void dataStore.safeSave()
     }
     // The player just confirmed they're done — stop the clock regardless of
