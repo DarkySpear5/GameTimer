@@ -154,6 +154,14 @@ export const IPC = {
 
 export interface TimerTickPayload {
   running: Record<string, number>
+  /**
+   * name -> the sub-category currently assigned for this running session
+   * (see timerEngine's activeCategoryAssignment) and its own live-interpolated
+   * total — the same "stored value + elapsed since last checkpoint" math as
+   * `running`, so a category's displayed time ticks every UI_TICK_MS exactly
+   * like the main total does, instead of only refreshing on pause.
+   */
+  runningCategories: Record<string, { categoryId: string; seconds: number }>
 }
 
 export interface OverlayTickPayload {

@@ -2,13 +2,16 @@ import { create } from 'zustand'
 import { useProfilesStore } from './profilesStore'
 import { useSettingsStore } from './settingsStore'
 import { useUiStore } from './uiStore'
+import type { TimerTickPayload } from '@shared/ipcContract'
 
 interface TimerState {
   /** name -> live total seconds, pushed every 500ms by main. A name's presence here means it's running. */
   running: Record<string, number>
+  /** name -> the assigned category's own live total, same cadence as `running` — see TimerTickPayload. */
+  runningCategories: TimerTickPayload['runningCategories']
 }
 
-export const useTimerStore = create<TimerState>(() => ({ running: {} }))
+export const useTimerStore = create<TimerState>(() => ({ running: {}, runningCategories: {} }))
 
 let unsubscribe: (() => void) | null = null
 
@@ -31,7 +34,7 @@ function shouldPromptFor(name: string): boolean {
 export function startTimerTickSubscription(): void {
   if (unsubscribe) return
   unsubscribe = window.api.timer.onTick((payload) => {
-    useTimerStore.setState({ running: payload.running })
+    useTimerStore.setState({ running: payload.running, runningCategories: payload.runningCategories })
 
     const nowRunning = new Set(Object.keys(payload.running))
     if (hasBaseline) {

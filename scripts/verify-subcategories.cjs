@@ -205,6 +205,38 @@ async function closeApp(app) {
     await closeApp(app)
   }
 
+  console.log('\n=== the live tick payload itself carries the assigned category, ticking every UI_TICK_MS — not just on pause ===')
+  {
+    const { app, win, appDataRoot } = await launch('live-tick')
+    await win.evaluate(() => window.api.profiles.createSubCategory('Sub Test Game', 'Casual'))
+    await win.evaluate(() => window.api.timer.start('Sub Test Game'))
+    await win.waitForTimeout(500)
+    const id = readProfile(appDataRoot).subCategories[0].id
+    await win.evaluate((id) => window.api.profiles.assignSubCategorySession('Sub Test Game', id), id)
+
+    // Capture two consecutive tick payloads a second apart — this is the
+    // exact mechanism SubCategoryRow's displaySeconds reads from, so this
+    // is checking what the UI actually sees, not just what's on disk.
+    const [first, second] = await win.evaluate(
+      () =>
+        new Promise((resolve) => {
+          const seen = []
+          const unsub = window.api.timer.onTick((payload) => {
+            const entry = payload.runningCategories['Sub Test Game']
+            if (entry) seen.push(entry.seconds)
+            if (seen.length >= 2) {
+              unsub()
+              resolve(seen)
+            }
+          })
+        })
+    )
+    check('live tick payload includes the assigned category at all', typeof first, 'number')
+    check('and it grows between two consecutive ticks, not frozen', second > first, true)
+
+    await closeApp(app)
+  }
+
   console.log('\n=== answering LATE (after pause) still credits correctly, without syncing to the full main total ===')
   {
     const { app, win, appDataRoot } = await launch('late')

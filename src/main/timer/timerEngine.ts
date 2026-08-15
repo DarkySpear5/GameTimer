@@ -276,13 +276,24 @@ class TimerEngine {
     const now = Date.now()
     const data = dataStore.get()
     const running: Record<string, number> = {}
+    const runningCategories: TimerTickPayload['runningCategories'] = {}
     for (const name of this.activeTimers.keys()) {
       const profile = data.profiles[name]
       if (!profile) continue
       const start = this.activeTimers.get(name)!
-      running[name] = profile.seconds + (now - start) / 1000
+      const elapsed = (now - start) / 1000
+      running[name] = profile.seconds + elapsed
+      const categoryId = this.activeCategoryAssignment.get(name)
+      if (categoryId) {
+        const category = profile.subCategories.find((c) => c.id === categoryId)
+        // Same "stored + elapsed since last checkpoint" shape as running
+        // above — the category's own last-checkpointed total already
+        // reflects everything up to `start`, so adding the same live
+        // `elapsed` keeps the two numbers moving in perfect lockstep.
+        if (category) runningCategories[name] = { categoryId, seconds: category.seconds + elapsed }
+      }
     }
-    for (const listener of this.listeners) listener({ running })
+    for (const listener of this.listeners) listener({ running, runningCategories })
   }
 }
 

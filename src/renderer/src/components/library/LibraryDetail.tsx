@@ -42,6 +42,13 @@ function SubCategoryRow({
   const { t } = useTranslation()
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(category.name)
+  // Live while this category is the one actively assigned to a running
+  // session for this game — same mechanism as the main timer's own
+  // liveSeconds, so this ticks every UI_TICK_MS instead of only refreshing
+  // on pause. Falls back to the last-persisted value otherwise.
+  const liveCategory = useTimerStore((s) => s.runningCategories[gameName])
+  const displaySeconds =
+    liveCategory && liveCategory.categoryId === category.id ? liveCategory.seconds : category.seconds
 
   async function commit(): Promise<void> {
     setEditing(false)
@@ -63,7 +70,7 @@ function SubCategoryRow({
   async function handleDelete(): Promise<void> {
     if (
       !window.confirm(
-        t('subcat_delete_confirm', { name: category.name, time: formatSeconds(category.seconds) })
+        t('subcat_delete_confirm', { name: category.name, time: formatSeconds(displaySeconds) })
       )
     )
       return
@@ -96,7 +103,7 @@ function SubCategoryRow({
         </button>
       )}
       <div className="flex shrink-0 items-center gap-2">
-        <span className="text-xs tabular-nums text-subtext">{formatSeconds(category.seconds)}</span>
+        <span className="text-xs tabular-nums text-subtext">{formatSeconds(displaySeconds)}</span>
         <button onClick={() => void handleDelete()} className="text-xs text-red hover:underline">
           {t('ctx_delete')}
         </button>
