@@ -78,12 +78,6 @@ export function AddGameDialog({ onClose }: { onClose: () => void }): React.JSX.E
     <Modal title={t('add_title')} onClose={onClose} width={mode === 'picker' ? 'max-w-2xl' : 'max-w-md'}>
       {mode === 'choose' && (
         <div className="flex flex-col gap-2">
-          <BigButton
-            label={t('add_detect')}
-            hint={t('add_detect_hint')}
-            onClick={() => setMode('picker')}
-            primary
-          />
           {/*
            * E3: scanning every launcher is the fastest way to add games, and it
            * was only reachable from Settings — the one place nobody looks when
@@ -96,6 +90,12 @@ export function AddGameDialog({ onClose }: { onClose: () => void }): React.JSX.E
               onClose()
               useUiStore.getState().openDialog('installed')
             }}
+          />
+          <BigButton
+            label={t('add_detect')}
+            hint={t('add_detect_hint')}
+            onClick={() => setMode('picker')}
+            primary
           />
           <BigButton label={t('add_manual')} hint={t('add_manual_hint')} onClick={() => setMode('manual')} />
         </div>
