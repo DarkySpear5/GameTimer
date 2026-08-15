@@ -1,4 +1,5 @@
 import { net } from 'electron'
+import { normalizeGameName } from '../detect/matchHit'
 
 /**
  * SteamGridDB — community art for games no storefront API covers.
@@ -62,20 +63,30 @@ function firstUrl(payload: unknown): string | null {
 /**
  * Art for a title, or all-null when there is no key, no match, or no images.
  *
- * The name match is deliberately the API's own autocomplete rather than an
- * exact-title rule: SteamGridDB is a curated art database whose entries ARE
- * games, so the "is this even a game" problem that forces exact matching
- * against Steam's catalogue (§5.2) does not arise here.
+ * The search result is held to the same exact-title rule as Steam/GOG (§5.2)
+ * — the autocomplete endpoint is a general-purpose text search across ALL of
+ * SteamGridDB's entries, not scoped to "the same game", so its first result
+ * for an odd or localized title (a trademark symbol, a non-English article)
+ * can be a completely different, real game rather than a near-miss. Reported
+ * live by the user: an EA-detected "Les Sims™ Medieval" (Sims Medieval was
+ * never on Steam, so this source is what actually ran) came back with an
+ * unrelated Japanese visual novel's cover. Every game in SteamGridDB's
+ * catalogue being a real game only rules out the "is this even a game"
+ * failure mode Steam has (§5.2's other half) — it does nothing to rule out
+ * "the wrong game", which is the one that actually bit here. Falls back to
+ * no art rather than wrong art, same as everywhere else.
  */
 export async function fetchGridDbArt(name: string, apiKey: string): Promise<GridDbArt> {
   const key = apiKey.trim()
   if (!key || !name.trim()) return EMPTY
 
   const search = await getJson(`/search/autocomplete/${encodeURIComponent(name.trim())}`, key)
-  const first = Array.isArray((search as { data?: unknown })?.data)
-    ? ((search as { data: unknown[] }).data[0] as { id?: unknown })
-    : null
-  const gameId = typeof first?.id === 'number' ? first.id : null
+  const hits = Array.isArray((search as { data?: unknown })?.data)
+    ? ((search as { data: unknown[] }).data as { id?: unknown; name?: unknown }[])
+    : []
+  const target = normalizeGameName(name)
+  const match = hits.find((h) => typeof h.name === 'string' && normalizeGameName(h.name) === target)
+  const gameId = typeof match?.id === 'number' ? match.id : null
   if (gameId == null) return EMPTY
 
   const [icons, grids, heroes] = await Promise.all([

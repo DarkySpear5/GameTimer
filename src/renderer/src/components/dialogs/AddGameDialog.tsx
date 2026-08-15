@@ -90,12 +90,12 @@ export function AddGameDialog({ onClose }: { onClose: () => void }): React.JSX.E
               onClose()
               useUiStore.getState().openDialog('installed')
             }}
+            primary
           />
           <BigButton
             label={t('add_detect')}
             hint={t('add_detect_hint')}
             onClick={() => setMode('picker')}
-            primary
           />
           <BigButton label={t('add_manual')} hint={t('add_manual_hint')} onClick={() => setMode('manual')} />
         </div>
