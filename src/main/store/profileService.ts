@@ -585,7 +585,7 @@ export const profileService = {
     return { from: fromProfile, to: toProfile }
   },
 
-  async addRemoveTime(name: string, deltaSeconds: number): Promise<Profile> {
+  async addRemoveTime(name: string, deltaSeconds: number, subCategoryIds: string[] = []): Promise<Profile> {
     const profile = requireProfile(name)
     const removing = deltaSeconds < 0
     const magnitude = Math.abs(deltaSeconds)
@@ -594,6 +594,9 @@ export const profileService = {
     } else {
       profile.seconds += magnitude
       profile.lastPlayed = Date.now()
+    }
+    for (const id of subCategoryIds) {
+      profile.subCategories = creditSubCategory(profile.subCategories, id, deltaSeconds)
     }
     await dataStore.safeSave()
     void writeStatusLog()

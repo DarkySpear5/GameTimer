@@ -222,7 +222,7 @@ export interface GameTimerApi {
     deleteNote(name: string, noteId: string): Promise<Profile>
     updateNoteBody(name: string, noteId: string, body: string): Promise<Profile>
     updateNoteDrawing(name: string, noteId: string, drawing: DrawingStroke[]): Promise<Profile>
-    addRemoveTime(name: string, deltaSeconds: number): Promise<Profile>
+    addRemoveTime(name: string, deltaSeconds: number, subCategoryIds?: string[]): Promise<Profile>
     resetTime(name: string): Promise<Profile>
     setIcon(name: string): Promise<Profile | null>
     setBackground(name: string, kind: 'image' | 'color', value: string): Promise<Profile | null>
