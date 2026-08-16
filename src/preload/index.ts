@@ -43,7 +43,8 @@ const api: GameTimerApi = {
       ipcRenderer.invoke(IPC.profiles.updateNoteBody, name, noteId, body),
     updateNoteDrawing: (name, noteId, drawing) =>
       ipcRenderer.invoke(IPC.profiles.updateNoteDrawing, name, noteId, drawing),
-    addRemoveTime: (name, deltaSeconds) => ipcRenderer.invoke(IPC.profiles.addRemoveTime, name, deltaSeconds),
+    addRemoveTime: (name, deltaSeconds, subCategoryIds) =>
+      ipcRenderer.invoke(IPC.profiles.addRemoveTime, name, deltaSeconds, subCategoryIds),
     resetTime: (name) => ipcRenderer.invoke(IPC.profiles.resetTime, name),
     setIcon: (name) => ipcRenderer.invoke(IPC.profiles.setIcon, name),
     setBackground: (name, kind, value) =>

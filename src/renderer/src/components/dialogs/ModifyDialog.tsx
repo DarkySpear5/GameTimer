@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Modal } from '../common/Modal'
 import { Spinner } from '../common/Spinner'
 import { useProfilesStore } from '../../state/profilesStore'
+import { useSettingsStore } from '../../state/settingsStore'
 import { toast } from '../common/Toast'
 import { RunningAppPicker } from './RunningAppPicker'
 
@@ -208,34 +209,75 @@ function GeneralTab({ profile, onClose }: { profile: Profile; onClose: () => voi
  * Exported so the Timer tab can offer Add/Remove time on its own, without
  * opening the whole editor. Same component in both places, so the two can
  * never drift apart.
+ *
+ * Two steps: enter the amount, then — only if the game has sub-categories —
+ * choose which ones also get it. Main always receives the full delta
+ * regardless of what's ticked; unticking every category is valid and just
+ * means main-only, identical to a game with no sub-categories at all.
  */
 export function TimeTab({ profile }: { profile: Profile }): React.JSX.Element {
   const { t } = useTranslation()
+  const globalSubCategoriesEnabled = useSettingsStore((s) => s.settings?.subCategoriesEnabled ?? true)
+  const subCategoriesEnabled = profile.subCategoriesEnabled ?? globalSubCategoriesEnabled
+  const hasSelectableCategories = subCategoriesEnabled && profile.subCategories.length > 0
   async function setAutoStart(value: boolean | null): Promise<void> {
     useProfilesStore.getState().upsert(await window.api.detect.setAutoStartTimer(profile.name, value))
   }
   const [direction, setDirection] = useState<'add' | 'remove'>('add')
   const [hours, setHours] = useState('0')
   const [minutes, setMinutes] = useState('0')
+  const [step, setStep] = useState<'amount' | 'categories'>('amount')
+  const [pendingDelta, setPendingDelta] = useState(0)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
 
   async function resetTime(): Promise<void> {
     if (!window.confirm(t('confirm_reset_time_msg', { name: profile.name }))) return
     useProfilesStore.getState().upsert(await window.api.profiles.resetTime(profile.name))
   }
 
-  async function apply(): Promise<void> {
+  /** Reads the Hours/Minutes inputs, validates, and returns a signed total — or null (after toasting) if it's zero. */
+  function readDelta(): number | null {
     const h = parseInt(hours, 10) || 0
     const m = parseInt(minutes, 10) || 0
     const deltaSeconds = h * 3600 + m * 60
     if (deltaSeconds <= 0) {
       toast.error(t('err_add_time_empty'))
-      return
+      return null
     }
-    const signed = direction === 'remove' ? -deltaSeconds : deltaSeconds
-    const updated = await window.api.profiles.addRemoveTime(profile.name, signed)
+    return direction === 'remove' ? -deltaSeconds : deltaSeconds
+  }
+
+  async function commit(signed: number, subCategoryIds: string[]): Promise<void> {
+    const updated = await window.api.profiles.addRemoveTime(profile.name, signed, subCategoryIds)
     useProfilesStore.getState().upsert(updated)
     setHours('0')
     setMinutes('0')
+    setStep('amount')
+    setSelectedIds(new Set())
+  }
+
+  async function continueOrApply(): Promise<void> {
+    const signed = readDelta()
+    if (signed == null) return
+    if (!hasSelectableCategories) {
+      await commit(signed, [])
+      return
+    }
+    setPendingDelta(signed)
+    setStep('categories')
+  }
+
+  async function applyWithCategories(): Promise<void> {
+    await commit(pendingDelta, Array.from(selectedIds))
+  }
+
+  function toggleCategory(id: string): void {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
   }
 
   return (
@@ -265,44 +307,104 @@ export function TimeTab({ profile }: { profile: Profile }): React.JSX.Element {
           </div>
         </div>
       )}
-      <div className="flex gap-1.5">
-        <button
-          onClick={() => setDirection('add')}
-          className={`flex-1 rounded px-3 py-1.5 text-sm ${direction === 'add' ? 'bg-accent text-bg' : 'bg-card text-text'}`}
-        >
-          {t('label_add')}
-        </button>
-        <button
-          onClick={() => setDirection('remove')}
-          className={`flex-1 rounded px-3 py-1.5 text-sm ${direction === 'remove' ? 'bg-accent text-bg' : 'bg-card text-text'}`}
-        >
-          {t('label_remove')}
-        </button>
-      </div>
-      <div className="flex gap-3">
-        <div className="flex-1">
-          <label className="mb-1 block text-xs text-subtext">{t('label_hours')}</label>
-          <input
-            value={hours}
-            onChange={(e) => setHours(e.target.value)}
-            className="w-full rounded bg-card px-2.5 py-1.5 text-sm text-text outline-none"
-          />
-        </div>
-        <div className="flex-1">
-          <label className="mb-1 block text-xs text-subtext">{t('label_minutes')}</label>
-          <input
-            value={minutes}
-            onChange={(e) => setMinutes(e.target.value)}
-            className="w-full rounded bg-card px-2.5 py-1.5 text-sm text-text outline-none"
-          />
-        </div>
-      </div>
-      <button
-        onClick={() => void apply()}
-        className="self-start rounded bg-accent px-4 py-1.5 text-sm font-medium text-bg hover:opacity-90"
-      >
-        {t('btn_apply')}
-      </button>
+
+      {step === 'amount' && (
+        <>
+          <div className="flex gap-1.5">
+            <button
+              onClick={() => setDirection('add')}
+              className={`flex-1 rounded px-3 py-1.5 text-sm ${direction === 'add' ? 'bg-accent text-bg' : 'bg-card text-text'}`}
+            >
+              {t('label_add')}
+            </button>
+            <button
+              onClick={() => setDirection('remove')}
+              className={`flex-1 rounded px-3 py-1.5 text-sm ${direction === 'remove' ? 'bg-accent text-bg' : 'bg-card text-text'}`}
+            >
+              {t('label_remove')}
+            </button>
+          </div>
+          <div className="flex gap-3">
+            <div className="flex-1">
+              <label htmlFor="addtime-hours" className="mb-1 block text-xs text-subtext">
+                {t('label_hours')}
+              </label>
+              <input
+                id="addtime-hours"
+                value={hours}
+                onChange={(e) => setHours(e.target.value)}
+                className="w-full rounded bg-card px-2.5 py-1.5 text-sm text-text outline-none"
+              />
+            </div>
+            <div className="flex-1">
+              <label htmlFor="addtime-minutes" className="mb-1 block text-xs text-subtext">
+                {t('label_minutes')}
+              </label>
+              <input
+                id="addtime-minutes"
+                value={minutes}
+                onChange={(e) => setMinutes(e.target.value)}
+                className="w-full rounded bg-card px-2.5 py-1.5 text-sm text-text outline-none"
+              />
+            </div>
+          </div>
+          <button
+            onClick={() => void continueOrApply()}
+            className="self-start rounded bg-accent px-4 py-1.5 text-sm font-medium text-bg hover:opacity-90"
+          >
+            {hasSelectableCategories ? t('addtime_continue') : t('btn_apply')}
+          </button>
+        </>
+      )}
+
+      {step === 'categories' && (
+        <>
+          <div>
+            <div className={`text-sm font-medium ${pendingDelta < 0 ? 'text-red' : 'text-accent'}`}>
+              {pendingDelta < 0 ? '−' : '+'}
+              {formatSeconds(Math.abs(pendingDelta))}
+            </div>
+            <p className="mt-1 text-xs text-subtext">{t('addtime_step2_question')}</p>
+          </div>
+          <div className="flex gap-3 text-xs">
+            <button
+              onClick={() => setSelectedIds(new Set(profile.subCategories.map((c) => c.id)))}
+              className="text-accent hover:opacity-80"
+            >
+              {t('addtime_select_all')}
+            </button>
+            <button onClick={() => setSelectedIds(new Set())} className="text-accent hover:opacity-80">
+              {t('addtime_select_none')}
+            </button>
+          </div>
+          <div className="flex flex-col gap-1">
+            {profile.subCategories.map((cat) => (
+              <label
+                key={cat.id}
+                className="flex cursor-pointer items-center gap-2.5 rounded px-2 py-1.5 text-sm text-text hover:bg-card/60"
+              >
+                <input type="checkbox" checked={selectedIds.has(cat.id)} onChange={() => toggleCategory(cat.id)} />
+                {cat.name}
+              </label>
+            ))}
+          </div>
+          <p className="text-xs text-subtext">{t('addtime_main_note')}</p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setStep('amount')}
+              className="rounded bg-card px-4 py-1.5 text-sm text-text hover:bg-card/70"
+            >
+              {t('btn_back')}
+            </button>
+            <button
+              onClick={() => void applyWithCategories()}
+              className="rounded bg-accent px-4 py-1.5 text-sm font-medium text-bg hover:opacity-90"
+            >
+              {t('btn_apply')}
+            </button>
+          </div>
+        </>
+      )}
 
       {/*
        * D1: resetting the clock is a time action, so it belongs on the Time tab

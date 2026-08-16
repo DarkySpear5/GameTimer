@@ -55,8 +55,8 @@ export function registerProfilesIpc(win: BrowserWindow): void {
   ipcMain.handle(IPC.profiles.updateNoteDrawing, (_e, name: string, noteId: string, drawing) =>
     profileService.updateNoteDrawing(name, noteId, drawing)
   )
-  ipcMain.handle(IPC.profiles.addRemoveTime, (_e, name, deltaSeconds) =>
-    profileService.addRemoveTime(name, deltaSeconds)
+  ipcMain.handle(IPC.profiles.addRemoveTime, (_e, name, deltaSeconds, subCategoryIds) =>
+    profileService.addRemoveTime(name, deltaSeconds, subCategoryIds)
   )
   ipcMain.handle(IPC.profiles.resetTime, (_e, name: string) => profileService.resetTime(name))
   ipcMain.handle(IPC.profiles.clearBackground, (_e, name: string) => profileService.clearBackground(name))

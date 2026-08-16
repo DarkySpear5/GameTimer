@@ -45,3 +45,5 @@ release-dev/
 .verify-refresh-art-tmp/
 .verify-trademark-tmp/
 .verify-idle-baseline-tmp/
+.superpowers/
+.verify-add-remove-time-subcategories-tmp/
