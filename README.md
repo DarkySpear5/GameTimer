@@ -43,6 +43,13 @@ npm run typecheck
 npm run package    # build a Windows installer into release/
 ```
 
+## Donations
+
+All donations are appreciated and please consider your financial position and remember that tips are always optional!
+Thank you to those who support me and my projects in any way, and a huge thank you to those who go above and beyond! <3
+You can donate by going on my ko-fi right here!
+https://ko-fi.com/darkyspear5
+
 ## License
 
 GPL-3.0-or-later — see [LICENSE](LICENSE).
