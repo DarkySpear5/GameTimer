@@ -19,24 +19,28 @@ files:
   - package.json
 asarUnpack:
   - resources/**
+# Same runtime filename (icon.ico) as the main config's resources — every
+# resolveAsset('icon.ico') call in src/main/*.ts stays unchanged. Only the
+# SOURCE differs per channel, so the dev build is visibly distinct (window,
+# taskbar, installer, desktop shortcut) without touching any runtime code.
 extraResources:
-  - from: build/icon.ico
+  - from: build/icon-dev.ico
     to: icon.ico
-  - from: build/tray-idle.png
+  - from: build/tray-idle-dev.png
     to: tray-idle.png
-  - from: build/tray-running.png
+  - from: build/tray-running-dev.png
     to: tray-running.png
 win:
   target: nsis
-  icon: build/icon.ico
+  icon: build/icon-dev.ico
   artifactName: GamutLauncherDev-Setup-${version}.exe
 nsis:
   oneClick: false
   perMachine: false
   allowToChangeInstallationDirectory: true
   createDesktopShortcut: true
-  installerIcon: build/icon.ico
-  uninstallerIcon: build/icon.ico
+  installerIcon: build/icon-dev.ico
+  uninstallerIcon: build/icon-dev.ico
 # No publish block at all. Dev builds are installed by hand and must never be
 # uploaded to the release feed the public build reads — electron-updater takes
 # the newest non-prerelease it finds and would push a half-built v3 to everyone.

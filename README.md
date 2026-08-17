@@ -8,12 +8,19 @@ A manual play/pause time tracker for your games — track time spent playing eac
 
 Run the installer, click through, done — no admin rights needed. Installs to your user folder and adds a Start Menu / optional Desktop shortcut. The app checks for updates on launch and can update itself in place.
 
+## Screenshots
+
+|                                     Library                                     |                                    Game page                                    |                                    Game Stats                                   |
+| :-------------------------------------------------------------------------------: | :-------------------------------------------------------------------------------: | :-------------------------------------------------------------------------------: |
+| ![Library grid view](docs/images/library.png) | ![A game's detail page with sub-categories](docs/images/detail.png) | ![Game Stats table](docs/images/stats.png) |
+
 ## Features
 
 - Manual play/pause game timer per profile, with autosave every few seconds and concurrent timers (switching games doesn't pause the one you left)
 - A personal games list: add games, sort by name/last played/rating/genre, filter by genre
 - Four-state tracking — Playing, Completed, Dropped, On Hold — each with its own snapshot of time and date
 - Genre tags (multi-select), star ratings, notes, and manual Add/Remove Time for time tracked elsewhere
+- Optional sub-categories per game (e.g. a 100% run vs. a casual replay) — pick one when you press Play, break down a game's total by category, credit or remove time from specific categories
 - Duplicate, export (`.gtprofile`), and import individual game profiles
 - Custom box-art icon and background image per game
 - Five color themes (Midnight Blue, Paper White, Slate Grey, Rose, Retro Terminal) plus full custom colors and font choice
