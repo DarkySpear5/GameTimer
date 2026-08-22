@@ -92,7 +92,12 @@ export function matchForegroundToRunning(
     ? undefined
     : new Set([focusedWindow.processName.toLowerCase()])
   for (const candidate of candidates) {
-    const target = { installDir: candidate.installDir, exePath: candidate.exePath, launchUri: candidate.launchUri }
+    const target = {
+      installDir: candidate.installDir,
+      exePath: candidate.exePath,
+      launchUri: candidate.launchUri,
+      name: candidate.name
+    }
     if (isGameRunning(target, focusedPaths, focusedNamesNoPath)) {
       return candidate.name
     }

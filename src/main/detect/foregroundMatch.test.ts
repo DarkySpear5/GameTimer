@@ -93,7 +93,7 @@ describe('matchForegroundToRunning', () => {
     expect(matchForegroundToRunning({ exePath: 'C:\\Games\\Doom\\doom.exe', processName: 'doom' }, [])).toBeNull()
   })
 
-  it('falls back to matching by bare process name when the path is unreadable (elevated), scoped to Nexon/Battle.net/EA', () => {
+  it('falls back to matching by bare process name when the path is unreadable (elevated)', () => {
     const vindictus = {
       name: 'vindictus',
       installDir: null,
@@ -105,13 +105,30 @@ describe('matchForegroundToRunning', () => {
     ).toBe('vindictus')
   })
 
-  it('does NOT use the name-only fallback for a launcher outside the allowlist, even with no path', () => {
+  it('uses the name-only fallback regardless of launcher, now that the allowlist gate is gone (Steam)', () => {
     const steamGame = {
       name: 'Some Steam Game',
       installDir: null,
       exePath: 'D:\\SteamLibrary\\common\\game\\game.exe',
       launchUri: null
     }
-    expect(matchForegroundToRunning({ exePath: null, processName: 'game' }, [...candidates, steamGame])).toBeNull()
+    expect(matchForegroundToRunning({ exePath: null, processName: 'game' }, [...candidates, steamGame])).toBe(
+      'Some Steam Game'
+    )
+  })
+
+  it('falls back to the candidate\'s NAME when exePath is a launcher stub that never matches the real running binary (Rocket League/Epic)', () => {
+    // Found live: Launcher.exe (readable path) hands off to RocketLeague.exe,
+    // which runs under EasyAntiCheat with an empty path — the two exe names
+    // share nothing, so only a name-based comparison can still catch this.
+    const rocketLeague = {
+      name: 'Rocket League®',
+      installDir: 'C:\\Program Files\\Epic Games\\rocketleague',
+      exePath: 'C:\\Program Files\\Epic Games\\rocketleague\\Binaries\\Win64\\Launcher.exe',
+      launchUri: null
+    }
+    expect(
+      matchForegroundToRunning({ exePath: null, processName: 'rocketleague' }, [...candidates, rocketLeague])
+    ).toBe('Rocket League®')
   })
 })
