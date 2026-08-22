@@ -76,15 +76,52 @@ export function isElevatedNameMatch(game: WatchTarget, runningNamesNoPath: Set<s
   return runningNamesNoPath.has(bareExeName(game.exePath))
 }
 
-/** Same matching rule as isGameRunning, but returns the paths instead of a boolean — Stop needs the PIDs behind them. */
+/**
+ * Everything after `installDir\Content\` in the profile's own exePath, for an
+ * Xbox/GDK-shaped install (`<XboxGames root>\<Game>\Content\...`) — or null if
+ * the profile isn't shaped that way at all (no installDir, no exePath, or the
+ * exe isn't under a Content folder directly below installDir).
+ *
+ * This is what a live, package-virtualized process path can still be matched
+ * against — see matchingPaths' own doc comment for why the two full paths
+ * never share a prefix.
+ */
+function contentRelativePath(game: WatchTarget): string | null {
+  if (!game.installDir || !game.exePath) return null
+  const prefix = game.installDir.toLowerCase().replace(/[\\/]+$/, '') + '\\content\\'
+  const exe = game.exePath.toLowerCase()
+  return exe.startsWith(prefix) ? exe.slice(prefix.length) : null
+}
+
+/**
+ * Same matching rule as isGameRunning, but returns the paths instead of a boolean — Stop needs the PIDs behind them.
+ *
+ * A third case, found live on Indika (a PC Game Pass / GDK title): the game is
+ * installed at `C:\XboxGames\INDIKA\Content\...`, exactly what installDir and
+ * exePath record — but the RUNNING process's own path, as Windows reports it,
+ * is `C:\Program Files\WindowsApps\<PackageFamilyName>\...` instead. Neither
+ * folder-prefix nor exact-exe matching can ever succeed there: it isn't a
+ * permissions problem (unlike the elevated case below), the live path is
+ * simply a different string for the same bytes, because GDK/Store packaging
+ * presents a virtualized package-identity view to Get-Process. The one thing
+ * shared between the real and virtualized paths is everything after
+ * `\Content\`, which is identical either way — see contentRelativePath.
+ */
 export function matchingPaths(game: WatchTarget, running: Iterable<string>): string[] {
   const dir = game.installDir?.toLowerCase().replace(/[\\/]+$/, '')
   const exe = game.exePath?.toLowerCase()
+  const rel = contentRelativePath(game)
   const hits: string[] = []
   for (const path of running) {
     // The trailing separator matters: without it "C:\Games\Portal" would also
     // match a process inside "C:\Games\Portal 2".
-    if ((dir && path.startsWith(dir + '\\')) || (exe && path === exe)) hits.push(path)
+    if (
+      (dir && path.startsWith(dir + '\\')) ||
+      (exe && path === exe) ||
+      (rel && path.endsWith('\\' + rel))
+    ) {
+      hits.push(path)
+    }
   }
   return hits
 }

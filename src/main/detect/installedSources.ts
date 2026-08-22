@@ -233,34 +233,49 @@ export async function scanXbox(): Promise<FoundGame[]> {
   // same folder name at the root of whichever one you picked. Checking every
   // drive letter costs 26 stat calls and removes the need to configure it.
   for (const root of await xboxRoots()) {
-    let dirs: string[]
-    try {
-      dirs = (await fs.readdir(root, { withFileTypes: true }))
-        .filter((e) => e.isDirectory() && e.name !== 'GameSave')
-        .map((e) => e.name)
-    } catch {
-      continue
-    }
-    for (const dir of dirs) {
-      const content = join(root, dir, 'Content')
-      let exePath: string | null = null
-      try {
-        const exe = (await fs.readdir(content)).find((f) => f.toLowerCase().endsWith('.exe'))
-        if (exe) exePath = join(content, exe)
-      } catch {
-        /* no Content folder — still offer the game by its folder name */
-      }
-      games.push({
-        id: `xbox:${dir}`,
-        name: dir,
-        source: 'xbox',
-        exePath,
-        steamAppId: null,
-        installDir: join(root, dir),
-        launchUri: null,
-        confident: true
-      })
-    }
+    games.push(...(await scanXboxRoot(root)))
+  }
+  return games
+}
+
+/**
+ * One `<drive>:\XboxGames` root's worth of games — split out from scanXbox so
+ * it can be tested against a real temp directory instead of a real drive.
+ *
+ * VERIFIED live against the user's actual install (2026-08-22, INDIKA):
+ * `Content`'s only top-level .exe is `gamelaunchhelper.exe`, a GDK activation
+ * stub — the real binary was 3 levels deeper, at
+ * `Content\Indika\Binaries\WinGDK\Indika-WinGDK-Shipping.exe`. A flat readdir
+ * of Content stored the stub as the profile's exePath, which is what the
+ * doc comment above once called "parser unverified" for Xbox — this had
+ * never actually been checked against a real Game Pass install before. Now
+ * reuses `findGameExe`, the same recursive-walk-plus-ranking heuristic every
+ * other folder-shaped source (GOG, Nexon, manual folders) already relies on,
+ * rather than a second, weaker one-off just for Xbox.
+ */
+export async function scanXboxRoot(root: string): Promise<FoundGame[]> {
+  const games: FoundGame[] = []
+  let dirs: string[]
+  try {
+    dirs = (await fs.readdir(root, { withFileTypes: true }))
+      .filter((e) => e.isDirectory() && e.name !== 'GameSave')
+      .map((e) => e.name)
+  } catch {
+    return games
+  }
+  for (const dir of dirs) {
+    const content = join(root, dir, 'Content')
+    const exePath = await findGameExe(content, dir)
+    games.push({
+      id: `xbox:${dir}`,
+      name: dir,
+      source: 'xbox',
+      exePath,
+      steamAppId: null,
+      installDir: join(root, dir),
+      launchUri: null,
+      confident: true
+    })
   }
   return games
 }

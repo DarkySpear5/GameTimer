@@ -140,7 +140,57 @@ describe('isElevatedNameMatch', () => {
   })
 })
 
+describe('isGameRunning — Xbox/GDK package-virtualized path', () => {
+  // Indika, verified live 2026-08-22: installed (and scanned by Gamut) at
+  // C:\XboxGames\INDIKA\Content\..., but the RUNNING process's own .Path is
+  // reported by Windows as C:\Program Files\WindowsApps\<PackageFamilyName>\...
+  // — a totally different string, because GDK/Store-packaged games present a
+  // virtualized package-identity view of their files to Get-Process. Neither
+  // folder-prefix nor exact-exe matching can ever succeed here; the one thing
+  // shared between the two paths is everything after "\Content\", which is
+  // identical in both because that's the package's virtual root either way.
+  const indika = {
+    installDir: 'C:\\XboxGames\\INDIKA',
+    exePath: 'C:\\XboxGames\\INDIKA\\Content\\Indika\\Binaries\\WinGDK\\Indika-WinGDK-Shipping.exe'
+  }
+  const liveVirtualizedPath =
+    'C:\\Program Files\\WindowsApps\\4063811bitstudios.INDIKA_1.0.0.0_x64__gwy9gn5q9j1y6\\Indika\\Binaries\\WinGDK\\Indika-WinGDK-Shipping.exe'
+
+  it('matches the live virtualized path via the shared Content-relative suffix', () => {
+    expect(isGameRunning(indika, running(liveVirtualizedPath))).toBe(true)
+  })
+
+  it('does not match an unrelated process under WindowsApps', () => {
+    expect(
+      isGameRunning(indika, running('C:\\Program Files\\WindowsApps\\some.other.app_1.0.0.0\\App.exe'))
+    ).toBe(false)
+  })
+
+  it('does not apply when the profile exe is not under installDir\\Content\\ at all', () => {
+    const notXboxShaped = { installDir: 'C:\\Games\\Foo', exePath: 'C:\\Games\\Foo\\Foo.exe' }
+    expect(
+      isGameRunning(notXboxShaped, running('C:\\Program Files\\WindowsApps\\whatever\\Foo.exe'))
+    ).toBe(false)
+  })
+
+  it('still matches normally by real folder path too (not installed via Xbox virtualization this run)', () => {
+    expect(
+      isGameRunning(indika, running('C:\\XboxGames\\INDIKA\\Content\\Indika\\Binaries\\WinGDK\\Indika-WinGDK-Shipping.exe'))
+    ).toBe(true)
+  })
+})
+
 describe('matchingPaths', () => {
+  it('returns the live virtualized path too, so Stop can find its PID', () => {
+    const indika = {
+      installDir: 'C:\\XboxGames\\INDIKA',
+      exePath: 'C:\\XboxGames\\INDIKA\\Content\\Indika\\Binaries\\WinGDK\\Indika-WinGDK-Shipping.exe'
+    }
+    const liveVirtualizedPath =
+      'c:\\program files\\windowsapps\\4063811bitstudios.indika_1.0.0.0_x64__gwy9gn5q9j1y6\\indika\\binaries\\wingdk\\indika-wingdk-shipping.exe'
+    expect(matchingPaths(indika, running(liveVirtualizedPath))).toEqual([liveVirtualizedPath])
+  })
+
   // Stop needs every matching path (to find their PIDs), not just a yes/no —
   // Rocket League's launcher-plus-binary shape means that can be more than one.
   it('returns every process under the install folder, not just the first', () => {
