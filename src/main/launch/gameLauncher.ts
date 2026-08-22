@@ -5,7 +5,7 @@ import { existsSync } from 'fs'
 import { dataStore } from '../store/dataStore'
 import { gameWatcher } from '../detect/gameWatcher'
 import { listRunningProcesses } from '../detect/processes'
-import { matchingPaths } from '../detect/watchMatch'
+import { matchingPaths, isElevatedNameMatch } from '../detect/watchMatch'
 
 /**
  * Only these schemes are ever handed to the shell.
@@ -104,6 +104,17 @@ export async function launchGame(name: string): Promise<{ launched: boolean }> {
  * disables the Stop button outright for a game gameWatcher is reporting as
  * elevated-detected (see gameWatcher.unstoppableNames), rather than offering
  * a button that would silently fail — see gameWatcher.ts and LibraryDetail.tsx.
+ *
+ * Found live on Rocket League: "no killable path match" does NOT mean
+ * "closed" — it's the exact same signature as a game that's genuinely still
+ * open via the elevated name-only fallback (real path unreadable either way).
+ * Calling noteClosed() unconditionally in that case lied to gameWatcher: the
+ * timer paused, the very next poll tick saw the still-running process again
+ * and restarted it — a visible "Stop does nothing but glitch the timer" bug,
+ * on top of the button race that let Stop even be clicked for an unstoppable
+ * game (unstoppableNames() is only as fresh as the last poll, up to POLL_MS
+ * stale). Fixed by checking the SAME already-fetched process list against the
+ * same name-only fallback the watcher itself uses before concluding "closed".
  */
 export async function stopGame(name: string): Promise<{ stopped: boolean }> {
   const profile = dataStore.get().profiles[name]
@@ -117,7 +128,12 @@ export async function stopGame(name: string): Promise<{ stopped: boolean }> {
   )
   const pids = knownPaths.filter((p) => paths.includes(p.path)).map((p) => p.pid)
   if (pids.length === 0) {
-    gameWatcher.noteClosed(name)
+    const namesNoPath = new Set(processes.filter((p) => p.path === null).map((p) => p.name))
+    const stillOpen = isElevatedNameMatch(
+      { installDir: null, exePath: profile.exePath ?? null, name: profile.name },
+      namesNoPath
+    )
+    if (!stillOpen) gameWatcher.noteClosed(name)
     return { stopped: false }
   }
 
