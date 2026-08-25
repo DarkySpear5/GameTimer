@@ -2,6 +2,19 @@
 
 All notable changes to Gamut (formerly Game Timer) are documented here.
 
+## v3.4.22 — 2026-08-24
+
+### Changed
+- Reordered the Data tab columns to put **Time to Beat** before **Time
+  Played**. Advanced view now reads: Game, Time to Beat, Time Played,
+  Started, Completed On, Status, Rating. Simple view keeps the same leading
+  duration order before Status and Rating.
+
+### Fixed
+- Gamut now refuses to start when an existing data file cannot be read or
+  parsed, instead of treating it as a new empty library. This keeps the
+  original game data untouched for recovery.
+
 ## v1.9.1 — 2026-07-25
 
 ### Fixed
