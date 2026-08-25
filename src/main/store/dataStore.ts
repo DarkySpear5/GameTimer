@@ -31,7 +31,11 @@ class DataStore {
       // immediately so each conversion happens once, not on every launch.
       const migrated = migrateSessionAggregates(this.data)
       if (migrateLegacyNotes(this.data) || migrated) void this.save()
-    } catch {
+    } catch (err) {
+      // A missing file is a normal first-run condition. Every other failure
+      // must stop startup: replacing an unreadable library with fresh data
+      // would make a later quit save overwrite the user's real file.
+      if (!isMissingFileError(err)) throw err
       this.data = freshAppData()
     }
     return this.data
@@ -76,6 +80,10 @@ class DataStore {
       )
     }
   }
+}
+
+function isMissingFileError(err: unknown): boolean {
+  return typeof err === 'object' && err !== null && 'code' in err && err.code === 'ENOENT'
 }
 
 export const dataStore = new DataStore()

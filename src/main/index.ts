@@ -1,5 +1,5 @@
 import { join } from 'path'
-import { app, BrowserWindow } from 'electron'
+import { app, BrowserWindow, dialog } from 'electron'
 import { createMainWindow } from './window'
 import { acquireSingleInstanceLock } from './singleInstance'
 import { registerAllIpcHandlers } from './ipc/registerAll'
@@ -47,7 +47,19 @@ if (!acquireSingleInstanceLock(() => showWindow())) {
   void app.whenReady().then(async () => {
     app.setAppUserModelId(APP_USER_MODEL_ID)
 
-    await dataStore.load()
+    try {
+      await dataStore.load()
+    } catch (err) {
+      // Never fall back to an empty library for a permissions, disk, or JSON
+      // error. Leaving the original file untouched is safer than starting in
+      // a state that could overwrite it on quit.
+      dialog.showErrorBox(
+        'Could not open Gamut data',
+        `Gamut could not open your saved game data, so it has not started. Your existing data was left untouched.\n\n${err instanceof Error ? err.message : String(err)}`
+      )
+      app.quit()
+      return
+    }
     // Fire-and-forget: repairs any pre-fix Steam import in the background
     // rather than delaying window creation on a filesystem rescan. The
     // watcher/overlay polls both self-correct on their next tick regardless

@@ -163,15 +163,17 @@ export function DataTab(): React.JSX.Element {
           <thead>
             <tr className="border-b border-card text-xs text-subtext">
               <SortHeader label={t('col_game')} sortKey="name" sort={effectiveSort} onSort={handleSort} />
+              <SortHeader
+                label={t('col_time_to_beat')}
+                sortKey="completedTime"
+                sort={effectiveSort}
+                onSort={handleSort}
+              />
               <SortHeader label={t('col_time_played')} sortKey="seconds" sort={effectiveSort} onSort={handleSort} />
-              <SortHeader label={t('col_status')} sortKey="status" sort={effectiveSort} onSort={handleSort} />
               {/*
-               * Started and Completed On are the two date columns, and they are
-               * exactly what made this table read as a wall of dates. Advanced
-               * only. Time to Beat stays in Simple because it is the answer to
-               * "how long did this take me", which is the question the table is
-               * for — and its old name, "Time Completed", is why it needed one
-               * of those dates beside it to be understood at all.
+               * Advanced adds the two date columns after the two durations.
+               * This keeps the always-useful playtime figures adjacent in both
+               * views, while Status and Rating remain the final state fields.
                */}
               {advanced && (
                 <SortHeader label={t('col_started')} sortKey="startedDate" sort={effectiveSort} onSort={handleSort} />
@@ -184,12 +186,7 @@ export function DataTab(): React.JSX.Element {
                   onSort={handleSort}
                 />
               )}
-              <SortHeader
-                label={t('col_time_to_beat')}
-                sortKey="completedTime"
-                sort={effectiveSort}
-                onSort={handleSort}
-              />
+              <SortHeader label={t('col_status')} sortKey="status" sort={effectiveSort} onSort={handleSort} />
               <SortHeader label={t('col_rating')} sortKey="rating" sort={effectiveSort} onSort={handleSort} />
             </tr>
           </thead>
@@ -218,17 +215,10 @@ export function DataTab(): React.JSX.Element {
                       {p.name}
                     </div>
                   </td>
-                  {/*
-                   * Dates, durations and status labels are single values that
-                   * read as nonsense broken in half ("2026-" / "08-07"), and
-                   * at a high font scale the columns do get that tight. The
-                   * wrapper is already overflow-x-auto, so keeping them whole
-                   * scrolls the table instead of mangling them. Only Game and
-                   * Genres — the two genuinely long, multi-word columns — are
-                   * left free to wrap.
-                   */}
+                  <td className="px-3 py-2 whitespace-nowrap text-subtext">
+                    {isCompleted && p.statusSeconds != null ? formatSeconds(p.statusSeconds) : '—'}
+                  </td>
                   <td className="px-3 py-2 whitespace-nowrap text-text">{formatSeconds(p.seconds)}</td>
-                  <td className="px-3 py-2 whitespace-nowrap text-text">{STATUS_LABELS[p.status]}</td>
                   {advanced && (
                     <td className="px-3 py-2 whitespace-nowrap text-subtext">{p.startedDate ?? '—'}</td>
                   )}
@@ -237,9 +227,13 @@ export function DataTab(): React.JSX.Element {
                       {isCompleted ? (p.statusAt ?? '—') : '—'}
                     </td>
                   )}
-                  <td className="px-3 py-2 whitespace-nowrap text-subtext">
-                    {isCompleted && p.statusSeconds != null ? formatSeconds(p.statusSeconds) : '—'}
-                  </td>
+                  {/*
+                   * Dates, durations and status labels are single values that
+                   * should stay intact at larger font scales. The wrapper is
+                   * already overflow-x-auto, so keeping them whole scrolls the
+                   * table instead of mangling them.
+                   */}
+                  <td className="px-3 py-2 whitespace-nowrap text-text">{STATUS_LABELS[p.status]}</td>
                   <td className="px-3 py-2 whitespace-nowrap text-gold">
                     {p.rating > 0 ? '★'.repeat(p.rating) : '—'}
                   </td>
