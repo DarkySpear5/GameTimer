@@ -182,6 +182,10 @@ describe('parseGtProfileFile', () => {
     expect(() => parseGtProfileFile(null)).toThrow()
   })
 
+  it('rejects an embedded image that exceeds the import byte budget before decoding', () => {
+    expect(() => parseGtProfileFile({ iconB64: 'a'.repeat(16 * 1024 * 1024 + 1) })).toThrow()
+  })
+
   it('carries openSeconds and its idle baseline pair through a round trip', () => {
     const parsed = parseGtProfileFile({
       name: 'Fields of Mistria',

@@ -1,6 +1,7 @@
 import { net } from 'electron'
 import { searchSteamApps } from './steamArt'
 import { findGogGame } from './gogCatalog'
+import { fetchAllowedArt, isAllowedArtUrl } from './allowedHosts'
 import type { ArtOption, ArtOptions } from '@shared/types'
 
 const CDN = 'https://cdn.cloudflare.steamstatic.com/steam/apps'
@@ -46,8 +47,9 @@ async function existing(options: ArtOption[]): Promise<ArtOption[]> {
   const checked = await Promise.all(
     options.map(async (o) => {
       try {
-        const res = await net.fetch(o.thumb, { method: 'HEAD' })
-        return res.ok ? o : null
+        if (!isAllowedArtUrl(o.url) || !isAllowedArtUrl(o.thumb)) return null
+        const res = await fetchAllowedArt(o.thumb, { method: 'HEAD' })
+        return res?.ok ? o : null
       } catch {
         return null
       }

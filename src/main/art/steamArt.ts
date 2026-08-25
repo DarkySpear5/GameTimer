@@ -6,7 +6,7 @@ import { paths } from '../store/paths'
 import { saveCappedImageBuffer } from '../util/imageResize'
 import { ICON_MAX_DIMENSION, BACKGROUND_MAX_DIMENSION, COVER_MAX_DIMENSION } from '@shared/constants'
 import { mapTagsToGenres } from './genreMap'
-import { isAllowedArtUrl } from './allowedHosts'
+import { downloadAllowedArt, isAllowedArtUrl } from './allowedHosts'
 import type { GameSearchHit } from '@shared/types'
 
 /**
@@ -59,14 +59,7 @@ export function coverUrl(appId: number): string {
 }
 
 async function download(url: string): Promise<Buffer | null> {
-  try {
-    const res = await net.fetch(url)
-    if (!res.ok) return null
-    const buf = Buffer.from(await res.arrayBuffer())
-    return buf.byteLength > 0 ? buf : null
-  } catch {
-    return null
-  }
+  return downloadAllowedArt(url)
 }
 
 /**

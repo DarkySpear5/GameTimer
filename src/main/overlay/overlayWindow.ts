@@ -6,6 +6,7 @@ import type { OverlayCorner } from '@shared/types'
 import { dataStore } from '../store/dataStore'
 import { timerEngine } from '../timer/timerEngine'
 import { getForegroundGameWindow, resolveCurrentGame } from '../detect/foregroundWindow'
+import { makeSingleFlight } from '../detect/gameWatcher'
 import { resolveAsset } from '../util/env'
 
 /**
@@ -169,6 +170,8 @@ async function poll(): Promise<void> {
   w.showInactive()
 }
 
+const pollOnce = makeSingleFlight(poll)
+
 function pushTick(running: Record<string, number>): void {
   if (!currentName || !win || win.isDestroyed() || win.webContents.isDestroyed()) return
   const { overlay } = dataStore.get().settings
@@ -186,8 +189,8 @@ function pushTick(running: Record<string, number>): void {
 export const overlayWindow = {
   start(): void {
     if (pollHandle) return
-    pollHandle = setInterval(() => void poll(), POLL_MS)
-    void poll()
+    pollHandle = setInterval(() => void pollOnce(), POLL_MS)
+    void pollOnce()
     tickUnsubscribe = timerEngine.onTick(({ running }) => pushTick(running))
   },
 
@@ -203,6 +206,6 @@ export const overlayWindow = {
 
   /** Called by settingsService right after an overlay.* patch, so toggling/repositioning reacts immediately instead of waiting up to POLL_MS for the next tick. */
   onSettingsChanged(): void {
-    void poll()
+    void pollOnce()
   }
 }

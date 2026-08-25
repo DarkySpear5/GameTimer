@@ -1,5 +1,6 @@
 import { app } from 'electron'
 import { join } from 'path'
+import { resolveChildPath } from '../util/safePath'
 
 /**
  * Unlike v1 (which lived entirely next to its own exe, portable-style), v2
@@ -9,6 +10,16 @@ import { join } from 'path'
  */
 function root(): string {
   return app.getPath('userData')
+}
+
+function screenshotsRoot(): string {
+  return join(process.env.GAMUT_TEST_DOCUMENTS || app.getPath('documents'), 'Gamut', 'Screenshots')
+}
+
+function screenshotsDir(profileName: string): string {
+  const dir = resolveChildPath(screenshotsRoot(), profileName)
+  if (!dir) throw new Error('Invalid screenshot profile path')
+  return dir
 }
 
 export const paths = {
@@ -29,6 +40,6 @@ export const paths = {
    * isolates userData — without it, a verify run would write real files into
    * the user's real Documents folder.
    */
-  screenshotsDir: (profileName: string) =>
-    join(process.env.GAMUT_TEST_DOCUMENTS || app.getPath('documents'), 'Gamut', 'Screenshots', profileName)
+  screenshotsRoot,
+  screenshotsDir
 }

@@ -94,9 +94,11 @@ const GtProfileFileSchema = z.object({
   openSeconds: z.number().catch(0).optional(),
   secondsAtOpenTrackingStart: z.number().nullable().catch(null).optional(),
   openSecondsAtOpenTrackingStart: z.number().nullable().catch(null).optional(),
-  iconB64: z.string().optional(),
+  // 16 MiB encoded is roughly a 12 MiB source image — far beyond the
+  // rendered size, while bounded before Buffer/nativeImage allocate it.
+  iconB64: z.string().max(16 * 1024 * 1024).optional(),
   iconExt: z.string().optional(),
-  bgImageB64: z.string().optional(),
+  bgImageB64: z.string().max(16 * 1024 * 1024).optional(),
   bgImageExt: z.string().optional(),
   bgColor: z.string().optional()
 })

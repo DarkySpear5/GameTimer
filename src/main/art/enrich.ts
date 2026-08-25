@@ -1,4 +1,4 @@
-import { app, net, nativeImage } from 'electron'
+import { app, nativeImage } from 'electron'
 import { promises as fs } from 'fs'
 import { join } from 'path'
 import { randomUUID } from 'crypto'
@@ -12,7 +12,7 @@ import { fetchEpicArt } from './epicArt'
 import { fetchGridDbArt } from './steamGridDb'
 import { dataStore } from '../store/dataStore'
 import { mapTagsToGenres } from './genreMap'
-import { isAllowedArtUrl } from './allowedHosts'
+import { downloadAllowedArt, isAllowedArtUrl } from './allowedHosts'
 import type { Profile } from '@shared/types'
 
 /**
@@ -143,9 +143,8 @@ async function resolveAppIdByName(name: string): Promise<number | null> {
 
 async function downloadUsable(url: string, minSide: number): Promise<Buffer | null> {
   try {
-    const res = await net.fetch(url)
-    if (!res.ok) return null
-    const buf = Buffer.from(await res.arrayBuffer())
+    const buf = await downloadAllowedArt(url)
+    if (!buf) return null
     if (buf.byteLength === 0) return null
     const img = nativeImage.createFromBuffer(buf)
     if (img.isEmpty()) return null

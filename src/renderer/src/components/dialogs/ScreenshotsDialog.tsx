@@ -28,7 +28,7 @@ export function ScreenshotsDialog({ name, onClose }: { name: string; onClose: ()
         {files.map((filePath) => (
           <button
             key={filePath}
-            onClick={() => void window.api.screenshots.open(filePath)}
+            onClick={() => void window.api.screenshots.open(name, basename(filePath))}
             className="aspect-video overflow-hidden rounded bg-card hover:opacity-80"
           >
             <img

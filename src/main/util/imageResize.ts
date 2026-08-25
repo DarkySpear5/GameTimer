@@ -25,8 +25,12 @@ import { nativeImage } from 'electron'
 export async function saveCappedImage(
   sourcePath: string,
   destPath: string,
-  maxDimension: number
+  maxDimension: number,
+  maxInputBytes?: number
 ): Promise<void> {
+  if (maxInputBytes != null && (await fs.stat(sourcePath)).size > maxInputBytes) {
+    throw new Error('Image exceeds the supported size limit')
+  }
   const img = nativeImage.createFromPath(sourcePath)
   const { width, height } = img.getSize()
 

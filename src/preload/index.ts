@@ -154,7 +154,7 @@ const api: GameTimerApi = {
   },
   screenshots: {
     list: (name) => ipcRenderer.invoke(IPC.screenshots.list, name),
-    open: (filePath) => ipcRenderer.invoke(IPC.screenshots.open, filePath)
+    open: (name, fileName) => ipcRenderer.invoke(IPC.screenshots.open, name, fileName)
   },
   overlay: {
     onTick: (cb) => {
