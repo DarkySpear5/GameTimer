@@ -8,6 +8,12 @@ import { readFirstRunState, updateFirstRunState } from './firstRun'
 import { setRunAtStartup } from '../autostart/autostart'
 import { saveCappedImage } from '../util/imageResize'
 import { isInside, safeAssetFileName } from '../util/safePath'
+import {
+  MAX_IMPORT_IMAGE_BYTES,
+  MAX_LEGACY_IMPORT_BYTES,
+  MAX_LEGACY_PROFILES,
+  readJsonFileWithinLimit
+} from './importLimits'
 import { emptyAggregate } from '@shared/sessionStats'
 import { emptyNote } from '@shared/notes'
 import { DEFAULT_CUSTOM_COLORS, THEME_ORDER, ICON_MAX_DIMENSION, BACKGROUND_MAX_DIMENSION } from '@shared/constants'
@@ -177,12 +183,22 @@ async function copyAssetIfExists(
   const destPath = join(destDir, fileName)
   if (!isInside(destDir, destPath)) return null
 
-  await saveCappedImage(sourcePath, destPath, maxDimension)
-  return fileName
+  try {
+    await saveCappedImage(sourcePath, destPath, maxDimension, MAX_IMPORT_IMAGE_BYTES)
+    return fileName
+  } catch {
+    return null
+  }
 }
 
 async function readLegacyData(dataFilePath: string): Promise<LegacyDataRaw> {
-  return JSON.parse(await fs.readFile(dataFilePath, 'utf-8'))
+  return readJsonFileWithinLimit(dataFilePath, MAX_LEGACY_IMPORT_BYTES)
+}
+
+function legacyProfileEntries(raw: LegacyDataRaw): [string, LegacyProfileRaw][] {
+  const entries = Object.entries(raw.profiles ?? {})
+  if (entries.length > MAX_LEGACY_PROFILES) throw new Error('Legacy library exceeds the supported profile limit')
+  return entries
 }
 
 export async function detectLegacyLibrary(force: boolean): Promise<LegacyDetectResult> {
@@ -205,7 +221,7 @@ export async function detectLegacyLibrary(force: boolean): Promise<LegacyDetectR
 
   try {
     const raw = await readLegacyData(path)
-    const profiles = Object.values(raw.profiles ?? {})
+    const profiles = legacyProfileEntries(raw).map(([, profile]) => profile)
     const totalSeconds = profiles.reduce((sum, p) => sum + (p.seconds ?? 0), 0)
     return { found: true, path, profileCount: profiles.length, totalSeconds }
   } catch {
@@ -220,12 +236,12 @@ export async function skipLegacyImport(): Promise<void> {
 export async function runLegacyImport(legacyDataFilePath: string): Promise<{ importedCount: number }> {
   const legacyDir = dirname(legacyDataFilePath)
   const raw = await readLegacyData(legacyDataFilePath)
-  const legacyProfiles = raw.profiles ?? {}
+  const legacyProfiles = legacyProfileEntries(raw)
 
   const data = dataStore.get()
   let importedCount = 0
 
-  for (const [name, rawProfile] of Object.entries(legacyProfiles)) {
+  for (const [name, rawProfile] of legacyProfiles) {
     const profile = normalizeLegacyProfile(name, rawProfile)
 
     if (profile.iconFile) {

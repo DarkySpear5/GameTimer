@@ -2,8 +2,8 @@ import { net, protocol } from 'electron'
 import { join } from 'path'
 import { pathToFileURL } from 'url'
 import { paths } from './store/paths'
-import { ALLOWED_ART_HOSTS } from './art/allowedHosts'
-import { isInside } from './util/safePath'
+import { fetchAllowedArt, isAllowedArtUrl, readAllowedArtResponse } from './art/allowedHosts'
+import { isInside, isSafePngFileName } from './util/safePath'
 
 export const GT_ASSET_SCHEME = 'gt-asset'
 
@@ -23,7 +23,7 @@ export function registerAssetSchemeAsPrivileged(): void {
  * the renderer never makes a network request of its own.
  */
 export function registerAssetProtocolHandler(): void {
-  protocol.handle(GT_ASSET_SCHEME, (request) => {
+  protocol.handle(GT_ASSET_SCHEME, async (request) => {
     const url = new URL(request.url)
     const kind = url.hostname
 
@@ -35,10 +35,15 @@ export function registerAssetProtocolHandler(): void {
       } catch {
         return new Response('Bad request', { status: 400 })
       }
-      if (parsed.protocol !== 'https:' || !ALLOWED_ART_HOSTS.has(parsed.hostname)) {
+      if (!isAllowedArtUrl(parsed.toString())) {
         return new Response('Forbidden', { status: 403 })
       }
-      return net.fetch(parsed.toString())
+      const response = await fetchAllowedArt(parsed.toString())
+      if (!response?.ok) return new Response('Not found', { status: 404 })
+      const body = await readAllowedArtResponse(response)
+      if (!body) return new Response('Artwork unavailable', { status: 413 })
+      const contentType = response.headers.get('content-type') ?? 'application/octet-stream'
+      return new Response(new Uint8Array(body), { headers: { 'content-type': contentType } })
     }
 
     if (kind === 'screenshots') {
@@ -48,10 +53,15 @@ export function registerAssetProtocolHandler(): void {
         .map((s) => decodeURIComponent(s))
       if (segments.length !== 2) return new Response('Not found', { status: 404 })
       const [profileName, fileName] = segments
-      const dir = paths.screenshotsDir(profileName)
-      const full = join(dir, fileName)
-      if (!isInside(dir, full)) return new Response('Not found', { status: 404 })
-      return net.fetch(pathToFileURL(full).toString())
+      if (!isSafePngFileName(fileName)) return new Response('Not found', { status: 404 })
+      try {
+        const dir = paths.screenshotsDir(profileName)
+        const full = join(dir, fileName)
+        if (!isInside(dir, full)) return new Response('Not found', { status: 404 })
+        return net.fetch(pathToFileURL(full).toString())
+      } catch {
+        return new Response('Not found', { status: 404 })
+      }
     }
 
     const fileName = decodeURIComponent(url.pathname.replace(/^\/+/, ''))

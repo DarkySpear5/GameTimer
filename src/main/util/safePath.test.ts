@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { isInside, safeFileNameFromTitle } from './safePath'
+import * as safePath from './safePath'
+
+const { isInside, safeFileNameFromTitle } = safePath
 
 describe('safeFileNameFromTitle', () => {
   it('leaves an ordinary game name alone', () => {
@@ -47,5 +49,29 @@ describe('isInside', () => {
 
   it('rejects a sibling directory that merely shares a prefix', () => {
     expect(isInside('C:\\data\\icons', 'C:\\data\\icons-backup\\a.png')).toBe(false)
+  })
+})
+
+describe('screenshot path boundaries', () => {
+  const root = 'C:\\Users\\Eric\\Documents\\Gamut\\Screenshots'
+
+  it('keeps a normal profile directory below the fixed screenshot root', () => {
+    const resolveChildPath = (safePath as any).resolveChildPath
+    expect(resolveChildPath).toBeTypeOf('function')
+    expect(resolveChildPath(root, 'Focused Game')).toBe('C:\\Users\\Eric\\Documents\\Gamut\\Screenshots\\Focused Game')
+  })
+
+  it('rejects a profile directory that escapes the fixed screenshot root', () => {
+    const resolveChildPath = (safePath as any).resolveChildPath
+    expect(resolveChildPath).toBeTypeOf('function')
+    expect(resolveChildPath(root, '..\\outside')).toBeNull()
+  })
+
+  it('allows only a bare PNG filename for opening a screenshot', () => {
+    const isSafePngFileName = (safePath as any).isSafePngFileName
+    expect(isSafePngFileName).toBeTypeOf('function')
+    expect(isSafePngFileName('1720000000000.png')).toBe(true)
+    expect(isSafePngFileName('..\\outside.png')).toBe(false)
+    expect(isSafePngFileName('not-a-screenshot.jpg')).toBe(false)
   })
 })

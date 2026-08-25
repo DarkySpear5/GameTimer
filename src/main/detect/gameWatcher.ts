@@ -33,6 +33,21 @@ const selfLaunched = new Set<string>()
 
 let handle: ReturnType<typeof setInterval> | null = null
 
+/** Coalesces timer ticks while a slow Windows process query is still running. */
+export function makeSingleFlight(task: () => Promise<void>): () => Promise<void> {
+  let inFlight: Promise<void> | null = null
+  return async () => {
+    if (inFlight) return
+    const current = task()
+    inFlight = current
+    try {
+      await current
+    } finally {
+      if (inFlight === current) inFlight = null
+    }
+  }
+}
+
 /** Fired with the full set of currently-open game names whenever a poll changes it — the Launch/Stop button listens for this. */
 const changeListeners = new Set<(names: string[]) => void>()
 
@@ -186,12 +201,17 @@ function shouldRun(): boolean {
   return dataStore.get().settings.watchForGames || open.size > 0 || selfLaunched.size > 0
 }
 
+const pollOnce = makeSingleFlight(async () => {
+  await poll()
+  gameWatcher.sync()
+})
+
 export const gameWatcher = {
   /** Re-evaluates whether the loop should be running. Safe to call repeatedly. */
   sync(): void {
     if (shouldRun() && !handle) {
-      handle = setInterval(() => void poll().then(() => gameWatcher.sync()), POLL_MS)
-      void poll()
+      handle = setInterval(() => void pollOnce(), POLL_MS)
+      void pollOnce()
     } else if (!shouldRun() && handle) {
       clearInterval(handle)
       handle = null

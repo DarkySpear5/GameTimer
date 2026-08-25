@@ -345,7 +345,8 @@ export interface GameTimerApi {
   screenshots: {
     /** Newest-first absolute file paths. */
     list(name: string): Promise<string[]>
-    open(filePath: string): Promise<void>
+    /** Opens only a captured PNG belonging to this profile. */
+    open(name: string, fileName: string): Promise<void>
   }
   overlay: {
     onTick(cb: (payload: OverlayTickPayload) => void): () => void

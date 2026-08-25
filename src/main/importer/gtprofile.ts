@@ -10,6 +10,7 @@ import { writeStatusLog } from '../statusLog/writeStatusLog'
 import { saveCappedImageBuffer } from '../util/imageResize'
 import { ICON_MAX_DIMENSION, BACKGROUND_MAX_DIMENSION } from '@shared/constants'
 import { safeImageExt } from './safeExt'
+import { decodeImportImage, MAX_GTPROFILE_BYTES, readJsonFileWithinLimit } from './importLimits'
 import { safeFileNameFromTitle } from '../util/safePath'
 import { aggregateFrom, trimSessionLog } from '@shared/sessionStats'
 import { emptyNote } from '@shared/notes'
@@ -97,7 +98,7 @@ export async function importProfile(win: BrowserWindow): Promise<Profile | null>
   // from anyone, not just Gamut's own exporter) the same way parseAppData
   // already does for the main save file — see its doc comment.
   const imported: GtProfileFile = parseGtProfileFile(
-    JSON.parse(await fs.readFile(result.filePaths[0], 'utf-8'))
+    await readJsonFileWithinLimit(result.filePaths[0], MAX_GTPROFILE_BYTES)
   )
   const data = dataStore.get()
 
@@ -115,7 +116,7 @@ export async function importProfile(win: BrowserWindow): Promise<Profile | null>
       await fs.mkdir(paths.iconsDir(), { recursive: true })
       iconFile = `${randomUUID()}${safeImageExt(imported.iconExt)}`
       await saveCappedImageBuffer(
-        Buffer.from(imported.iconB64, 'base64'),
+        decodeImportImage(imported.iconB64),
         join(paths.iconsDir(), iconFile),
         ICON_MAX_DIMENSION
       )
@@ -130,7 +131,7 @@ export async function importProfile(win: BrowserWindow): Promise<Profile | null>
       await fs.mkdir(paths.backgroundsDir(), { recursive: true })
       bgImageFile = `${randomUUID()}${safeImageExt(imported.bgImageExt)}`
       await saveCappedImageBuffer(
-        Buffer.from(imported.bgImageB64, 'base64'),
+        decodeImportImage(imported.bgImageB64),
         join(paths.backgroundsDir(), bgImageFile),
         BACKGROUND_MAX_DIMENSION
       )
