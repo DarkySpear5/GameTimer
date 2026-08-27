@@ -182,9 +182,9 @@ export const STATUS_LOG_MS = 60000
 export const BACKUP_RETENTION_DAYS = 14
 
 /**
- * A Play→Pause cycle shorter than this is still written to the session log,
+ * A Play→Pause cycle shorter than ten minutes is still written to the session log,
  * but is excluded from the session count and the average. Pressing Play by
  * mistake should not inflate "times played" or drag the average down — and
  * silently discarding the entry instead would throw away real data.
  */
-export const MIN_SESSION_SECONDS = 60
+export const MIN_SESSION_SECONDS = 10 * 60

@@ -15,15 +15,15 @@ const HOUR = 3_600_000
 
 describe('makeSessionEntry', () => {
   it('records elapsed wall-clock seconds', () => {
-    expect(makeSessionEntry(1000, 1000 + 90_000)).toEqual({ startedAt: 1000, seconds: 90 })
+    expect(makeSessionEntry(1000, 1000 + 900_000)).toEqual({ startedAt: 1000, seconds: 900 })
   })
 
-  it('flags a sub-60s session as short', () => {
-    expect(makeSessionEntry(1000, 1000 + 30_000)).toEqual({ startedAt: 1000, seconds: 30, short: true })
+  it('flags a session shorter than 10 minutes as short', () => {
+    expect(makeSessionEntry(1000, 1000 + 599_000)).toEqual({ startedAt: 1000, seconds: 599, short: true })
   })
 
-  it('treats exactly 60s as a real session', () => {
-    expect(makeSessionEntry(1000, 1000 + 60_000).short).toBeUndefined()
+  it('treats exactly 10 minutes as a counted session', () => {
+    expect(makeSessionEntry(1000, 1000 + 600_000).short).toBeUndefined()
   })
 
   it('never produces negative seconds if the clock jumps backwards', () => {
