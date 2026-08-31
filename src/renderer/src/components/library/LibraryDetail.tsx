@@ -6,6 +6,7 @@ import { useTimerStore } from '../../state/timerStore'
 import { useUiStore, launchGame, stopGame, selectProfile } from '../../state/uiStore'
 import { useOpenGamesStore } from '../../state/openGamesStore'
 import { useSettingsStore } from '../../state/settingsStore'
+import { useTimeFormat } from '../../state/useTimeFormat'
 import { formatSeconds } from '@shared/format'
 import { summaryFrom } from '@shared/sessionStats'
 import { GameArt } from './GameArt'
@@ -47,6 +48,7 @@ function SubCategoryRow({
   // liveSeconds, so this ticks every UI_TICK_MS instead of only refreshing
   // on pause. Falls back to the last-persisted value otherwise.
   const liveCategory = useTimerStore((s) => s.runningCategories[gameName])
+  const timeFormat = useTimeFormat()
   const displaySeconds =
     liveCategory && liveCategory.categoryId === category.id ? liveCategory.seconds : category.seconds
 
@@ -70,7 +72,7 @@ function SubCategoryRow({
   async function handleDelete(): Promise<void> {
     if (
       !window.confirm(
-        t('subcat_delete_confirm', { name: category.name, time: formatSeconds(displaySeconds) })
+        t('subcat_delete_confirm', { name: category.name, time: formatSeconds(displaySeconds, timeFormat) })
       )
     )
       return
@@ -103,7 +105,7 @@ function SubCategoryRow({
         </button>
       )}
       <div className="flex shrink-0 items-center gap-2">
-        <span className="text-xs tabular-nums text-subtext">{formatSeconds(displaySeconds)}</span>
+        <span className="text-xs tabular-nums text-subtext">{formatSeconds(displaySeconds, timeFormat)}</span>
         <button onClick={() => void handleDelete()} className="text-xs text-red hover:underline">
           {t('ctx_delete')}
         </button>
@@ -127,6 +129,7 @@ export function LibraryDetail({ name }: { name: string }): React.JSX.Element {
   const isProcessOpen = useOpenGamesStore((s) => s.open.has(name))
   const isUnstoppable = useOpenGamesStore((s) => s.unstoppable.has(name))
   const globalSubCategoriesEnabled = useSettingsStore((s) => s.settings?.subCategoriesEnabled ?? true)
+  const timeFormat = useTimeFormat()
   const setLibraryFocus = useUiStore((s) => s.setLibraryFocus)
   const openDialog = useUiStore((s) => s.openDialog)
 
@@ -333,7 +336,7 @@ export function LibraryDetail({ name }: { name: string }): React.JSX.Element {
 
                 <div className="flex flex-wrap items-center gap-3">
                   <div className="font-mono text-4xl font-bold tabular-nums text-text">
-                    {formatSeconds(seconds)}
+                    {formatSeconds(seconds, timeFormat)}
                   </div>
                   <label className="flex w-fit items-center gap-1.5 text-xs text-subtext">
                     <input
@@ -404,16 +407,16 @@ export function LibraryDetail({ name }: { name: string }): React.JSX.Element {
 
         <div className="flex flex-col gap-5 px-5 py-4">
           <div className="flex flex-wrap gap-x-10 gap-y-4">
-            <Stat label={t('col_time_played')} value={formatSeconds(seconds)} />
+            <Stat label={t('col_time_played')} value={formatSeconds(seconds, timeFormat)} />
             <Stat label={t('stat_sessions')} value={String(summary.sessions)} />
             <Stat
               label={t('stat_avg_session')}
-              value={summary.sessions > 0 ? formatSeconds(summary.averageSeconds) : '—'}
+              value={summary.sessions > 0 ? formatSeconds(summary.averageSeconds, timeFormat) : '—'}
             />
             {profile.status === 'completed' && (
               <Stat
                 label={t('col_time_to_beat')}
-                value={profile.statusSeconds != null ? formatSeconds(profile.statusSeconds) : '—'}
+                value={profile.statusSeconds != null ? formatSeconds(profile.statusSeconds, timeFormat) : '—'}
               />
             )}
           </div>

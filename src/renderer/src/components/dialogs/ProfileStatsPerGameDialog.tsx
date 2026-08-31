@@ -1,15 +1,17 @@
 import { useTranslation } from 'react-i18next'
 import { Modal } from '../common/Modal'
 import { useProfilesStore } from '../../state/profilesStore'
+import { useTimeFormat } from '../../state/useTimeFormat'
 import { formatSeconds } from '@shared/format'
 
 function Bar({ label, seconds, percent }: { label: string; seconds: number; percent: number }): React.JSX.Element {
+  const timeFormat = useTimeFormat()
   return (
     <div className="flex flex-col gap-1">
       <div className="flex justify-between text-sm text-text">
         <span>{label}</span>
         <span className="tabular-nums text-subtext">
-          {formatSeconds(seconds)} ({percent}%)
+          {formatSeconds(seconds, timeFormat)} ({percent}%)
         </span>
       </div>
       <div className="h-1.5 overflow-hidden rounded-full bg-card">

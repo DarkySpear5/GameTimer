@@ -5,6 +5,7 @@ import { formatSeconds } from '@shared/format'
 import { toast } from '../common/Toast'
 import { useProfilesStore } from '../../state/profilesStore'
 import { loadSettings } from '../../state/settingsStore'
+import { useTimeFormat } from '../../state/useTimeFormat'
 
 interface Detected {
   path: string
@@ -20,6 +21,7 @@ interface Detected {
  * has, which matters more than anything Gamut can offer to add.
  */
 export function LegacyImportPrompt({ onResolved }: { onResolved?: () => void }): React.JSX.Element | null {
+  const timeFormat = useTimeFormat()
   const [detected, setDetected] = useState<Detected | null>(null)
   const [dismissed, setDismissed] = useState(false)
   // J4: the import copies every icon/background it finds, which is real disk
@@ -74,7 +76,7 @@ export function LegacyImportPrompt({ onResolved }: { onResolved?: () => void }):
     <Modal title="Import your v1 library?" onClose={() => void skip()} width="max-w-md">
       <p className="text-sm text-text">
         We found an existing Game Timer library — <b>{detected.profileCount}</b> game
-        {detected.profileCount === 1 ? '' : 's'}, <b>{formatSeconds(detected.totalSeconds)}</b> tracked.
+        {detected.profileCount === 1 ? '' : 's'}, <b>{formatSeconds(detected.totalSeconds, timeFormat)}</b> tracked.
       </p>
       <p className="mt-1 break-all text-xs text-subtext">{detected.path}</p>
       <div className="mt-4 flex flex-wrap justify-end gap-2">

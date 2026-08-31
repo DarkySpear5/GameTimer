@@ -41,7 +41,7 @@ export function OverlayApp(): React.JSX.Element {
         }}
       />
       <span className="font-mono font-semibold text-white tabular-nums" style={{ textShadow: shadow }}>
-        {formatSeconds(state.seconds)}
+        {formatSeconds(state.seconds, state.timeFormat)}
       </span>
     </div>
   )

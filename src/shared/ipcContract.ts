@@ -11,6 +11,7 @@ import type {
   Profile,
   Settings,
   Status,
+  TimeFormat,
   UpdateInfo,
   UpdateProgress
 } from './types'
@@ -169,6 +170,7 @@ export interface OverlayTickPayload {
   running: boolean
   scale: number
   shadow: boolean
+  timeFormat: TimeFormat
 }
 
 /** Which note's drawing is currently open in the L3 pop-out window, or null if none is. */

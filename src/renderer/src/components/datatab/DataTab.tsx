@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useProfilesStore } from '../../state/profilesStore'
 import { useSettingsStore, updateSettings } from '../../state/settingsStore'
+import { useTimeFormat } from '../../state/useTimeFormat'
 import { useUiStore, type DataSort, type DataSortKey } from '../../state/uiStore'
 import { ContextMenu } from '../common/ContextMenu'
 import { formatSeconds } from '@shared/format'
@@ -63,6 +64,7 @@ export function DataTab(): React.JSX.Element {
   const openDialog = useUiStore((s) => s.openDialog)
   const scale = useSettingsStore((s) => s.settings?.dataTableScale ?? 1.15)
   const advanced = useSettingsStore((s) => s.settings?.detailLevel === 'advanced')
+  const timeFormat = useTimeFormat()
   // Its own menu rather than the sidebar's shared one: the actions that make
   // sense on a table row are a subset, and reusing that state would fight the
   // sidebar's selection.
@@ -147,7 +149,7 @@ export function DataTab(): React.JSX.Element {
         </button>
       </div>
       <div className="mb-3 flex gap-4">
-        <StatCard label={t('stat_total_time')} value={formatSeconds(totalSeconds)} />
+        <StatCard label={t('stat_total_time')} value={formatSeconds(totalSeconds, timeFormat)} />
         <StatCard label={t('stat_games_tracked')} value={String(list.length)} />
         <StatCard label={t('stat_games_completed')} value={String(completedCount)} />
       </div>
@@ -216,9 +218,9 @@ export function DataTab(): React.JSX.Element {
                     </div>
                   </td>
                   <td className="px-3 py-2 whitespace-nowrap text-subtext">
-                    {isCompleted && p.statusSeconds != null ? formatSeconds(p.statusSeconds) : '—'}
+                    {isCompleted && p.statusSeconds != null ? formatSeconds(p.statusSeconds, timeFormat) : '—'}
                   </td>
-                  <td className="px-3 py-2 whitespace-nowrap text-text">{formatSeconds(p.seconds)}</td>
+                  <td className="px-3 py-2 whitespace-nowrap text-text">{formatSeconds(p.seconds, timeFormat)}</td>
                   {advanced && (
                     <td className="px-3 py-2 whitespace-nowrap text-subtext">{p.startedDate ?? '—'}</td>
                   )}

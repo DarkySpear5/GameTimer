@@ -16,7 +16,7 @@ import {
   LANGUAGE_ORDER,
   LANGUAGE_NAMES
 } from '@shared/constants'
-import type { Settings, ThemeColors, ThemeName } from '@shared/types'
+import type { Settings, ThemeColors, ThemeName, TimeFormat } from '@shared/types'
 
 type Tab = 'general' | 'games' | 'launchers' | 'keybinds' | 'overlay' | 'appearance'
 
@@ -192,7 +192,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }): React.JSX.
 function UiTab({
   settings
 }: {
-  settings: Pick<Settings, 'fontFamily' | 'fontScale' | 'iconSize' | 'dataTableScale'>
+  settings: Pick<Settings, 'fontFamily' | 'fontScale' | 'iconSize' | 'dataTableScale' | 'timeFormat'>
 }): React.JSX.Element {
   const { t } = useTranslation()
   const [allFonts, setAllFonts] = useState<string[]>(FONT_CHOICES)
@@ -285,6 +285,17 @@ function UiTab({
           <option value={1.15}>{t('size_medium')}</option>
           <option value={1.35}>{t('size_large')}</option>
           <option value={1.6}>{t('size_xl')}</option>
+        </select>
+      </div>
+      <div>
+        <label className="mb-1 block text-xs text-subtext">{t('label_time_format')}</label>
+        <select
+          value={settings.timeFormat}
+          onChange={(e) => void updateSettings({ timeFormat: e.target.value as TimeFormat })}
+          className="w-full rounded bg-card px-2.5 py-1.5 text-sm text-text outline-none"
+        >
+          <option value="clock">{t('time_format_clock')}</option>
+          <option value="units">{t('time_format_units')}</option>
         </select>
       </div>
       <div>

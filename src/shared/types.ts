@@ -15,6 +15,9 @@ export type SortMode =
 
 export type ThemeName = 'Midnight Blue' | 'Paper White' | 'Slate Grey' | 'Rose' | 'Retro Terminal' | 'Custom'
 
+/** How elapsed durations are presented throughout the app. */
+export type TimeFormat = 'clock' | 'units'
+
 export interface ThemeColors {
   bg: string
   panel: string
@@ -172,6 +175,8 @@ export interface Settings {
   genreFilter: string
   statusFilter: 'All' | Status
   language: string
+  /** Controls how elapsed durations are presented throughout Gamut. */
+  timeFormat: TimeFormat
   /** Default for games whose own autoFetchArt is null. */
   autoFetchArt: boolean
   /** Zoom multiplier for the Data tab only — its table is dense and reads small at 1x. */

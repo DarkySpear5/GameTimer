@@ -1,6 +1,16 @@
 import { describe, expect, it } from 'vitest'
 import { parseAppData, freshAppData, parseGtProfileFile } from './schema'
 
+describe('time format schema', () => {
+  it('defaults saves written before the setting to clock format', () => {
+    expect(parseAppData({ profiles: {} }).settings.timeFormat).toBe('clock')
+  })
+
+  it('falls back to clock format for an invalid saved value', () => {
+    expect(parseAppData({ profiles: {}, settings: { timeFormat: 'unknown' } }).settings.timeFormat).toBe('clock')
+  })
+})
+
 describe('sessionLog schema', () => {
   it('defaults to an empty array for a v2 profile that predates it', () => {
     const data = parseAppData({

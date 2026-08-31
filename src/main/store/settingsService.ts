@@ -3,13 +3,15 @@ import type { Settings } from '@shared/types'
 import { setRunAtStartup } from '../autostart/autostart'
 import { syncTrayEnabled } from '../appLifecycle'
 import { overlayWindow } from '../overlay/overlayWindow'
+import { writeStatusLog } from '../statusLog/writeStatusLog'
 
 export async function updateSettings(patch: Partial<Settings>): Promise<Settings> {
   const settings = dataStore.get().settings
   Object.assign(settings, patch)
   if (patch.runAtStartup !== undefined) setRunAtStartup(patch.runAtStartup)
   if (patch.trayEnabled !== undefined) syncTrayEnabled(patch.trayEnabled)
-  if (patch.overlay !== undefined) overlayWindow.onSettingsChanged()
+  if (patch.overlay !== undefined || patch.timeFormat !== undefined) overlayWindow.onSettingsChanged()
   await dataStore.safeSave()
+  if (patch.timeFormat !== undefined) void writeStatusLog()
   return settings
 }

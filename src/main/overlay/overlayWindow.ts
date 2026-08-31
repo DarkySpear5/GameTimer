@@ -2,7 +2,8 @@ import { BrowserWindow, screen } from 'electron'
 import { join } from 'path'
 import { pathToFileURL } from 'url'
 import { IPC } from '@shared/ipcContract'
-import type { OverlayCorner } from '@shared/types'
+import { formatSeconds } from '@shared/format'
+import type { OverlayCorner, TimeFormat } from '@shared/types'
 import { dataStore } from '../store/dataStore'
 import { timerEngine } from '../timer/timerEngine'
 import { getForegroundGameWindow, resolveCurrentGame } from '../detect/foregroundWindow'
@@ -21,8 +22,11 @@ import { resolveAsset } from '../util/env'
 // 330x84 was measured live as much bigger than the rendered content, which
 // left the visible text floating in a lot of transparent dead space instead
 // of sitting close to whichever corner/edge it was anchored to.
-const BASE_WIDTH = 200
+const MIN_WIDTH = 200
 const BASE_HEIGHT = 40
+const TIME_CHARACTER_WIDTH = 15
+const HORIZONTAL_PADDING = 24
+const CONTENT_GAP = 8
 // User feedback after trying it live: 16px read as "not close enough to the
 // corner" next to Grim Dawn's own corner-hugging FPS counter — tightened to
 // match that reference.
@@ -32,12 +36,13 @@ const POLL_MS = 2000
 let win: BrowserWindow | null = null
 let pollHandle: ReturnType<typeof setInterval> | null = null
 let currentName: string | null = null
+let currentGameBounds: Electron.Rectangle | null = null
 let tickUnsubscribe: (() => void) | null = null
 
 function ensureWindow(): BrowserWindow {
   if (win && !win.isDestroyed()) return win
   win = new BrowserWindow({
-    width: BASE_WIDTH,
+    width: MIN_WIDTH,
     height: BASE_HEIGHT,
     frame: false,
     transparent: true,
@@ -88,8 +93,18 @@ function ensureWindow(): BrowserWindow {
  * the PowerShell probe reports physical pixels, and every Electron window
  * API here speaks DIP, so on a scaled display the two diverge.
  */
-function positionFor(gameBounds: Electron.Rectangle, corner: OverlayCorner, scale: number): Electron.Rectangle {
-  const width = Math.round(BASE_WIDTH * scale)
+function widthForTime(seconds: number, format: TimeFormat, scale: number): number {
+  const dotWidth = 0.6 * 24 * scale
+  const textWidth = formatSeconds(seconds, format).length * TIME_CHARACTER_WIDTH * scale
+  return Math.max(Math.round(MIN_WIDTH * scale), Math.ceil(textWidth + dotWidth + CONTENT_GAP + HORIZONTAL_PADDING))
+}
+
+function positionFor(
+  gameBounds: Electron.Rectangle,
+  corner: OverlayCorner,
+  scale: number,
+  width: number
+): Electron.Rectangle {
   const height = Math.round(BASE_HEIGHT * scale)
   const left = gameBounds.x + MARGIN
   const right = gameBounds.x + gameBounds.width - width - MARGIN
@@ -144,9 +159,10 @@ function positionFor(gameBounds: Electron.Rectangle, corner: OverlayCorner, scal
 }
 
 async function poll(): Promise<void> {
-  const { overlay } = dataStore.get().settings
+  const { overlay, timeFormat } = dataStore.get().settings
   if (!overlay.enabled) {
     currentName = null
+    currentGameBounds = null
     if (win && !win.isDestroyed()) win.hide()
     return
   }
@@ -154,6 +170,7 @@ async function poll(): Promise<void> {
   const name = await resolveCurrentGame(fg)
   if (!name || !fg) {
     currentName = null
+    currentGameBounds = null
     if (win && !win.isDestroyed()) win.hide()
     return
   }
@@ -164,7 +181,9 @@ async function poll(): Promise<void> {
   // why this is easy to miss — and diverge on the very common 125%/150%
   // display, putting the overlay in the wrong place there.
   const gameBounds = screen.screenToDipRect(null, fg.bounds)
-  w.setBounds(positionFor(gameBounds, overlay.corner, overlay.scale))
+  currentGameBounds = gameBounds
+  const seconds = dataStore.get().profiles[name]?.seconds ?? 0
+  w.setBounds(positionFor(gameBounds, overlay.corner, overlay.scale, widthForTime(seconds, timeFormat, overlay.scale)))
   // showInactive, never show() — stealing OS focus for the overlay would make
   // IT the foreground window on the next poll, hiding itself in a loop.
   w.showInactive()
@@ -174,15 +193,25 @@ const pollOnce = makeSingleFlight(poll)
 
 function pushTick(running: Record<string, number>): void {
   if (!currentName || !win || win.isDestroyed() || win.webContents.isDestroyed()) return
-  const { overlay } = dataStore.get().settings
+  const { overlay, timeFormat } = dataStore.get().settings
   const profile = dataStore.get().profiles[currentName]
   const isRunning = currentName in running
   const seconds = isRunning ? running[currentName] : (profile?.seconds ?? 0)
+  if (currentGameBounds) {
+    const nextBounds = positionFor(
+      currentGameBounds,
+      overlay.corner,
+      overlay.scale,
+      widthForTime(seconds, timeFormat, overlay.scale)
+    )
+    if (win.getBounds().width !== nextBounds.width) win.setBounds(nextBounds)
+  }
   win.webContents.send(IPC.overlay.tick, {
     seconds,
     running: isRunning,
     scale: overlay.scale,
-    shadow: overlay.shadow
+    shadow: overlay.shadow,
+    timeFormat
   })
 }
 
@@ -202,6 +231,7 @@ export const overlayWindow = {
     if (win && !win.isDestroyed()) win.close()
     win = null
     currentName = null
+    currentGameBounds = null
   },
 
   /** Called by settingsService right after an overlay.* patch, so toggling/repositioning reacts immediately instead of waiting up to POLL_MS for the next tick. */

@@ -4,6 +4,7 @@ import { Modal } from '../common/Modal'
 import { Spinner } from '../common/Spinner'
 import { useProfilesStore } from '../../state/profilesStore'
 import { useSettingsStore } from '../../state/settingsStore'
+import { useTimeFormat } from '../../state/useTimeFormat'
 import { toast } from '../common/Toast'
 import { RunningAppPicker } from './RunningAppPicker'
 
@@ -56,6 +57,7 @@ export function ModifyDialog({ name, onClose }: { name: string; onClose: () => v
 
 function GeneralTab({ profile, onClose }: { profile: Profile; onClose: () => void }): React.JSX.Element {
   const { t } = useTranslation()
+  const timeFormat = useTimeFormat()
   const [newName, setNewName] = useState(profile.name)
   const [linking, setLinking] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -151,7 +153,7 @@ function GeneralTab({ profile, onClose }: { profile: Profile; onClose: () => voi
             {profile.statusSeconds != null
               ? t('label_status_snapshot', {
                   date: profile.statusAt,
-                  time: formatSeconds(profile.statusSeconds)
+                  time: formatSeconds(profile.statusSeconds, timeFormat)
                 })
               : profile.statusAt}
           </div>
@@ -217,6 +219,7 @@ function GeneralTab({ profile, onClose }: { profile: Profile; onClose: () => voi
  */
 export function TimeTab({ profile }: { profile: Profile }): React.JSX.Element {
   const { t } = useTranslation()
+  const timeFormat = useTimeFormat()
   const globalSubCategoriesEnabled = useSettingsStore((s) => s.settings?.subCategoriesEnabled ?? true)
   const subCategoriesEnabled = profile.subCategoriesEnabled ?? globalSubCategoriesEnabled
   const hasSelectableCategories = subCategoriesEnabled && profile.subCategories.length > 0
@@ -362,7 +365,7 @@ export function TimeTab({ profile }: { profile: Profile }): React.JSX.Element {
           <div>
             <div className={`text-sm font-medium ${pendingDelta < 0 ? 'text-red' : 'text-accent'}`}>
               {pendingDelta < 0 ? '−' : '+'}
-              {formatSeconds(Math.abs(pendingDelta))}
+              {formatSeconds(Math.abs(pendingDelta), timeFormat)}
             </div>
             <p className="mt-1 text-xs text-subtext">{t('addtime_step2_question')}</p>
           </div>

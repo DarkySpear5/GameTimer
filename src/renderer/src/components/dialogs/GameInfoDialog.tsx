@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Modal } from '../common/Modal'
 import { useProfilesStore } from '../../state/profilesStore'
 import { useSettingsStore } from '../../state/settingsStore'
+import { useTimeFormat } from '../../state/useTimeFormat'
 import { summaryFrom, idleSecondsFor, hasIdleBaseline } from '@shared/sessionStats'
 import { formatSeconds } from '@shared/format'
 import { toast } from '../common/Toast'
@@ -31,6 +32,7 @@ export function GameInfoDialog({
    */
   const advanced = true
   const watching = useSettingsStore((s) => s.settings?.watchForGames ?? false)
+  const timeFormat = useTimeFormat()
   // Read from the running aggregate, not the log — the log is a bounded
   // tail, so recomputing from it would under-report a long-played game.
   const summary = useMemo(
@@ -77,7 +79,7 @@ export function GameInfoDialog({
       <div className="mb-4 border-b border-card pb-4">
         <div className="text-xs text-subtext">{t('col_time_played')}</div>
         <div className="mt-0.5 text-2xl font-semibold tabular-nums text-text">
-          {formatSeconds(profile.seconds)}
+          {formatSeconds(profile.seconds, timeFormat)}
         </div>
       </div>
 
@@ -85,12 +87,12 @@ export function GameInfoDialog({
         <Row label={t('stat_sessions')} value={String(summary.sessions)} />
         <Row
           label={t('stat_avg_session')}
-          value={summary.sessions > 0 ? formatSeconds(summary.averageSeconds) : '—'}
+          value={summary.sessions > 0 ? formatSeconds(summary.averageSeconds, timeFormat) : '—'}
         />
         {isCompleted && (
           <Row
             label={t('col_time_to_beat')}
-            value={profile.statusSeconds != null ? formatSeconds(profile.statusSeconds) : '—'}
+            value={profile.statusSeconds != null ? formatSeconds(profile.statusSeconds, timeFormat) : '—'}
           />
         )}
         {/*
@@ -103,7 +105,7 @@ export function GameInfoDialog({
           <>
             <Row
               label={t('stat_longest_session')}
-              value={summary.sessions > 0 ? formatSeconds(summary.longestSeconds) : '—'}
+              value={summary.sessions > 0 ? formatSeconds(summary.longestSeconds, timeFormat) : '—'}
             />
             <Row label={t('stat_launches')} value={String(profile.launches)} />
             <Row label={t('stat_first_played')} value={formatDate(summary.firstPlayedAt)} />
@@ -140,10 +142,10 @@ export function GameInfoDialog({
           ) : (
             <>
           <dl className="space-y-2 text-sm">
-            <Row label={t('stat_open')} value={formatSeconds(openSecondsSinceBaseline)} />
+            <Row label={t('stat_open')} value={formatSeconds(openSecondsSinceBaseline, timeFormat)} />
             <Row
               label={t('stat_idle')}
-              value={`${formatSeconds(idleSeconds)} (${idlePercent}%)`}
+              value={`${formatSeconds(idleSeconds, timeFormat)} (${idlePercent}%)`}
             />
           </dl>
           {/*

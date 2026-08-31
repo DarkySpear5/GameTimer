@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useProfilesStore } from '../../state/profilesStore'
 import { useSettingsStore } from '../../state/settingsStore'
+import { useTimeFormat } from '../../state/useTimeFormat'
 import { formatSeconds } from '@shared/format'
 import { idleSecondsFor } from '@shared/sessionStats'
 
@@ -16,6 +17,7 @@ export function ProfileStatsTab(): React.JSX.Element {
   const profiles = useProfilesStore((s) => s.profiles)
   const scale = useSettingsStore((s) => s.settings?.dataTableScale ?? 1.15)
   const watching = useSettingsStore((s) => s.settings?.watchForGames ?? false)
+  const timeFormat = useTimeFormat()
 
   const { totalActive, totalIdle, genreHours, trackedGames } = useMemo(() => {
     const list = Object.values(profiles).filter((p) => p.status !== 'not_started')
@@ -68,12 +70,12 @@ export function ProfileStatsTab(): React.JSX.Element {
             <div className="mb-6 flex gap-4">
               <StatCard
                 label={t('profile_stats_active_time')}
-                value={formatSeconds(totalActive)}
+                value={formatSeconds(totalActive, timeFormat)}
                 percent={activePercent}
               />
               <StatCard
                 label={t('profile_stats_idle_time')}
-                value={formatSeconds(totalIdle)}
+                value={formatSeconds(totalIdle, timeFormat)}
                 percent={idlePercent}
               />
             </div>
@@ -139,12 +141,13 @@ function GenreBar({
   percentOfActive: number
   barFraction: number
 }): React.JSX.Element {
+  const timeFormat = useTimeFormat()
   return (
     <div>
       <div className="mb-1 flex items-baseline justify-between text-xs">
         <span className="text-text">{label}</span>
         <span className="tabular-nums text-subtext">
-          {formatSeconds(seconds)} ({percentOfActive}%)
+          {formatSeconds(seconds, timeFormat)} ({percentOfActive}%)
         </span>
       </div>
       <div className="h-1.5 overflow-hidden rounded-full bg-card">

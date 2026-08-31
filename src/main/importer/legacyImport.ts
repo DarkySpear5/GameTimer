@@ -136,6 +136,9 @@ function normalizeLegacySettings(raw: Record<string, unknown> | undefined): Sett
     genreFilter: (raw?.genre_filter as string) ?? 'All',
     statusFilter: (raw?.status_filter as Settings['statusFilter']) ?? 'All',
     language: (raw?.language as string) ?? 'en',
+    // v1 has no equivalent setting, so imported libraries keep the safe,
+    // backward-compatible Clock display without touching any game records.
+    timeFormat: 'clock',
     autoFetchArt: true, // v1 has no equivalent concept — default on, same as a fresh install
     watchForGames: false,
     autoStartTimer: false,

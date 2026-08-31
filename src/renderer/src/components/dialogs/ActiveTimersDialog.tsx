@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next'
 import { Modal } from '../common/Modal'
 import { useProfilesStore } from '../../state/profilesStore'
 import { useTimerStore } from '../../state/timerStore'
+import { useTimeFormat } from '../../state/useTimeFormat'
 import { formatSeconds } from '@shared/format'
 
 /**
@@ -15,6 +16,7 @@ export function ActiveTimersDialog({ onClose }: { onClose: () => void }): React.
   const { t } = useTranslation()
   const running = useTimerStore((s) => s.running)
   const profiles = useProfilesStore((s) => s.profiles)
+  const timeFormat = useTimeFormat()
   const names = Object.keys(running).sort((a, b) => a.localeCompare(b))
 
   async function pause(name: string): Promise<void> {
@@ -35,7 +37,7 @@ export function ActiveTimersDialog({ onClose }: { onClose: () => void }): React.
             >
               <span className="min-w-0 truncate">{profiles[name]?.name ?? name}</span>
               <div className="flex shrink-0 items-center gap-3">
-                <span className="tabular-nums text-subtext">{formatSeconds(running[name])}</span>
+                <span className="tabular-nums text-subtext">{formatSeconds(running[name], timeFormat)}</span>
                 <button onClick={() => void pause(name)} className="text-xs text-accent hover:underline">
                   {t('btn_pause')}
                 </button>

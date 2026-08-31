@@ -215,6 +215,7 @@ const SettingsSchema = z.object({
     .union([z.literal('All'), z.enum(['not_started', 'in_progress', 'completed', 'dropped', 'on_hold'])])
     .catch('All'),
   language: z.string().catch('en'),
+  timeFormat: z.enum(['clock', 'units']).catch('clock'),
   autoFetchArt: z.boolean().catch(true),
   dataTableScale: z.number().catch(1.15),
   watchForGames: z.boolean().catch(false),

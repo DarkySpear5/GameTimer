@@ -20,6 +20,7 @@ const STATUS_LABELS: Partial<Record<Status, string>> = {
 export async function writeStatusLog(): Promise<void> {
   try {
     const data = dataStore.get()
+    const { timeFormat } = data.settings
     const entries = Object.entries(data.profiles)
     const totalSeconds = entries.reduce((sum, [, p]) => sum + p.seconds, 0)
     const completedCount = entries.filter(([, p]) => p.status === 'completed').length
@@ -29,7 +30,7 @@ export async function writeStatusLog(): Promise<void> {
     lines.push(`Last updated: ${timestampString()}`)
     lines.push('')
     lines.push('SUMMARY')
-    lines.push(`  Total time played : ${formatSeconds(totalSeconds)}`)
+    lines.push(`  Total time played : ${formatSeconds(totalSeconds, timeFormat)}`)
     lines.push(`  Games tracked     : ${entries.length}`)
     lines.push(`  Games completed   : ${completedCount}`)
     lines.push('')
@@ -44,12 +45,12 @@ export async function writeStatusLog(): Promise<void> {
       // rendering it unconditionally here would read as the nonsense
       // "In Progress (2026-08-07, at 18:54:45)".
       if (info.status !== 'in_progress' && info.statusAt) {
-        const stamp = info.statusSeconds != null ? `, at ${formatSeconds(info.statusSeconds)}` : ''
+        const stamp = info.statusSeconds != null ? `, at ${formatSeconds(info.statusSeconds, timeFormat)}` : ''
         completedOn = ` (${info.statusAt}${stamp})`
       }
       const genre = info.genres.join(', ')
       lines.push(
-        `  ${name.padEnd(nameWidth)} ${formatSeconds(info.seconds).padStart(14)}  ` +
+        `  ${name.padEnd(nameWidth)} ${formatSeconds(info.seconds, timeFormat).padStart(14)}  ` +
           `${statusLabel}${completedOn}  [${genre}]`
       )
     }

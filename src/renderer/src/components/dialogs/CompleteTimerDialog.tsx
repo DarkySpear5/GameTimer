@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import { Modal } from '../common/Modal'
 import { useProfilesStore } from '../../state/profilesStore'
+import { useTimeFormat } from '../../state/useTimeFormat'
 import { formatSeconds } from '@shared/format'
 
 /**
@@ -18,6 +19,7 @@ export function CompleteTimerDialog({
 }): React.JSX.Element | null {
   const { t } = useTranslation()
   const profile = useProfilesStore((s) => s.profiles[name])
+  const timeFormat = useTimeFormat()
 
   if (!profile) return null
 
@@ -36,7 +38,7 @@ export function CompleteTimerDialog({
           className="flex items-center justify-between rounded-lg bg-card px-3 py-2 text-left text-sm text-text hover:bg-panel"
         >
           <span>{t('complete_timer_picker_main')}</span>
-          <span className="tabular-nums text-subtext">{formatSeconds(profile.seconds)}</span>
+          <span className="tabular-nums text-subtext">{formatSeconds(profile.seconds, timeFormat)}</span>
         </button>
         {profile.subCategories.map((c) => (
           <button
@@ -45,7 +47,7 @@ export function CompleteTimerDialog({
             className="flex items-center justify-between rounded-lg bg-card px-3 py-2 text-left text-sm text-text hover:bg-panel"
           >
             <span>{c.name}</span>
-            <span className="tabular-nums text-subtext">{formatSeconds(c.seconds)}</span>
+            <span className="tabular-nums text-subtext">{formatSeconds(c.seconds, timeFormat)}</span>
           </button>
         ))}
       </div>

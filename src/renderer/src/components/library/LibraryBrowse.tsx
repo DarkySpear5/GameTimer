@@ -2,6 +2,7 @@ import { memo, useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useProfilesStore } from '../../state/profilesStore'
 import { useSettingsStore, updateSettings } from '../../state/settingsStore'
+import { useTimeFormat } from '../../state/useTimeFormat'
 import { useTimerStore } from '../../state/timerStore'
 import { useUiStore } from '../../state/uiStore'
 import { sortAndFilterProfiles, matchesSearch } from '../../state/selectors'
@@ -41,6 +42,7 @@ const GameTile = memo(function GameTile({
   onContextMenu: (e: React.MouseEvent, name: string) => void
 }): React.JSX.Element {
   const liveSeconds = useTimerStore((s) => s.running[profile.name])
+  const timeFormat = useTimeFormat()
   const isRunning = liveSeconds !== undefined
 
   return (
@@ -82,7 +84,7 @@ const GameTile = memo(function GameTile({
           {profile.name}
         </div>
         <div className="text-xs tabular-nums text-subtext">
-          {formatSeconds(liveSeconds ?? profile.seconds)}
+          {formatSeconds(liveSeconds ?? profile.seconds, timeFormat)}
         </div>
       </div>
     </button>
@@ -104,6 +106,7 @@ const GameListRow = memo(function GameListRow({
   onContextMenu: (e: React.MouseEvent, name: string) => void
 }): React.JSX.Element {
   const liveSeconds = useTimerStore((s) => s.running[profile.name])
+  const timeFormat = useTimeFormat()
   const isRunning = liveSeconds !== undefined
 
   return (
@@ -127,7 +130,7 @@ const GameListRow = memo(function GameListRow({
       </span>
       <span className="hidden w-28 shrink-0 text-xs text-subtext sm:block">{statusLabel}</span>
       <span className="w-24 shrink-0 text-right text-xs tabular-nums text-subtext">
-        {formatSeconds(liveSeconds ?? profile.seconds)}
+        {formatSeconds(liveSeconds ?? profile.seconds, timeFormat)}
       </span>
       <div
         className={`shrink-0 transition-opacity ${
