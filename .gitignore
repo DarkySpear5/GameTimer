@@ -46,4 +46,5 @@ release-dev/
 .verify-trademark-tmp/
 .verify-idle-baseline-tmp/
 .superpowers/
+.worktrees/
 .verify-add-remove-time-subcategories-tmp/
