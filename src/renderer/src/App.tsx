@@ -18,6 +18,7 @@ import { SubCategoryPromptDialog } from './components/dialogs/SubCategoryPromptD
 import { CompleteTimerDialog } from './components/dialogs/CompleteTimerDialog'
 import { ProfileStatsPerGameDialog } from './components/dialogs/ProfileStatsPerGameDialog'
 import { ActiveTimersDialog } from './components/dialogs/ActiveTimersDialog'
+import { PlayHistoryDialog } from './components/dialogs/PlayHistoryDialog'
 import { UpdatePrompt } from './components/dialogs/UpdatePrompt'
 import { ToastHost } from './components/common/Toast'
 import { useProfilesStore, startProfilesChangeSubscription } from './state/profilesStore'
@@ -122,6 +123,7 @@ function App(): React.JSX.Element {
       )}
       {dialog === 'installed' && <InstalledGamesDialog onClose={closeDialog} />}
       {dialog === 'activeTimers' && <ActiveTimersDialog onClose={closeDialog} />}
+      {dialog === 'playHistory' && dialogTarget && <PlayHistoryDialog name={dialogTarget} onClose={closeDialog} />}
 
       <FirstRunPrompts />
       <UpdatePrompt />

@@ -11,6 +11,10 @@ import { formatSeconds } from '@shared/format'
 import { summaryFrom } from '@shared/sessionStats'
 import { GameArt } from './GameArt'
 import { FavoriteStar } from './FavoriteStar'
+import { PlayHistoryChart } from '../charts/PlayHistoryChart'
+import { selectPlayHistoryBuckets } from '../charts/playHistoryBuckets'
+import { IS_DEV_CHANNEL } from '@shared/channel'
+import { PLAY_HISTORY_SIMULATION } from '../../dev/playHistorySimulation'
 import { toast } from '../common/Toast'
 import type { Status, SubCategory } from '@shared/types'
 
@@ -132,6 +136,7 @@ export function LibraryDetail({ name }: { name: string }): React.JSX.Element {
   const timeFormat = useTimeFormat()
   const setLibraryFocus = useUiStore((s) => s.setLibraryFocus)
   const openDialog = useUiStore((s) => s.openDialog)
+  const [previewHistory, setPreviewHistory] = useState(false)
 
   // The game can vanish under this view (deleted from the context menu, or a
   // rename landing as a different key), so falling back to the grid is a real
@@ -420,6 +425,14 @@ export function LibraryDetail({ name }: { name: string }): React.JSX.Element {
               />
             )}
           </div>
+
+          <section className="rounded-xl bg-card p-4" aria-label="Play history">
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <div><h3 className="text-sm font-semibold text-text">Play history</h3><p className="text-xs text-subtext">Hours played each day</p></div>
+              <div className="flex gap-3"><button onClick={() => openDialog('playHistory', name)} className="text-xs text-accent hover:underline">More details</button>{IS_DEV_CHANNEL && <button onClick={() => setPreviewHistory((value) => !value)} className="text-xs text-accent hover:underline">{previewHistory ? 'Use game data' : 'Preview chart'}</button>}</div>
+            </div>
+            <PlayHistoryChart title="Play history, last seven days" selection={selectPlayHistoryBuckets(previewHistory ? PLAY_HISTORY_SIMULATION : profile.playHistory, 'sevenDays')} timeFormat={timeFormat} />
+          </section>
 
           <div className="flex flex-col gap-1.5">
             <span className="text-[0.65rem] tracking-wide text-subtext uppercase">{t('label_rating')}</span>

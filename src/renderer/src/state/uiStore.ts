@@ -19,6 +19,7 @@ export type DialogKind =
   | 'completeTimerPicker'
   | 'profileStatsPerGame'
   | 'activeTimers'
+  | 'playHistory'
   | null
 
 /** Which Data-tab column the table is ordered by. Genres is deliberately absent — a set of tags has no meaningful order. */
