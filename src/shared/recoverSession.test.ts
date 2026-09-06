@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { recoverSession, type RecoverTarget } from './recoverSession'
 import { emptyAggregate, summaryFrom } from './sessionStats'
 import { MIN_SESSION_SECONDS } from './constants'
+import { emptyPlayHistory } from './playHistory'
 
 const MINUTE = 60_000
 const T0 = 1_700_000_000_000
@@ -73,4 +74,21 @@ describe('recoverSession', () => {
     expect(t.sessionLog).toHaveLength(2)
     expect(t.sessionLog[0].startedAt).toBe(T0)
   })
+
+  it('fills a recovered interval that is in the canonical total but absent from the daily ledger', () => {
+    const t = {
+      ...target({ startedAt: T0, lastSeenAt: T0 + 18 * MINUTE }),
+      seconds: 18 * 60,
+      playHistory: emptyPlayHistory()
+    }
+
+    recoverSession(t)
+
+    expect(t.playHistory.dailySeconds).toEqual({ [localDate(T0)]: 18 * 60 })
+  })
 })
+
+function localDate(time: number): string {
+  const date = new Date(time)
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+}

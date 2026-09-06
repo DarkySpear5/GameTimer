@@ -1,6 +1,8 @@
 import { aggregateFrom, trimSessionLog } from '@shared/sessionStats'
+import { emptyPlayHistory, isPlayHistoryDate } from '@shared/playHistory'
 import { recoverSession } from '@shared/recoverSession'
 import type { AppData } from '@shared/types'
+import { dateString, todayDateString } from '../util/date'
 
 /**
  * One-time fold of a full session log into its aggregate.
@@ -28,11 +30,43 @@ export function migrateSessionAggregates(data: AppData): boolean {
       profile.sessionLog = trimmed
       changed = true
     }
+  }
+  // Run after old logs have supplied firstPlayedAt, but before crash recovery:
+  // an old crash marker's checkpointed seconds belong in the truthful legacy
+  // baseline, not in a fabricated single recorded day.
+  if (migratePlayHistory(data)) changed = true
+  for (const profile of Object.values(data.profiles)) {
     // A session marker still set at load time means the last run never paused
     // — a crash, a power cut, or a force-quit. Its time was already committed
     // to `seconds` by the checkpoint; this is what stops the session itself
     // from being lost, which is what made totals and averages disagree.
     if (recoverSession(profile)) changed = true
+  }
+  return changed
+}
+
+/**
+ * Gives pre-ledger profiles one honest, labelled total instead of fabricating
+ * historical daily activity. A non-empty ledger has already been migrated or
+ * recorded and is intentionally left untouched.
+ */
+export function migratePlayHistory(data: AppData, migrationDate = todayDateString()): boolean {
+  let changed = false
+  for (const profile of Object.values(data.profiles)) {
+    const history = profile.playHistory
+    if (history?.baseline || (history && Object.keys(history.dailySeconds).length > 0)) continue
+
+    const firstPlayed = profile.sessionStats.firstPlayedAt
+    const date = isPlayHistoryDate(profile.startedDate ?? '')
+      ? profile.startedDate!
+      : Number.isFinite(firstPlayed)
+        ? dateString(new Date(firstPlayed!))
+        : migrationDate
+    profile.playHistory = {
+      ...emptyPlayHistory(),
+      baseline: { date, seconds: profile.seconds }
+    }
+    changed = true
   }
   return changed
 }

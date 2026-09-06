@@ -9,6 +9,7 @@ import { todayDateString } from '../util/date'
 import { saveCappedImage } from '../util/imageResize'
 import { enrichGame, storeArtFromUrl } from '../art/enrich'
 import { emptyAggregate } from '@shared/sessionStats'
+import { clonePlayHistory, emptyPlayHistory, isPlayHistoryDate } from '@shared/playHistory'
 import { emptyNote } from '@shared/notes'
 import { newSubCategory, creditSubCategory } from '@shared/subCategories'
 import { ICON_MAX_DIMENSION, BACKGROUND_MAX_DIMENSION, COVER_MAX_DIMENSION } from '@shared/constants'
@@ -36,6 +37,7 @@ function freshProfile(name: string): Profile {
     rating: 0,
     sessionStats: emptyAggregate(),
     sessionLog: [],
+    playHistory: emptyPlayHistory(),
     activeSession: null,
     exePath: null,
     steamAppId: null,
@@ -185,6 +187,7 @@ export const profileService = {
       // share one array.
       sessionStats: { ...original.sessionStats },
       sessionLog: [...original.sessionLog],
+      playHistory: clonePlayHistory(original.playHistory ?? emptyPlayHistory()),
       // The copy is not running, whatever the original is doing.
       activeSession: null,
       // The copy points at the same game, so it keeps the link and the art
@@ -587,6 +590,7 @@ export const profileService = {
 
   async addRemoveTime(name: string, deltaSeconds: number, subCategoryIds: string[] = []): Promise<Profile> {
     const profile = requireProfile(name)
+    const before = profile.seconds
     const removing = deltaSeconds < 0
     const magnitude = Math.abs(deltaSeconds)
     if (removing) {
@@ -594,6 +598,16 @@ export const profileService = {
     } else {
       profile.seconds += magnitude
       profile.lastPlayed = Date.now()
+    }
+    const appliedDelta = profile.seconds - before
+    if (appliedDelta !== 0) {
+      const history = clonePlayHistory(profile.playHistory ?? emptyPlayHistory())
+      history.baseline ??= {
+        date: isPlayHistoryDate(profile.startedDate ?? '') ? profile.startedDate! : todayDateString(),
+        seconds: 0
+      }
+      history.baseline.seconds += appliedDelta
+      profile.playHistory = history
     }
     for (const id of subCategoryIds) {
       profile.subCategories = creditSubCategory(profile.subCategories, id, deltaSeconds)
@@ -615,6 +629,7 @@ export const profileService = {
     profile.seconds = 0
     profile.sessionStats = emptyAggregate()
     profile.sessionLog = []
+    profile.playHistory = emptyPlayHistory()
     profile.activeSession = null
     profile.openSeconds = 0
     profile.secondsAtOpenTrackingStart = null

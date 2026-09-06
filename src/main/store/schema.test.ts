@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import { parseAppData, freshAppData, parseGtProfileFile } from './schema'
+import { emptyPlayHistory } from '@shared/playHistory'
+
+describe('play history schema', () => {
+  it('defaults a profile from before daily tracking to an empty ledger', () => {
+    const data = parseAppData({ profiles: { Doom: { name: 'Doom', seconds: 3_600 } } })
+
+    expect(data.profiles.Doom.playHistory).toEqual(emptyPlayHistory())
+  })
+})
 
 describe('time format schema', () => {
   it('defaults saves written before the setting to clock format', () => {

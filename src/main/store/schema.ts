@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { DEFAULT_CUSTOM_COLORS } from '@shared/constants'
+import { emptyPlayHistory, isPlayHistoryDate } from '@shared/playHistory'
 import type { AppData, GtProfileFile } from '@shared/types'
 
 /**
@@ -65,6 +66,17 @@ const SessionAggregateSchema = z
   })
   .catch({ count: 0, totalSeconds: 0, longestSeconds: 0, firstPlayedAt: null, lastPlayedAt: null })
 
+const PlayHistorySchema = z
+  .object({
+    version: z.literal(1),
+    baseline: z
+      .object({ date: z.string().refine(isPlayHistoryDate), seconds: z.number() })
+      .nullable(),
+    dailySeconds: z.record(z.string().refine(isPlayHistoryDate), z.number())
+  })
+  .catch(() => emptyPlayHistory())
+  .default(() => emptyPlayHistory())
+
 /**
  * A .gtprofile is a file a user can hand-edit or receive from anyone —
  * unlike the main save file, nothing here comes from Gamut's own writer by
@@ -94,6 +106,7 @@ const GtProfileFileSchema = z.object({
   openSeconds: z.number().catch(0).optional(),
   secondsAtOpenTrackingStart: z.number().nullable().catch(null).optional(),
   openSecondsAtOpenTrackingStart: z.number().nullable().catch(null).optional(),
+  playHistory: PlayHistorySchema.optional(),
   // 16 MiB encoded is roughly a 12 MiB source image — far beyond the
   // rendered size, while bounded before Buffer/nativeImage allocate it.
   iconB64: z.string().max(16 * 1024 * 1024).optional(),
@@ -132,6 +145,10 @@ const ProfileSchema = z
     // here — a partial or corrupt file loses the bad field, never the library.
     sessionStats: SessionAggregateSchema,
     sessionLog: z.array(SessionEntrySchema).catch([]),
+    // Older saves do not have this permanent ledger. Loading gives them a
+    // safe empty shape; migratePlayHistory immediately installs their one
+    // truthful baseline before the next save.
+    playHistory: PlayHistorySchema,
     // Absent in every save written before crash recovery existed, so it
     // defaults to null rather than being required.
     activeSession: z

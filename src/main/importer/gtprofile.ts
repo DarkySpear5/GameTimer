@@ -14,6 +14,7 @@ import { decodeImportImage, MAX_GTPROFILE_BYTES, readJsonFileWithinLimit } from 
 import { safeFileNameFromTitle } from '../util/safePath'
 import { aggregateFrom, trimSessionLog } from '@shared/sessionStats'
 import { emptyNote } from '@shared/notes'
+import { clonePlayHistory, emptyPlayHistory } from '@shared/playHistory'
 import type { GtProfileFile, Profile } from '@shared/types'
 
 /** Single-game export, self-contained (images embedded as base64) — wire-compatible with v1's .gtprofile format. */
@@ -22,36 +23,7 @@ export async function exportProfile(win: BrowserWindow, name: string): Promise<{
   const profile = dataStore.get().profiles[name]
   if (!profile) throw new Error(`No such profile: ${name}`)
 
-  const exported: GtProfileFile = {
-    name: profile.name,
-    seconds: profile.seconds,
-    status: profile.status,
-    statusAt: profile.statusAt,
-    statusSeconds: profile.statusSeconds,
-    genres: profile.genres,
-    lastPlayed: profile.lastPlayed,
-    startedDate: profile.startedDate,
-    notes: profile.notes,
-    rating: profile.rating,
-    // Carried so an export/import round trip keeps the session history. Older
-    // builds ignore the extra keys; without them a re-import would keep the
-    // playtime but silently reset Sessions to zero.
-    sessionLog: profile.sessionLog,
-    sessionStats: profile.sessionStats,
-    // Same reasoning as sessionLog — without this an export/import round trip
-    // would keep the legacy `notes` string but silently drop every note the
-    // L1 rewrite actually uses.
-    noteList: profile.noteList,
-    steamAppId: profile.steamAppId,
-    // Carried for the same reason as sessionLog/noteList — a transfer to a
-    // new machine should keep idle/AFK history too, not just playtime. The
-    // two baseline fields have to travel WITH openSeconds, never split from
-    // it — importing openSeconds with a stale or missing baseline is exactly
-    // the "reads as 100% idle" bug idleSecondsFor's own doc comment covers.
-    openSeconds: profile.openSeconds,
-    secondsAtOpenTrackingStart: profile.secondsAtOpenTrackingStart,
-    openSecondsAtOpenTrackingStart: profile.openSecondsAtOpenTrackingStart
-  }
+  const exported = profileToGtProfileFile(profile)
 
   if (profile.iconFile) {
     const iconPath = join(paths.iconsDir(), profile.iconFile)
@@ -79,6 +51,41 @@ export async function exportProfile(win: BrowserWindow, name: string): Promise<{
 
   await fs.writeFile(result.filePath, JSON.stringify(exported), 'utf-8')
   return { path: result.filePath }
+}
+
+/** Builds the portable, non-machine-specific part of a profile export. */
+export function profileToGtProfileFile(profile: Profile): GtProfileFile {
+  return {
+    name: profile.name,
+    seconds: profile.seconds,
+    status: profile.status,
+    statusAt: profile.statusAt,
+    statusSeconds: profile.statusSeconds,
+    genres: [...profile.genres],
+    lastPlayed: profile.lastPlayed,
+    startedDate: profile.startedDate,
+    notes: profile.notes,
+    rating: profile.rating,
+    // Carried so an export/import round trip keeps the session history. Older
+    // builds ignore the extra keys; without them a re-import would keep the
+    // playtime but silently reset Sessions to zero.
+    sessionLog: profile.sessionLog,
+    sessionStats: profile.sessionStats,
+    // Same reasoning as sessionLog — without this an export/import round trip
+    // would keep the legacy `notes` string but silently drop every note the
+    // L1 rewrite actually uses.
+    noteList: profile.noteList,
+    steamAppId: profile.steamAppId,
+    // Carried for the same reason as sessionLog/noteList — a transfer to a
+    // new machine should keep idle/AFK history too, not just playtime. The
+    // two baseline fields have to travel WITH openSeconds, never split from
+    // it — importing openSeconds with a stale or missing baseline is exactly
+    // the "reads as 100% idle" bug idleSecondsFor's own doc comment covers.
+    openSeconds: profile.openSeconds,
+    secondsAtOpenTrackingStart: profile.secondsAtOpenTrackingStart,
+    openSecondsAtOpenTrackingStart: profile.openSecondsAtOpenTrackingStart,
+    playHistory: clonePlayHistory(profile.playHistory ?? emptyPlayHistory())
+  }
 }
 
 /** Always creates a new, uniquely-named profile — never overwrites/merges an existing one. */
@@ -140,7 +147,22 @@ export async function importProfile(win: BrowserWindow): Promise<Profile | null>
     }
   }
 
-  const profile: Profile = {
+  const profile = profileFromGtProfileFile(name, imported, iconFile, bgImageFile)
+
+  data.profiles[name] = profile
+  await dataStore.safeSave()
+  void writeStatusLog()
+  return profile
+}
+
+/** Rebuilds a profile from validated portable data; caller supplies saved image filenames. */
+export function profileFromGtProfileFile(
+  name: string,
+  imported: GtProfileFile,
+  iconFile: string | null,
+  bgImageFile: string | null
+): Profile {
+  return {
     name,
     seconds: imported.seconds ?? 0,
     iconFile,
@@ -189,6 +211,7 @@ export async function importProfile(win: BrowserWindow): Promise<Profile | null>
     openSeconds: imported.openSeconds ?? 0,
     secondsAtOpenTrackingStart: imported.secondsAtOpenTrackingStart ?? null,
     openSecondsAtOpenTrackingStart: imported.openSecondsAtOpenTrackingStart ?? null,
+    playHistory: clonePlayHistory(imported.playHistory ?? emptyPlayHistory()),
     autoStartTimer: null,
     genresFromDetection: false,
     // Not carried in the file format: a star is a statement about your own
@@ -203,9 +226,4 @@ export async function importProfile(win: BrowserWindow): Promise<Profile | null>
     subCategories: [],
     subCategoriesEnabled: null
   }
-
-  data.profiles[name] = profile
-  await dataStore.safeSave()
-  void writeStatusLog()
-  return profile
 }

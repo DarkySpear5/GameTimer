@@ -4,6 +4,7 @@ import { backupService } from '../backup/backupService'
 import { todayDateString } from '../util/date'
 import { UI_TICK_MS, CHECKPOINT_MS, STATUS_LOG_MS } from '@shared/constants'
 import { addSession, makeSessionEntry, trimSessionLog } from '@shared/sessionStats'
+import { emptyPlayHistory, recordElapsed } from '@shared/playHistory'
 import { creditSubCategory } from '@shared/subCategories'
 import type { TimerTickPayload } from '@shared/ipcContract'
 
@@ -98,13 +99,15 @@ class TimerEngine {
     try {
       const profile = dataStore.get().profiles[name]
       if (profile) {
-        const delta = (Date.now() - tickStart) / 1000
+        const now = Date.now()
+        const delta = (now - tickStart) / 1000
         profile.seconds += delta
+        profile.playHistory = recordElapsed(profile.playHistory ?? emptyPlayHistory(), tickStart, now)
         if (categoryId) profile.subCategories = creditSubCategory(profile.subCategories, categoryId, delta)
         // The session is ending cleanly, so the crash marker has done its job.
         profile.activeSession = null
         if (sessionStart !== undefined) {
-          const entry = makeSessionEntry(sessionStart, Date.now())
+          const entry = makeSessionEntry(sessionStart, now)
           // The aggregate is the source of truth and is updated first; the log
           // is a bounded tail kept only for a future history graph.
           profile.sessionStats = addSession(profile.sessionStats, entry)
@@ -128,6 +131,7 @@ class TimerEngine {
     if (profile) {
       const delta = (now - tickStart) / 1000
       profile.seconds += delta
+      profile.playHistory = recordElapsed(profile.playHistory ?? emptyPlayHistory(), tickStart, now)
       const categoryId = this.activeCategoryAssignment.get(name)
       if (categoryId) profile.subCategories = creditSubCategory(profile.subCategories, categoryId, delta)
       if (profile.activeSession) profile.activeSession.lastSeenAt = now
@@ -147,6 +151,7 @@ class TimerEngine {
       const start = this.activeTimers.get(name)!
       const delta = (now - start) / 1000
       profile.seconds += delta
+      profile.playHistory = recordElapsed(profile.playHistory ?? emptyPlayHistory(), start, now)
       const categoryId = this.activeCategoryAssignment.get(name)
       if (categoryId) profile.subCategories = creditSubCategory(profile.subCategories, categoryId, delta)
       this.activeTimers.set(name, now)

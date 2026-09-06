@@ -376,6 +376,8 @@ export interface GtProfileFile {
   openSeconds?: number
   secondsAtOpenTrackingStart?: number | null
   openSecondsAtOpenTrackingStart?: number | null
+  /** Portable copy of the permanent daily ledger; older exports omit it. */
+  playHistory?: PlayHistory
   iconB64?: string
   iconExt?: string
   bgImageB64?: string
