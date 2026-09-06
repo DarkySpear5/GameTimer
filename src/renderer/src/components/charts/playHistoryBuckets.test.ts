@@ -3,6 +3,7 @@ import type { PlayHistory } from '@shared/playHistory'
 import {
   EARLIER_PLAYTIME_TOOLTIP,
   selectPlayHistoryBuckets,
+  visiblePlayHistoryBuckets,
   type PlayHistoryRange
 } from './playHistoryBuckets'
 
@@ -105,4 +106,25 @@ describe('PlayHistoryRange', () => {
       expect(selectPlayHistoryBuckets(history(), range, localDate(2026, 8, 5)).buckets.length).toBeGreaterThan(0)
     }
   )
+})
+describe('visiblePlayHistoryBuckets', () => {
+  it('centers a selected bucket when zooming the visible range', () => {
+    const selection = selectPlayHistoryBuckets(history(), 'sevenDays', localDate(2026, 8, 5))
+
+    const result = visiblePlayHistoryBuckets(selection, 3, '2026-09-02')
+
+    expect(result.buckets.map((bucket) => bucket.key)).toEqual(['2026-09-01', '2026-09-02', '2026-09-03'])
+  })
+  it('keeps the newest requested buckets and preserves the carry-over baseline', () => {
+    const selection = selectPlayHistoryBuckets(
+      history({ '2026-09-03': 900, '2026-09-04': 1_800 }, { date: '2024-01-15', seconds: 5_400 }),
+      'sevenDays',
+      localDate(2026, 8, 5)
+    )
+
+    const result = visiblePlayHistoryBuckets(selection, 3)
+
+    expect(result.buckets.map((bucket) => bucket.key)).toEqual(['2026-09-03', '2026-09-04', '2026-09-05'])
+    expect(result.baseline).toEqual(selection.baseline)
+  })
 })

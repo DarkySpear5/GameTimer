@@ -29,6 +29,27 @@ export interface PlayHistoryBucketSelection {
 export const EARLIER_PLAYTIME_TOOLTIP = 'Earlier playtime'
 
 /**
+ * Returns a display slice without changing the original history selection.
+ * A focused date stays centered whenever there is room on both sides; without
+ * a focused date the newest periods remain visible.
+ */
+export function visiblePlayHistoryBuckets(
+  selection: PlayHistoryBucketSelection,
+  requestedCount: number,
+  focusedKey?: string | null
+): PlayHistoryBucketSelection {
+  const count = Math.min(selection.buckets.length, Math.max(1, Math.floor(requestedCount)))
+  const focusedIndex = focusedKey ? selection.buckets.findIndex((bucket) => bucket.key === focusedKey) : -1
+  if (focusedIndex < 0) return { ...selection, buckets: selection.buckets.slice(-count) }
+
+  const start = Math.min(
+    Math.max(0, focusedIndex - Math.floor(count / 2)),
+    Math.max(0, selection.buckets.length - count)
+  )
+  return { ...selection, buckets: selection.buckets.slice(start, start + count) }
+}
+
+/**
  * Selects fixed, local-calendar chart buckets. The baseline remains separate
  * so no chart can imply that older, un-attributed play happened on its anchor
  * date or in any later day/week/month bucket.

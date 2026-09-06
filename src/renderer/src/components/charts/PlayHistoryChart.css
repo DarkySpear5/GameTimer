@@ -1,57 +1,40 @@
-.play-history-chart {
-  color: var(--gt-text);
-}
-
-.play-history-chart__svg {
-  display: block;
-  width: 100%;
-  overflow: visible;
-}
-
-.play-history-chart__grid-line {
-  stroke: var(--gt-card);
-  stroke-width: 1;
-}
-
-.play-history-chart__zero-line {
-  stroke: var(--gt-subtext);
-  stroke-width: 1.5;
-}
-
+.play-history-chart { color: var(--gt-text); }
+.play-history-chart__svg { display: block; width: 100%; overflow: visible; }
+.play-history-chart__svg--zoomable { cursor: default; }
+.play-history-chart__grid-line { stroke: var(--gt-card); stroke-width: 1; }
+.play-history-chart__zero-line { stroke: var(--gt-subtext); stroke-width: 1.5; }
 .play-history-chart__y-label,
-.play-history-chart__x-label {
-  fill: var(--gt-subtext);
-  font-size: 11px;
-}
+.play-history-chart__x-label { fill: var(--gt-subtext); font-size: 13px; }
+.play-history-chart__bar { fill: var(--gt-accent); cursor: default; pointer-events: none; }
+.play-history-chart__bar--zero { fill: var(--gt-card); stroke: var(--gt-subtext); stroke-width: 1; }
+.play-history-chart__bar--baseline { opacity: 0.78; }
+.play-history-chart__tooltip { min-height: 1.25rem; margin-top: 0.25rem; color: var(--gt-subtext); font-size: 0.875rem; line-height: 1.25rem; }
+.play-history-chart__point { cursor: pointer; outline: none; }
+.play-history-chart__point:focus,
+.play-history-chart__point--selected { stroke: var(--gt-text); stroke-width: 3; }
 
-.play-history-chart__bar {
-  fill: var(--gt-accent);
-  cursor: default;
-  transition: opacity 120ms ease;
-}
+.play-history-overview { display: none; min-width: 0; }
 
-.play-history-chart__bar--zero {
-  fill: var(--gt-card);
-  stroke: var(--gt-subtext);
-  stroke-width: 1;
-}
+@media (min-width: 880px) and (min-height: 760px) {
+  .play-history-overview {
+    display: flex;
+    width: 100%;
+    min-height: 180px;
+    flex: 1 1 0;
+    flex-direction: column;
+  }
 
-.play-history-chart__bar--baseline {
-  stroke: var(--gt-text);
-  stroke-width: 1;
-}
+  .play-history-overview .play-history-chart {
+    display: flex;
+    min-height: 0;
+    flex: 1 1 0;
+    flex-direction: column;
+  }
 
-.play-history-chart__bar:hover,
-.play-history-chart__bar:focus-visible {
-  opacity: 0.78;
-  outline: 2px solid var(--gt-text);
-  outline-offset: 2px;
-}
+  .play-history-overview .play-history-chart__svg {
+    min-height: 0;
+    flex: 1 1 0;
+  }
 
-.play-history-chart__tooltip {
-  min-height: 1.25rem;
-  margin-top: 0.25rem;
-  color: var(--gt-subtext);
-  font-size: 0.75rem;
-  line-height: 1.25rem;
+  .play-history-details { margin-top: auto; }
 }

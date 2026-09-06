@@ -13,8 +13,6 @@ import { GameArt } from './GameArt'
 import { FavoriteStar } from './FavoriteStar'
 import { PlayHistoryChart } from '../charts/PlayHistoryChart'
 import { selectPlayHistoryBuckets } from '../charts/playHistoryBuckets'
-import { IS_DEV_CHANNEL } from '@shared/channel'
-import { PLAY_HISTORY_SIMULATION } from '../../dev/playHistorySimulation'
 import { emptyPlayHistory } from '@shared/playHistory'
 import { toast } from '../common/Toast'
 import type { Status, SubCategory } from '@shared/types'
@@ -137,7 +135,6 @@ export function LibraryDetail({ name }: { name: string }): React.JSX.Element {
   const timeFormat = useTimeFormat()
   const setLibraryFocus = useUiStore((s) => s.setLibraryFocus)
   const openDialog = useUiStore((s) => s.openDialog)
-  const [previewHistory, setPreviewHistory] = useState(false)
 
   // The game can vanish under this view (deleted from the context menu, or a
   // rename landing as a different key), so falling back to the grid is a real
@@ -309,7 +306,7 @@ export function LibraryDetail({ name }: { name: string }): React.JSX.Element {
      * window happens to be.
      */
     <div className="flex h-full flex-col overflow-hidden">
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div className="min-h-0 flex flex-1 flex-col overflow-y-auto">
         <div className="relative" style={heroStyle}>
           {/*
            * The scrim is heavier than a background usually needs because this one
@@ -411,44 +408,29 @@ export function LibraryDetail({ name }: { name: string }): React.JSX.Element {
           </div>
         </div>
 
-        <div className="flex flex-col gap-5 px-5 py-4">
+        <div className="flex min-h-0 flex-1 flex-col gap-5 px-5 py-4">
           <div className="flex flex-wrap gap-x-10 gap-y-4">
             <Stat label={t('col_time_played')} value={formatSeconds(seconds, timeFormat)} />
             <Stat label={t('stat_sessions')} value={String(summary.sessions)} />
-            <Stat
-              label={t('stat_avg_session')}
-              value={summary.sessions > 0 ? formatSeconds(summary.averageSeconds, timeFormat) : '—'}
-            />
+            <Stat label={t('stat_avg_session')} value={summary.sessions > 0 ? formatSeconds(summary.averageSeconds, timeFormat) : '—'} />
             {profile.status === 'completed' && (
-              <Stat
-                label={t('col_time_to_beat')}
-                value={profile.statusSeconds != null ? formatSeconds(profile.statusSeconds, timeFormat) : '—'}
-              />
+              <Stat label={t('col_time_to_beat')} value={profile.statusSeconds != null ? formatSeconds(profile.statusSeconds, timeFormat) : '—'} />
             )}
           </div>
 
-          <section className="rounded-xl bg-card p-4" aria-label="Play history">
-            <div className="mb-2 flex items-center justify-between gap-3">
-              <div><h3 className="text-sm font-semibold text-text">Play history</h3><p className="text-xs text-subtext">Hours played each day</p></div>
-              <div className="flex gap-3"><button onClick={() => openDialog('playHistory', name)} className="text-xs text-accent hover:underline">More details</button>{IS_DEV_CHANNEL && <button onClick={() => setPreviewHistory((value) => !value)} className="text-xs text-accent hover:underline">{previewHistory ? 'Use game data' : 'Preview chart'}</button>}</div>
+          <section className="play-history-overview" aria-label="Play history">
+            <div className="flex justify-end gap-3">
+              <button onClick={() => openDialog('playHistory', name)} className="text-xs text-accent hover:underline">More details</button>
             </div>
-            <PlayHistoryChart title="Play history, last seven days" selection={selectPlayHistoryBuckets(previewHistory ? PLAY_HISTORY_SIMULATION : (profile.playHistory ?? emptyPlayHistory()), 'sevenDays')} timeFormat={timeFormat} />
+            <PlayHistoryChart title="Play history, last seven days" selection={selectPlayHistoryBuckets(profile.playHistory ?? emptyPlayHistory(), 'sevenDays')} timeFormat={timeFormat} compact />
           </section>
 
-          <div className="flex flex-col gap-1.5">
+                    <div className="play-history-details flex flex-col gap-5">
+<div className="flex flex-col gap-1.5">
             <span className="text-[0.65rem] tracking-wide text-subtext uppercase">{t('label_rating')}</span>
             <div className="flex items-center gap-1">
               {[1, 2, 3, 4, 5].map((n) => (
-                <button
-                  key={n}
-                  aria-label={`${n}`}
-                  // Clicking the star that's already the rating clears it, so a
-                  // rating can be undone without a separate control.
-                  onClick={() => void setRating((n === profile.rating ? 0 : n) as 0 | 1 | 2 | 3 | 4 | 5)}
-                  className={`text-xl leading-none transition-colors ${
-                    n <= profile.rating ? 'text-gold' : 'text-subtext hover:text-gold'
-                  }`}
-                >
+                <button key={n} aria-label={`${n}`} onClick={() => void setRating((n === profile.rating ? 0 : n) as 0 | 1 | 2 | 3 | 4 | 5)} className={`text-xl leading-none transition-colors ${n <= profile.rating ? 'text-gold' : 'text-subtext hover:text-gold'}`}>
                   {n <= profile.rating ? '★' : '☆'}
                 </button>
               ))}
@@ -458,20 +440,11 @@ export function LibraryDetail({ name }: { name: string }): React.JSX.Element {
           {hasVisibleSubCategories && (
             <div className="flex flex-col gap-1.5">
               <div className="flex items-center justify-between">
-                <span className="text-[0.65rem] tracking-wide text-subtext uppercase">
-                  {t('subcat_heading')}
-                </span>
-                <button
-                  onClick={() => void addSubCategory()}
-                  className="text-xs text-accent hover:underline"
-                >
-                  {t('subcat_new')}
-                </button>
+                <span className="text-[0.65rem] tracking-wide text-subtext uppercase">{t('subcat_heading')}</span>
+                <button onClick={() => void addSubCategory()} className="text-xs text-accent hover:underline">{t('subcat_new')}</button>
               </div>
               <div className="flex max-h-40 flex-col gap-0.5 overflow-y-auto rounded-lg bg-card p-1.5">
-                {profile.subCategories.map((c) => (
-                  <SubCategoryRow key={c.id} gameName={name} category={c} />
-                ))}
+                {profile.subCategories.map((c) => <SubCategoryRow key={c.id} gameName={name} category={c} />)}
               </div>
             </div>
           )}
@@ -480,14 +453,11 @@ export function LibraryDetail({ name }: { name: string }): React.JSX.Element {
             <div className="flex flex-col gap-1.5">
               <span className="text-[0.65rem] tracking-wide text-subtext uppercase">{t('col_genres')}</span>
               <div className="flex flex-wrap gap-1.5">
-                {profile.genres.map((g) => (
-                  <span key={g} className="rounded-full bg-card px-2.5 py-0.5 text-xs text-subtext">
-                    {t(g, { ns: 'genres' })}
-                  </span>
-                ))}
+                {profile.genres.map((g) => <span key={g} className="rounded-full bg-card px-2.5 py-0.5 text-xs text-subtext">{t(g, { ns: 'genres' })}</span>)}
               </div>
             </div>
           )}
+          </div>
         </div>
       </div>
 

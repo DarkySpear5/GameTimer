@@ -22,7 +22,7 @@ export function PlayHistoryDialog({ name, onClose }: { name: string; onClose: ()
       <div className="mb-4 flex gap-2">
         {RANGES.map((item) => <button key={item.key} onClick={() => setRange(item.key)} className={`rounded px-3 py-1.5 text-sm ${range === item.key ? 'bg-accent text-bg' : 'bg-card text-text'}`}>{item.label}</button>)}
       </div>
-      <PlayHistoryChart title="Hours played" selection={selectPlayHistoryBuckets(profile.playHistory ?? emptyPlayHistory(), range)} timeFormat={timeFormat} />
+      <PlayHistoryChart title="Hours played" selection={selectPlayHistoryBuckets(profile.playHistory ?? emptyPlayHistory(), range)} timeFormat={timeFormat} variant="line" zoomable />
     </Modal>
   )
 }
