@@ -1,5 +1,6 @@
 import type { ActiveSession, SessionAggregate, SessionEntry } from './sessionStats'
 import type { Note } from './notes'
+import type { PlayHistory } from './playHistory'
 
 export type Status = 'not_started' | 'in_progress' | 'completed' | 'dropped' | 'on_hold'
 
@@ -64,6 +65,11 @@ export interface Profile {
    * the schema defaults it to [].
    */
   sessionLog: SessionEntry[]
+  /**
+   * Compact permanent daily ledger. Optional only until the compatibility
+   * migration supplies it for profiles written before play-history tracking.
+   */
+  playHistory?: PlayHistory
   /**
    * Set while a timer is running, cleared on pause. A non-null value at
    * startup means the previous run ended without pausing — see recoverSessions.

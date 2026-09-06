@@ -57,9 +57,9 @@ export interface ActiveSession {
 }
 
 /**
- * How many individual sessions are retained per game. Nothing displayed today
- * reads these — they exist so a future play-history graph has something to
- * draw. The aggregate above is what keeps the numbers honest.
+ * How many individual sessions are retained per game. Daily chart history is
+ * kept separately in PlayHistory, so this cap remains safe and deliberate.
+ * The aggregate above is what keeps session figures exact.
  */
 export const MAX_SESSION_LOG = 200
 
