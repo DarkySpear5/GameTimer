@@ -4,6 +4,7 @@ import { useProfilesStore } from '../../state/profilesStore'
 import { useTimeFormat } from '../../state/useTimeFormat'
 import { PlayHistoryChart } from '../charts/PlayHistoryChart'
 import { selectPlayHistoryBuckets, type PlayHistoryRange } from '../charts/playHistoryBuckets'
+import { emptyPlayHistory } from '@shared/playHistory'
 
 const RANGES: { key: PlayHistoryRange; label: string }[] = [
   { key: 'thirtyDays', label: 'Month' },
@@ -21,7 +22,7 @@ export function PlayHistoryDialog({ name, onClose }: { name: string; onClose: ()
       <div className="mb-4 flex gap-2">
         {RANGES.map((item) => <button key={item.key} onClick={() => setRange(item.key)} className={`rounded px-3 py-1.5 text-sm ${range === item.key ? 'bg-accent text-bg' : 'bg-card text-text'}`}>{item.label}</button>)}
       </div>
-      <PlayHistoryChart title="Hours played" selection={selectPlayHistoryBuckets(profile.playHistory, range)} timeFormat={timeFormat} />
+      <PlayHistoryChart title="Hours played" selection={selectPlayHistoryBuckets(profile.playHistory ?? emptyPlayHistory(), range)} timeFormat={timeFormat} />
     </Modal>
   )
 }
