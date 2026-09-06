@@ -14,7 +14,8 @@ import { decodeImportImage, MAX_GTPROFILE_BYTES, readJsonFileWithinLimit } from 
 import { safeFileNameFromTitle } from '../util/safePath'
 import { aggregateFrom, trimSessionLog } from '@shared/sessionStats'
 import { emptyNote } from '@shared/notes'
-import { clonePlayHistory, emptyPlayHistory } from '@shared/playHistory'
+import { baselinePlayHistory, clonePlayHistory, emptyPlayHistory } from '@shared/playHistory'
+import { todayDateString } from '../util/date'
 import type { GtProfileFile, Profile } from '@shared/types'
 
 /** Single-game export, self-contained (images embedded as base64) — wire-compatible with v1's .gtprofile format. */
@@ -162,6 +163,14 @@ export function profileFromGtProfileFile(
   iconFile: string | null,
   bgImageFile: string | null
 ): Profile {
+  const sessionStats = imported.sessionStats ?? aggregateFrom(imported.sessionLog ?? [])
+  const importedHistory = imported.playHistory
+  const playHistory =
+    importedHistory &&
+    (importedHistory.baseline !== null || Object.keys(importedHistory.dailySeconds).length > 0 || imported.seconds === 0)
+      ? clonePlayHistory(importedHistory)
+      : baselinePlayHistory(imported.seconds ?? 0, imported.startedDate ?? null, sessionStats.firstPlayedAt, todayDateString())
+
   return {
     name,
     seconds: imported.seconds ?? 0,
@@ -186,7 +195,7 @@ export function profileFromGtProfileFile(
     // none, and starts with an empty log rather than inventing entries.
     // An export from a build that predates the aggregate has only entries, so
     // fold them; a newer one carries the totals for its whole history.
-    sessionStats: imported.sessionStats ?? aggregateFrom(imported.sessionLog ?? []),
+    sessionStats,
     sessionLog: trimSessionLog(imported.sessionLog ?? []),
     // An import is never mid-session, whatever the exporting machine was doing.
     activeSession: null,
@@ -211,7 +220,7 @@ export function profileFromGtProfileFile(
     openSeconds: imported.openSeconds ?? 0,
     secondsAtOpenTrackingStart: imported.secondsAtOpenTrackingStart ?? null,
     openSecondsAtOpenTrackingStart: imported.openSecondsAtOpenTrackingStart ?? null,
-    playHistory: clonePlayHistory(imported.playHistory ?? emptyPlayHistory()),
+    playHistory,
     autoStartTimer: null,
     genresFromDetection: false,
     // Not carried in the file format: a star is a statement about your own

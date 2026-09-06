@@ -96,6 +96,17 @@ describe('profileService play history', () => {
     })
   })
 
+  it('applies a manual time removal to the baseline only', async () => {
+    const profile = await profileService.addRemoveTime('Doom', -20)
+
+    expect(profile.seconds).toBe(110)
+    expect(profile.playHistory).toEqual({
+      version: 1,
+      baseline: { date: '2021-04-05', seconds: 80 },
+      dailySeconds: { '2026-09-05': 30 }
+    })
+  })
+
   it('clears the permanent ledger when resetting playtime', async () => {
     const profile = await profileService.resetTime('Doom')
 

@@ -22,6 +22,21 @@ export function emptyPlayHistory(): PlayHistory {
   return { version: PLAY_HISTORY_VERSION, baseline: null, dailySeconds: {} }
 }
 
+/** Builds the single honest baseline used when existing total time predates daily tracking. */
+export function baselinePlayHistory(
+  seconds: number,
+  startedDate: string | null,
+  firstPlayedAt: number | null,
+  fallbackDate: string
+): PlayHistory {
+  const date = isPlayHistoryDate(startedDate ?? '')
+    ? startedDate!
+    : Number.isFinite(firstPlayedAt)
+      ? localDateKey(new Date(firstPlayedAt!))
+      : fallbackDate
+  return { version: PLAY_HISTORY_VERSION, baseline: { date, seconds }, dailySeconds: {} }
+}
+
 /** Returns whether a string names a real calendar day in the local time zone. */
 export function isPlayHistoryDate(value: string): boolean {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)

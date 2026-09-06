@@ -1,8 +1,8 @@
 import { aggregateFrom, trimSessionLog } from '@shared/sessionStats'
-import { emptyPlayHistory, isPlayHistoryDate } from '@shared/playHistory'
+import { baselinePlayHistory } from '@shared/playHistory'
 import { recoverSession } from '@shared/recoverSession'
 import type { AppData } from '@shared/types'
-import { dateString, todayDateString } from '../util/date'
+import { todayDateString } from '../util/date'
 
 /**
  * One-time fold of a full session log into its aggregate.
@@ -56,16 +56,12 @@ export function migratePlayHistory(data: AppData, migrationDate = todayDateStrin
     const history = profile.playHistory
     if (history?.baseline || (history && Object.keys(history.dailySeconds).length > 0)) continue
 
-    const firstPlayed = profile.sessionStats.firstPlayedAt
-    const date = isPlayHistoryDate(profile.startedDate ?? '')
-      ? profile.startedDate!
-      : Number.isFinite(firstPlayed)
-        ? dateString(new Date(firstPlayed!))
-        : migrationDate
-    profile.playHistory = {
-      ...emptyPlayHistory(),
-      baseline: { date, seconds: profile.seconds }
-    }
+    profile.playHistory = baselinePlayHistory(
+      profile.seconds,
+      profile.startedDate,
+      profile.sessionStats.firstPlayedAt,
+      migrationDate
+    )
     changed = true
   }
   return changed
